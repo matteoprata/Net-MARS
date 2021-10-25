@@ -16,56 +16,73 @@ import src.constants as co
 
 class TomoCedarNetwork:
     def __init__(self, config: conf.Configuration):
-        self.nx_graph = self.__load_graph(config.path_to_graph, config.graph_name)
-        self.init_graph()
-        self.width = None
-        self.height = None
         self.config = config
-        self.squared_shape = None
 
-    def init_graph(self):
-        """ Set the labels for the graph components"""
-        for n1 in self.nx_graph.nodes:
-            self.nx_graph.nodes[n1][co.NodeLabels.STATE.value] = co.NodeState.WORKING.name
+        self.G = self.init_graph(config.path_to_graph, config.graph_name)
+        self.dims_ratio = self.scale_coordinates()
+        self.distribution, _, _ = self.destroy()
 
-        for n1, n2, gt_ori in self.nx_graph.edges:
-            if gt_ori == co.EdgeType.SUPPLY.value:
-                self.nx_graph.edges[n1, n2, gt_ori][co.NodeLabels.STATE.value] = co.NodeState.WORKING.name
-            elif gt_ori == co.EdgeType.DEMAND.value:
-                self.nx_graph.edges[n1, n2, gt_ori][co.NodeLabels.STATE.value] = co.NodeState.NA.name
 
-    def scale_coordinate(self, zero_one=True):
-        max_long, max_lat, min_long, min_lat = self.__get_dimensions()
-        abs_max_long, abs_max_lat, abs_min_long, abs_min_lat = abs(max_long), abs(max_lat), abs(min_long), abs(min_lat)
+    @staticmethod
+    def init_graph(path_to_graph, graph_name):
+        """ Set the labels for the graph components. Inputs graph must maintain the information of the node (ID, longitude x,
+        latitude y, state) for the edges (capacity, state).
+        """
 
-        self.squared_shape = abs_max_long + abs_min_long if max_long > max_lat else abs_max_lat + abs_min_lat
+        def load_graph(path_to_graph, graph_name):
+            return nx.MultiGraph(nx.read_gml(os.path.join(path_to_graph, graph_name), label='label'))
 
-        for node in self.nx_graph.nodes(data=True):
-            node[1]["Latitude"] = ((float(node[1]["Latitude"]) + abs_min_lat) / (self.squared_shape if zero_one else 1))
-            node[1]["Longitude"] = ((float(node[1]["Longitude"]) + abs_min_long) / (self.squared_shape if zero_one else 1))
+        raw_graph = load_graph(path_to_graph, graph_name)
+        G = nx.MultiGraph()
 
-    def broke(self):
-        self.OUT = dis.gaussian_destruction(self.nx_graph, self.config.destruction_precision)
-        #self.OUT = dis.uniform_destruction(self.nx_graph)
+        # every element will work by default
+        for n1 in raw_graph.nodes:
+            G.add_nodes_from([(n1, {co.NodeLabels.STATE.value: co.NodeState.WORKING.name,
+                                    co.ElemAttr.LATITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LATITUDE.value]),
+                                    co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value])})])
 
-    def __get_dimensions(self):
-        """ gets the max/min longitude/latitude and retursn it"""
-        coo_lats = [float(data['Latitude']) for _, data in self.nx_graph.nodes(data=True)]
-        coo_long = [float(data['Longitude']) for _, data in self.nx_graph.nodes(data=True)]
+        for n1, n2, gt in raw_graph.edges:
+            G.add_edges_from([(n1, n2, {co.NodeLabels.STATE.value: co.NodeState.WORKING.name,
+                                        co.ElemAttr.CAPACITY.value: float(raw_graph.edges[n1, n2, gt][co.ElemAttr.CAPACITY.value])
+                                        })])
 
-        max_long, min_long = max(coo_long), min(coo_long)
-        max_lat, min_lat = max(coo_lats), min(coo_lats)
+        return G
 
-        return max_long, max_lat, min_long, min_lat
+    def scale_coordinates(self):
+        """ Scale graph coordinates to positive [0,1] """
+
+        def get_dimensions():
+            """ gets the max/min longitude/latitude and retursn it"""
+            coo_lats = [self.G.nodes[n1][co.ElemAttr.LATITUDE.value] for n1 in self.G.nodes]
+            coo_long = [self.G.nodes[n1][co.ElemAttr.LONGITUDE.value] for n1 in self.G.nodes]
+            return max(coo_long), max(coo_lats), min(coo_long), min(coo_lats)
+
+        max_long, max_lat, min_long, min_lat = get_dimensions()
+
+        assert(max_long > 0 and max_lat > 0)
+
+        max_x_dist = max_long - min(0, min_long)
+        max_y_dist = max_lat - min(0, min_lat)
+        max_dist, min_dist = max(max_x_dist, max_y_dist), min(max_x_dist, max_y_dist)
+
+        for n1 in self.G.nodes:
+            self.G.nodes[n1][co.ElemAttr.LATITUDE.value] = (self.G.nodes[n1][co.ElemAttr.LATITUDE.value] - min(0, min_lat)) / max_dist
+            self.G.nodes[n1][co.ElemAttr.LONGITUDE.value] = (self.G.nodes[n1][co.ElemAttr.LONGITUDE.value] - min(0, min_long)) / max_dist
+
+        return {"x": max_x_dist/max_dist, "y": max_y_dist/max_dist}
+
+    def destroy(self):
+        """ Handles three type of destruction. """
+        if self.config.destruction_type == co.Destruction.GAUSSIAN:
+            return dis.gaussian_destruction(self.G, self.config.destruction_precision, self.dims_ratio)
+        elif self.config.destruction_type == co.Destruction.UNIFORM:
+            return dis.uniform_destruction(self.G)
+        elif self.config.destruction_type == co.Destruction.COMPLETE:
+            return dis.complete_destruction(self.G)
 
     def print_graph_info(self):
-        print("graph has nodes:", len(self.nx_graph.nodes), "and edges:", len(self.nx_graph.edges))
+        print("graph has nodes:", len(self.G.nodes), "and edges:", len(self.G.edges))
 
     def plot_graph(self):
-        self.scale_coordinate()
-        self.broke()
-        gp.plot(self.nx_graph, self.OUT, self.config.destruction_precision)
+        gp.plot(self.G, self.distribution, self.config.destruction_precision)
 
-    def __load_graph(self, graph_root, graph_name):
-        graph_sup = nx.MultiGraph(nx.read_gml(os.path.join(graph_root, graph_name), label='label'))
-        return graph_sup

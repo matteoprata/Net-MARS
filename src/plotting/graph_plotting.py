@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 import src.constants as co
 import numpy as np
 
+
 def node_trace_make(G, scale_visual):
     node_x = []
     node_y = []
@@ -97,9 +98,12 @@ def plot(G, distribution, scale_visual):
     edge_trace = edge_trace_make(G, scale_visual)
     node_trace = node_trace_make(G, scale_visual)
 
-    distribution = augment_dims_for_fancy_plot(distribution)
-    heat_trace = go.Heatmap(z=distribution, opacity=0.4, type='heatmap')
-    fig = go.Figure(data=[heat_trace] + edge_trace + [node_trace],
+    heat_trace = []
+    if distribution is not None:
+        distribution = augment_dims_for_fancy_plot(distribution)
+        heat_trace = [go.Heatmap(z=distribution, opacity=0.5, type='heatmap')]
+
+    fig = go.Figure(data= heat_trace + edge_trace + [node_trace],
                     layout=go.Layout(
                         showlegend=False,
                         hovermode='closest',

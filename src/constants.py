@@ -29,4 +29,8 @@ class NodeLabels(Enum):
     STATE = "state"
 
 
+class ElemAttr(Enum):
+    CAPACITY = 'capacity'
+    LONGITUDE = 'Longitude'
+    LATITUDE = 'Latitude'
 
