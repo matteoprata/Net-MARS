@@ -51,5 +51,9 @@ if __name__ == '__main__':
     config_details = print_configuration(exec_config)
 
     print("NOW running...\n\n", config_details, "\n")
+
+    # seeds = range(1)
+    # for s in seeds:
+    #     exec_config.seed = s
     run_tomo_cedar(exec_config)
 

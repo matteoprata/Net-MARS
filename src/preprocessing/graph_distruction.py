@@ -27,16 +27,16 @@ def uniform_destruction(graph, ratio=.5):
 
 
 # 3 -- gaussian_destruction
-def gaussian_destruction(graph, density, dims_ratio, n_disruption=3):
+def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disruption):
 
-    x_density = round(dims_ratio["x"]*100)
-    y_density = round(dims_ratio["y"]*100)
+    x_density = round(dims_ratio["x"]*density)
+    y_density = round(dims_ratio["y"]*density)
 
     def get_distribution():
         """ Destroys random gaussian components of the graph. """
 
-        x = np.linspace(0, x_density/100, x_density)
-        y = np.linspace(0, y_density/100, y_density)
+        x = np.linspace(0, x_density/density, x_density)
+        y = np.linspace(0, y_density/density, y_density)
 
         X, Y = np.meshgrid(x, y)
         pos = np.empty(X.shape + (2,))
@@ -47,10 +47,10 @@ def gaussian_destruction(graph, density, dims_ratio, n_disruption=3):
         rvs = []
         # random variables of the epicenter
         for it in range(n_disruption):
-            coo_mu  = [np.random.rand(1, 1)[0][0]*x_density/100, np.random.rand(1, 1)[0][0]*y_density/100]
-            coo_var = [np.random.rand(1, 1)[0][0]*x_density/100, np.random.rand(1, 1)[0][0]*y_density/100]
+            coo_mu  = [np.random.rand(1, 1)[0][0]*x_density/density, np.random.rand(1, 1)[0][0]*y_density/density]
+            coo_var = [np.random.rand(1, 1)[0][0]*x_density/density, np.random.rand(1, 1)[0][0]*y_density/density]
 
-            rv = multivariate_normal([coo_mu[0], coo_mu[1]], [[0.02*coo_var[0], 0], [0, 0.02*coo_var[1]]])
+            rv = multivariate_normal([coo_mu[0], coo_mu[1]], [[destruction_width*coo_var[0], 0], [0, destruction_width*coo_var[1]]])
             rvs.append(rv)
 
         # maximum of the probabilities, to merge epicenters
@@ -72,14 +72,11 @@ def gaussian_destruction(graph, density, dims_ratio, n_disruption=3):
         ax.set_zlabel('Z axis')
         plt.show()
 
-    def to_grid(coo, lbs, ubs, lbe, ube):  # lower and upper bounds
-        return util.min_max_normalizer(coo, lbs, ubs, lbe, ube)
-
     def graph_coo_to_grid(x, y):
         """ Given [0,1] coordinates, it returns the coordinates of the relative [0, density] coordinates. """
-        x = min(round(to_grid(x, 0, 1, 0, x_density)), x_density-1)
-        y = min(round(to_grid(y, 0, 1, 0, y_density)), y_density-1)
-        return x, y
+        xn = min(round(x*density), x_density-1)
+        yn = min(round(y*density), y_density-1)
+        return xn, yn
 
     def sample_broken_element(list_broken, element, dist_max, dist, x, y):
         """ Break the element with probability given by the probability density function. """
@@ -97,10 +94,10 @@ def gaussian_destruction(graph, density, dims_ratio, n_disruption=3):
     # break edges probabilistically
     for n1 in graph.nodes:
         x, y = graph.nodes[n1][co.ElemAttr.LONGITUDE.value], graph.nodes[n1][co.ElemAttr.LATITUDE.value]
-        y, x = graph_coo_to_grid(x, y)  # swap rows by columns notation
+        y, x = graph_coo_to_grid(x, y)  # swap rows by columns notation, array index by rows (y)
         sample_broken_element(broken_nodes, n1, dist_max, distribution, x, y)
 
-    # break edges probabilistically
+    #break edges probabilistically
     for edge in graph.edges:
         n1, n2, _ = edge
         x0, y0 = graph.nodes[n1][co.ElemAttr.LONGITUDE.value], graph.nodes[n1][co.ElemAttr.LATITUDE.value]
@@ -128,4 +125,4 @@ def destroy_node(graph, node_id):
 
 def destroy_edge(graph, node_id_1, node_id_2):
     et = co.EdgeType.SUPPLY.value
-    graph.edges[str(node_id_1), str(node_id_2), et]['state'] = co.NodeState.BROKEN.name
+    graph.edges[node_id_1, node_id_2, et]['state'] = co.NodeState.BROKEN.name

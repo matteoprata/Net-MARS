@@ -4,12 +4,15 @@ import src.constants as co
 import numpy as np
 
 
-def node_trace_make(G, scale_visual):
+def node_trace_make(G, scale_visual, density):
     node_x = []
     node_y = []
 
+    x_density = scale_visual["x"]*density
+    y_density = scale_visual["x"]*density
+
     for node in G.nodes():
-        x, y = G.nodes[node]['Longitude']*scale_visual, G.nodes[node]['Latitude']*scale_visual
+        x, y = G.nodes[node][co.ElemAttr.LONGITUDE.value]*x_density, G.nodes[node][co.ElemAttr.LATITUDE.value]*y_density
         node_x.append(x)
         node_y.append(y)
 
@@ -19,7 +22,6 @@ def node_trace_make(G, scale_visual):
         hoverinfo='text',
         marker=dict(
             line_color="black",
-            showscale=True,
             size=10,
             line_width=1))
 
@@ -46,14 +48,18 @@ def node_trace_make(G, scale_visual):
     return node_trace
 
 
-def edge_trace_make(G, scale_visual):
+def edge_trace_make(G, scale_visual, density):
     edge_traces = []
+
+    x_density = scale_visual["x"]*density
+    y_density = scale_visual["x"]*density
+
     for n1, n2, gt_ori in G.edges:
         edge_x = []
         edge_y = []
 
-        x0, y0 = G.nodes[n1]['Longitude']*scale_visual, G.nodes[n1]['Latitude']*scale_visual
-        x1, y1 = G.nodes[n2]['Longitude']*scale_visual, G.nodes[n2]['Latitude']*scale_visual
+        x0, y0 = G.nodes[n1][co.ElemAttr.LONGITUDE.value]*x_density, G.nodes[n1][co.ElemAttr.LATITUDE.value]*y_density
+        x1, y1 = G.nodes[n2][co.ElemAttr.LONGITUDE.value]*x_density, G.nodes[n2][co.ElemAttr.LATITUDE.value]*y_density
 
         edge_x.append(x0)
         edge_x.append(x1)
@@ -84,24 +90,15 @@ def edge_trace_make(G, scale_visual):
     return edge_traces
 
 
-def plot(G, distribution, scale_visual):
+def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed):
 
-    def augment_dims_for_fancy_plot(distribution):
-        d1, d2 = distribution.shape[0], distribution.shape[1]
-        OUTN = np.zeros(shape=(d1 + 1, d2 + 1))
-        OUTN[:d1, :d2] = distribution[:, :]
-        OUTN[-1, :-1] = distribution[-1, :]
-        OUTN[:-1, -1] = distribution[:, -1]
-        OUTN[-1, -1] = distribution[-1, -1]
-        return OUTN
-
-    edge_trace = edge_trace_make(G, scale_visual)
-    node_trace = node_trace_make(G, scale_visual)
+    edge_trace = edge_trace_make(G, scale_visual, density)
+    node_trace = node_trace_make(G, scale_visual, density)
 
     heat_trace = []
     if distribution is not None:
-        distribution = augment_dims_for_fancy_plot(distribution)
-        heat_trace = [go.Heatmap(z=distribution, opacity=0.5, type='heatmap')]
+        # distribution = augment_dims_for_fancy_plot(distribution)
+        heat_trace = [go.Heatmap(z=distribution, opacity=0.4)]
 
     fig = go.Figure(data= heat_trace + edge_trace + [node_trace],
                     layout=go.Layout(
@@ -110,7 +107,13 @@ def plot(G, distribution, scale_visual):
                         xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
                         yaxis=dict(showgrid=False, zeroline=False, showticklabels=True))
                     )
-    fig.show()
+    if is_show:
+        fig.show()
+
+    if is_save:
+        fig.write_image("data/dis_image/dis-{}-{}.pdf".format(seed, graph_name), width=1400, height=1120, scale=2)
+
+    return fig
 
 
 

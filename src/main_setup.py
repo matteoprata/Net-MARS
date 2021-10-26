@@ -2,27 +2,22 @@
 import networkx as nx
 
 import src.preprocessing.graph_preprocessing as gp
-from src.preprocessing.graph_preprocessing import TomoCedarNetwork
+from src.preprocessing.graph_preprocessing import *
+import src.constants as co
 
 
 def run(config):
-    tm = TomoCedarNetwork(config)
-    tm.print_graph_info()
-    tm.plot_graph()
 
-    # graph_sup = gp.load_graph(config.path_to_graph, config.graph_name)  # load supply graph
-    # gp.print_graph_info(graph_sup)
-    #
-    # nodes_destroyed, edges_destroyed = gp.destroy_graph(G) if not "random" in config.graph_name else destroy_ALL_graph(G)
-    #
-    # # ---- start - stats sulle distruzioni
-    # total_elements = G.number_of_nodes() + G.number_of_edges()
-    # broken_elements = len(nodes_destroyed) + len(edges_destroyed)
-    #
-    # percentage_disruption = broken_elements / total_elements * 100
-    #
-    # print("Percentage of broke elements:", percentage_disruption,
-    #       "broken arcs:", str(len(edges_destroyed)) + "/" + str(G.number_of_edges()),
-    #       "broken nodes:", str(len(nodes_destroyed)) + "/" + str(G.number_of_nodes()),
-    #       "broken elements:", str(broken_elements) + "/" + str(total_elements))
+    # read graph and print stats
+    G = init_graph(co.path_to_graph, config.graph_name, config.supply_capacity)
+    print_graph_info(G)
 
+    # normalize coordinates and break components
+    dim_ratio = scale_coordinates(G)
+    distribution, broken_nodes, broken_edges = destroy(G, config.destruction_type, config.destruction_precision, dim_ratio, config.destruction_width, config.n_destruction)
+
+    # add_demand_endpoints
+    D = add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
+
+    # plot graph
+    plot_graph(G, config.graph_name, distribution, config.destruction_precision, dim_ratio, config.destruction_show_plot, config.destruction_save_plot, config.seed)
