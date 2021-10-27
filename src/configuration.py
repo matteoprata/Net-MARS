@@ -5,11 +5,11 @@ import src.constants as co
 class Configuration:
     def __init__(self):
         self.seed = 0
-        self.graph_name = co.GraphName.SINET.value
+        self.graph_name = co.GraphName.UNINET.value
         self.destruction = co.Destruction.COMPLETE.value
 
         self.destruction_show_plot = False
-        self.destruction_save_plot = True
+        self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN
         self.destruction_width = .05
@@ -17,7 +17,6 @@ class Configuration:
         self.n_destruction = 3
 
         self.n_demand_pairs = 10
-        self.demand_capacity = 10
-
-        self.supply_capacity = 1
+        self.demand_capacity = 2
+        self.supply_capacity = 3
 

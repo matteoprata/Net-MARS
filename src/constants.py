@@ -32,6 +32,7 @@ class NodeState(Enum):
 class ElemAttr(Enum):
     # edges
     CAPACITY = 'capacity'
+    RESIDUAL_CAPACITY = 'residual_capacity'
 
     # nodes
     LONGITUDE = 'Longitude'
@@ -39,8 +40,9 @@ class ElemAttr(Enum):
 
     TYPE = 'type'       # demand/supply
     STATE = 'state'     # BROKEN, WORKING
-    KNOW = 'knowledge'  # true/false
-
+    PRIOR_BROKEN = 'prior_broken'          # prior that component is broken
+    POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
+    ID = 'id'
 
 # constants
 path_to_graph = "data/graphs/"

@@ -21,28 +21,45 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
     raw_graph = load_graph(path_to_graph, graph_name)
     G = nx.MultiGraph()
 
+    elements_id_val = {}
+    elements_val_id = {}
+
     ignore_nodes = []
+    element_id = -1  # counter of the ids
     # every node will work by default
     for n1 in raw_graph.nodes:
         if not (co.ElemAttr.LATITUDE.value in raw_graph.nodes[n1] and co.ElemAttr.LONGITUDE.value in raw_graph.nodes[n1]):
             ignore_nodes.append(n1)
             continue
 
-        G.add_nodes_from([(n1, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name,
+        element_id += 1
+        elements_val_id[n1] = element_id
+        elements_id_val[element_id] = n1
+
+        G.add_nodes_from([(n1, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name, # unobservable state
                                 co.ElemAttr.LATITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LATITUDE.value]),
-                                co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value])})])
+                                co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value]),
+                                co.ElemAttr.PRIOR_BROKEN.value: 0.5,
+                                co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
+                                co.ElemAttr.ID.value: element_id,
+                                })])
 
     # every edge will work by default
     for n1, n2, gt in raw_graph.edges:
-        if n1 in ignore_nodes or n2 in ignore_nodes:
-            continue
+        if not (n1 in ignore_nodes or n2 in ignore_nodes):
+            element_id += 1
+            elements_val_id[(n1, n2)] = element_id
+            elements_val_id[(n2, n1)] = element_id
+            elements_id_val[element_id] = (n1, n2)
 
-        capacity = float(raw_graph.edges[n1, n2, gt][co.ElemAttr.CAPACITY.value]) if co.ElemAttr.CAPACITY.value in raw_graph.edges[n1, n2, gt] else 1
-        G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name,
-                                                              co.ElemAttr.CAPACITY.value: supply_capacity,
-                                                              })])
-
-    return G
+            G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name,  # unobservable state
+                                                                  co.ElemAttr.CAPACITY.value: supply_capacity,
+                                                                  co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity,
+                                                                  co.ElemAttr.PRIOR_BROKEN.value: 0.5,
+                                                                  co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
+                                                                  co.ElemAttr.ID.value: element_id,
+                                                                  })])
+    return G, elements_val_id, elements_id_val
 
 
 # 2 -- scale graph G
@@ -92,8 +109,8 @@ def print_graph_info(G):
 
 
 # 5 -- plot graph G
-def plot_graph(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed):
-    gp.plot(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed)
+def plot_graph(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed, name):
+    gp.plot(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed, name)
 
 
 # 6 -- demand pairs
@@ -104,28 +121,7 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity):
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE.value] = co.NodeState.NA.name
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
-
-    print(get_demand_edges(G))
-    exit()
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
 
 
-# utilities requiring computation
-def get_demand_edges(G):
-    """node, node, demand"""
-    demand_edges = [(n1, n2, G.edges[n1, n2, etype][co.ElemAttr.CAPACITY.value]) for n1, n2, etype in G.edges if etype == co.EdgeType.DEMAND.value]
-    return demand_edges
 
-
-def get_demand_nodes(G):
-    demand_nodes = []
-    for n1, n2 in get_demand_edges(G):
-        demand_nodes += [n1, n2]
-    return demand_nodes
-
-
-def get_node_degree(G, node):
-    """ Degree of a node excluding the demand edges."""
-    demand_nodes = get_demand_nodes(G)
-    if node in demand_nodes:
-        return G.degree[node] - demand_nodes.count(node)
-    return G.degree[node]

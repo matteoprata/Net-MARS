@@ -90,7 +90,7 @@ def edge_trace_make(G, scale_visual, density):
     return edge_traces
 
 
-def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed):
+def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name):
 
     edge_trace = edge_trace_make(G, scale_visual, density)
     node_trace = node_trace_make(G, scale_visual, density)
@@ -100,7 +100,7 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
         # distribution = augment_dims_for_fancy_plot(distribution)
         heat_trace = [go.Heatmap(z=distribution, opacity=0.4)]
 
-    fig = go.Figure(data= heat_trace + edge_trace + [node_trace],
+    fig = go.Figure(data=heat_trace + edge_trace + [node_trace],
                     layout=go.Layout(
                         showlegend=False,
                         hovermode='closest',
@@ -111,7 +111,7 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
         fig.show()
 
     if is_save:
-        fig.write_image("data/dis_image/dis-{}-{}.pdf".format(seed, graph_name), width=1400, height=1120, scale=2)
+        fig.write_image("data/dis_image/graph-{}-{}-{}.pdf".format(seed, graph_name, name), width=1400, height=1120, scale=2)
 
     return fig
 
