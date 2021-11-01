@@ -9,20 +9,17 @@ import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
 from src.preprocessing.graph_utils import *
 
-cm = plt.get_cmap('RdYlGn')  # Wistia
-scale = colors.Normalize(vmin=0, vmax=1)
-scalar_map = cmx.ScalarMappable(norm=scale, cmap=cm)
 
-
-def hovering_info_edges(n1, n2, post, wight=None, state=None):
-    return "<br><b>e({},{})</b> <br>- post broken: {} <br>- weight: {} <br>- state_T: {}".format(n1, n2, post, wight, state)
+def hovering_info_edges(n1, n2, capacity, post, wight=None, state=None, sat=None):
+    sat = dict(sat) if sat is not None else sat
+    return "<br><b>e({},{})</b> <br>- cap: {} <br>- post broken: {} <br>- weight: {} <br>- state_T: {} <br>- sat:{}".format(n1, n2, capacity, post, wight, state, sat)
 
 
 def hovering_info_nodes(n1, post, state):
     return "<br><b>v({})</b> <br>- post broken: {} <br>- state_T: {}".format(n1, post, state)
 
 
-def node_trace_make(G, scale_visual, density, is_node_color=False):
+def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges):
     node_x = []
     node_y = []
 
@@ -44,37 +41,29 @@ def node_trace_make(G, scale_visual, density, is_node_color=False):
             line_width=1))
 
     node_color = []
-    # node_adjacencies = []
-    # node_text = []
-    # for node, adjacencies in enumerate(G.adjacency()):
-    #     node_adjacencies.append(len(adjacencies[1]))
-    #     node_text.append('# of connections: {}\npos_x: {}\npos_y: {}'.format(len(adjacencies[1]), node_x[node], node_y[node]))
-
     node_text = []
     for node in G.nodes:
+
         prob = round(G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
         state_T = G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
         text = hovering_info_nodes(node, prob, state_T)
         node_text.append(text)
 
-        if not is_node_color:
+        if plot_type == co.PlotType.TRU:
             probability = 1 - G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
-            color_rgb = scalar_map.to_rgba(probability)
-            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
-            node_color.append(color)
         else:
             probability = 1 - G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value]
-            color_rgb = scalar_map.to_rgba(probability)
-            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
-            node_color.append(color)
 
-    # node_trace.marker.color = node_adjacencies
+        color_rgb = scalar_map1.to_rgba(probability)
+        color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+        node_color.append(color)
+
     node_trace.marker.color = node_color
     node_trace.text = node_text
     return node_trace
 
 
-def edge_trace_make(G, scale_visual, density, is_node_color=False):
+def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges):
     edge_traces = []
 
     x_density = scale_visual["x"]*density
@@ -92,29 +81,45 @@ def edge_trace_make(G, scale_visual, density, is_node_color=False):
         edge_y.append(y0)
         edge_y.append(y1)
 
-        color = None
-        if is_node_color == False:
-            if G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.NA.value:
-                color = 'blue'
-            else:
-                probability = 1 - G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
-                color_rgb = scalar_map.to_rgba(probability)
-                color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
-        else:
-            if gt_ori == co.EdgeType.SUPPLY.value:
-                probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
-                color_rgb = scalar_map.to_rgba(probability)
-                color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+        capacity = str(round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)) + " / " + \
+                   str(round(G.edges[n1, n2, gt_ori][co.ElemAttr.CAPACITY.value], 3))
 
-        if gt_ori == co.EdgeType.SUPPLY.value:
+        if gt_ori == co.EdgeType.DEMAND.value:  # demand edge
+            prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)
+            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_SUP]
+            text = hovering_info_edges(n1, n2, capacity, prob, sat=sat)
+            color = 'blue'
+        else:
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
             weight = round(G.edges[n1, n2, gt_ori][co.ElemAttr.WEIGHT.value], 3)
             state_T = G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
-            text = hovering_info_edges(n1, n2, prob, weight, state_T)
-        else:
-            prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)
-            text = hovering_info_edges(n1, n2, prob)
-            color = 'blue'
+            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM]
+            text = hovering_info_edges(n1, n2, capacity, prob, weight, state_T, sat)
+
+            if plot_type == co.PlotType.TRU:
+                probability = 1 - G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
+            elif plot_type == co.PlotType.KNO:
+                probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
+            else:
+                probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
+
+            color_rgb = scalar_map1.to_rgba(probability)
+            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+
+            # Here we color the edges colored based on their routing
+            n_shared = len(G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM].keys())
+            if plot_type == co.PlotType.ROU and n_shared > 0:
+                shades, weight = [], []
+                for d1, d2 in G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM].keys():
+                    perc = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)]
+                    id = demand_edges.index((d1, d2))
+                    color_rgb = scalar_map2.to_rgba(id)
+                    shades.append([color_rgb[0], color_rgb[1], color_rgb[2]])
+                    weight.append([perc])
+
+                shades, weight = np.array(shades), np.array(weight) if n_shared > 1 else np.array([1])
+                color_rgb = np.sum(np.multiply(shades, weight), axis=0)
+                color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y,
@@ -131,7 +136,7 @@ def edge_trace_make(G, scale_visual, density, is_node_color=False):
 
 
 def middle_node_tracer(text, color, x0, x1, y0, y1):
-
+    """ Trace of the edge information node. It's at the middle. """
     middle_node_trace = go.Scatter(
         x=[(x0 + x1) / 2],
         y=[(y0 + y1) / 2],
@@ -144,18 +149,30 @@ def middle_node_tracer(text, color, x0, x1, y0, y1):
             opacity=0
         )
     )
-
     return middle_node_trace
 
-def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name):
 
-    edge_trace = edge_trace_make(G, scale_visual, density)
-    node_trace = node_trace_make(G, scale_visual, density)
+def setup_color_maps(n_demand_edges):
+    cm = plt.get_cmap('RdYlGn')  # Wistia
+    scale = colors.Normalize(vmin=0, vmax=1)
+    scalar_map1 = cmx.ScalarMappable(norm=scale, cmap=cm)
+
+    cm = plt.get_cmap('tab20')
+    scale = colors.Normalize(vmin=0, vmax=n_demand_edges-1)
+    scalar_map2 = cmx.ScalarMappable(norm=scale, cmap=cm)
+    return scalar_map1, scalar_map2
+
+
+def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name, plot_type):
+    demand_edges = get_demand_edges(G, is_capacity=False)
+
+    scalar_map1, scalar_map2 = setup_color_maps(len(demand_edges))
+    edge_trace = edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges)
+    node_trace = node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges)
 
     heat_trace = []
-    if distribution is not None:
-        # distribution = augment_dims_for_fancy_plot(distribution)
-        heat_trace = [go.Heatmap(z=distribution, opacity=0.3, showscale=False, hoverinfo='none')]
+    if plot_type == co.PlotType.TRU and distribution is not None:
+        heat_trace = [go.Heatmap(z=distribution, opacity=0.2, showscale=False, hoverinfo='none')]
 
     fig = go.Figure(data=heat_trace + edge_trace + [node_trace],
                     layout=go.Layout(
@@ -164,36 +181,15 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
                     xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=True))
                     )
+
+    save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type)
+
+
+def save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type):
     if is_show:
         fig.show()
 
     if is_save:
-        dir = "data/dis_image/graph-{}-{}-{}".format(seed, graph_name, name)
+        dir = "data/dis_image/{}-{}-{}-{}".format(plot_type.name, seed, graph_name, name)
         fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
         pio.write_html(fig, dir + ".html")
-
-    return fig
-
-
-def plot_prob_state(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name):
-
-    edge_trace = edge_trace_make(G, scale_visual, density, True)
-    node_trace = node_trace_make(G, scale_visual, density, True)
-
-    fig = go.Figure(data=edge_trace + [node_trace],
-                    layout=go.Layout(
-                        showlegend=False,
-                        hovermode='closest',
-                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=True))
-                    )
-    if is_show:
-        fig.show()
-
-    if is_save:
-        dir = "data/dis_image/graph-{}-{}-{}".format(seed, graph_name, name)
-        fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
-        pio.write_html(fig, dir + ".html")
-    return fig
-
-

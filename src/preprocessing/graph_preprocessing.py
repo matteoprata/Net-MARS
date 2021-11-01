@@ -7,7 +7,7 @@ import src.plotting.graph_plotting as gp
 import src.preprocessing.graph_distruction as dis
 import src.constants as co
 import src.utilities.util as util
-
+from collections import defaultdict
 
 # 1 -- init graph G
 def init_graph(path_to_graph, graph_name, supply_capacity):
@@ -43,6 +43,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
                                 co.ElemAttr.PRIOR_BROKEN.value: 0.5,
                                 co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
                                 co.ElemAttr.ID.value: element_id,
+
                                 })])
 
     # every edge will work by default
@@ -60,6 +61,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
                                                                   co.ElemAttr.PRIOR_BROKEN.value: 0.5,
                                                                   co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
                                                                   co.ElemAttr.ID.value: element_id,
+                                                                  co.ElemAttr.SAT_DEM: defaultdict(int)
                                                                   })])
     return G, elements_val_id, elements_id_val
 
@@ -119,6 +121,8 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity):
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
+
 
 
 

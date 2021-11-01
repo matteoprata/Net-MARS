@@ -13,7 +13,7 @@ original_config = configuration.Configuration()
 parser = argparse.ArgumentParser(description='Tomo Cedar recovery algorithm run parameters.')
 parser.add_argument('-s', '--seed', type=int, default=original_config.seed)
 parser.add_argument('-gn', '--graph_name', type=str, default=original_config.graph_name)
-parser.add_argument('-de', '--destruction', type=str, default=original_config.destruction)
+parser.add_argument('-de', '--destruction', type=str, default=original_config.destruction_type.value)
 
 # -----> END of variable parameters
 

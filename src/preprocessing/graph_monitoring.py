@@ -115,7 +115,7 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
     paths = []
     for n1, n2, _ in demand_edges:
         SG = get_supply_graph(G)
-        probabilistic_edge_weights(SG)
+        probabilistic_edge_weights(SG, G)
         path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')
         paths.append(path)
 

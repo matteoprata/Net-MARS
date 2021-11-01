@@ -192,17 +192,19 @@ def get_path_capacity(G, path_nodes):
 
 
 def demand_pruning(G, path, quantity):
-    path_capacity = get_path_capacity(G, path)
-    quantity = min(quantity, path_capacity)  # the pruned quantity may be less
+    d1, d2 = make_existing_edge(G, path[0], path[-1])
+    demand_full_capacity = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value]
+    G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
 
     for i in range(len(path) - 1):
         n1, n2 = path[i], path[i + 1]
         n1, n2 = make_existing_edge(G, n1, n2)
+        full_cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
         cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = max(0, cap-quantity)
-
-    d1, d2 = path[0], path[-1]
-    G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
+        assert(cap-quantity >= 0)
+        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
+        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.SAT_DEM][(d1, d2)] += round(quantity/full_cap, 3)  # (demand edge): percentage flow
+        G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)] += round(quantity/demand_full_capacity, 3)  # (demand edge): percentage flow
 
 
 def demand_node_position(demand_edges, demands, nodes):
@@ -239,6 +241,7 @@ def element_state_wprob(element_prob):
     elif 0 < element_prob < 1:
         return co.NodeState.UNK
 
+
 def get_element_state(G, n1, n2, knowledge):
     if n2 is None:  # element is an edge
         if knowledge == co.Knowledge.TRUTH:
@@ -252,17 +255,17 @@ def get_element_state(G, n1, n2, knowledge):
             return element_state_wprob(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
-def probabilistic_edge_weights(G):
-    for n1, n2, et in G.edges:
+def probabilistic_edge_weights(SG, G):
+    for n1, n2, et in SG.edges:
 
         #
         #
         # EDGE
-        res_capacity = G.edges[n1, n2, et][co.ElemAttr.RESIDUAL_CAPACITY.value]
+        res_capacity = SG.edges[n1, n2, et][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
-        state_T_edge = get_element_state(G, n1, n2, co.Knowledge.TRUTH)
-        state_K_edge = get_element_state(G, n1, n2, co.Knowledge.KNOW)
-        posterior_broken_edge = G.edges[n1, n2, et][co.ElemAttr.POSTERIOR_BROKEN.value]
+        state_T_edge = get_element_state(SG, n1, n2, co.Knowledge.TRUTH)
+        state_K_edge = get_element_state(SG, n1, n2, co.Knowledge.KNOW)
+        posterior_broken_edge = SG.edges[n1, n2, et][co.ElemAttr.POSTERIOR_BROKEN.value]
 
         broken_truth_edge = co.repair_cost if state_T_edge == co.NodeState.BROKEN else 0
         broken_guess_edge = co.repair_cost * posterior_broken_edge if state_K_edge == co.NodeState.UNK else 0
@@ -270,9 +273,9 @@ def probabilistic_edge_weights(G):
         #
         #
         # END 1
-        state_T_n1 = get_element_state(G, n1, None, co.Knowledge.TRUTH)
-        state_K_n1 = get_element_state(G, n1, None, co.Knowledge.KNOW)
-        posterior_broken_n1 = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        state_T_n1 = get_element_state(SG, n1, None, co.Knowledge.TRUTH)
+        state_K_n1 = get_element_state(SG, n1, None, co.Knowledge.KNOW)
+        posterior_broken_n1 = SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
 
         broken_truth_n1 = co.repair_cost if state_T_n1 == co.NodeState.BROKEN else 0
         broken_guess_n1 = co.repair_cost * posterior_broken_n1 if state_K_n1 == co.NodeState.UNK else 0
@@ -280,9 +283,9 @@ def probabilistic_edge_weights(G):
         #
         #
         # END 2
-        state_T_n2 = get_element_state(G, n2, None, co.Knowledge.TRUTH)
-        state_K_n2 = get_element_state(G, n2, None, co.Knowledge.KNOW)
-        posterior_broken_n2 = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        state_T_n2 = get_element_state(SG, n2, None, co.Knowledge.TRUTH)
+        state_K_n2 = get_element_state(SG, n2, None, co.Knowledge.KNOW)
+        posterior_broken_n2 = SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
 
         broken_truth_n2 = co.repair_cost if state_T_n2 == co.NodeState.BROKEN else 0
         broken_guess_n2 = co.repair_cost * posterior_broken_n2 if state_K_n2 == co.NodeState.UNK else 0
@@ -290,5 +293,5 @@ def probabilistic_edge_weights(G):
         weight = 1 / max(co.epsilon, res_capacity) + broken_truth_edge + broken_guess_edge + \
                  (broken_truth_n1 + broken_guess_n1 + broken_truth_n2 + broken_guess_n2) * 0.5
 
+        SG.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
         G.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
-

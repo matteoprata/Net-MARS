@@ -18,9 +18,6 @@ def run(config):
     # normalize coordinates and break components
     dim_ratio = scale_coordinates(G)
 
-    # pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
-    #            config.destruction_show_plot, config.destruction_save_plot, config.seed, "ORI")
-
     distribution, broken_nodes, broken_edges = destroy(G, config.destruction_type, config.destruction_precision, dim_ratio,
                                                        config.destruction_width, config.n_destruction, ratio=config.destruction_uniform_quantity)
 
@@ -29,7 +26,7 @@ def run(config):
 
     # plot graph
     pg.plot(G, config.graph_name, distribution, config.destruction_precision, dim_ratio,
-               config.destruction_show_plot, config.destruction_save_plot, config.seed, "DES")
+               config.destruction_show_plot, config.destruction_save_plot, config.seed, "DES", co.PlotType.TRU)
 
     # hypothetical routability
     if not is_routable(G, None, is_fake_fixed=True):
@@ -40,8 +37,8 @@ def run(config):
     for dn in demand_node:
         repair_node(G, dn)
 
-    pg.plot_prob_state(G, config.graph_name, distribution, config.destruction_precision, dim_ratio,
-                       config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(0))
+    pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                       config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(0), co.PlotType.KNO)
 
     # true ruotability
     iter = 0
@@ -56,7 +53,7 @@ def run(config):
         paths = []
         for n1, n2, _ in demand_edges:
             SG = get_supply_graph(G)
-            probabilistic_edge_weights(SG)
+            probabilistic_edge_weights(SG, G)
             path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')
             paths.append(path)
 
@@ -80,23 +77,33 @@ def run(config):
         for n1 in path_to_fix:
             repair_node(G, n1)
 
-        demand_pruning(G, path_to_fix, max_demand)
-        pg.plot_prob_state(G, config.graph_name, distribution, config.destruction_precision, dim_ratio,
-                           config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(iter))
+        d1, d2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+        demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+        quantity_pruning = min(max_demand, demand_residual)
+        demand_pruning(G, path_to_fix, quantity_pruning)
+        pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                           config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(iter), co.PlotType.KNO)
+
+        pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                           config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(iter), co.PlotType.ROU)
 
     # until there exist demand edges that are unsatisfied, route them
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
+        iter += 1
+
         # final pruning now
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
-
         print(demand_edges)
         for n1, n2, cap in demand_edges:
             SG = get_supply_graph_working_T(G)
-            probabilistic_edge_weights(SG)
+            probabilistic_edge_weights(SG, G)
             infinite_edge_weights(SG)
             path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')
             print(n1, n2, cap, path, get_path_capacity(G, path))
             demand_pruning(G, path, cap)
 
-    pg.plot_prob_state(G, config.graph_name, distribution, config.destruction_precision, dim_ratio,
-                       config.destruction_show_plot, config.destruction_save_plot, config.seed, "FINAL".format(iter))
+        pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(iter), co.PlotType.KNO)
+
+        pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                           config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format(iter), co.PlotType.ROU)
