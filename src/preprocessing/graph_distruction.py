@@ -120,9 +120,8 @@ def do_break_graph_components(graph, broken_nodes, broken_edges):
 
 
 def destroy_node(graph, node_id):
-    graph.nodes[node_id]['state'] = co.NodeState.BROKEN.name
+    graph.nodes[node_id][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
 
 
 def destroy_edge(graph, node_id_1, node_id_2):
-    et = co.EdgeType.SUPPLY.value
-    graph.edges[node_id_1, node_id_2, et]['state'] = co.NodeState.BROKEN.name
+    graph.edges[node_id_1, node_id_2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value

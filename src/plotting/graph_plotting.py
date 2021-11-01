@@ -1,10 +1,28 @@
 
+import plotly.io as pio
 import plotly.graph_objects as go
 import src.constants as co
 import numpy as np
 
+import matplotlib.colors as colors
+import matplotlib.cm as cmx
+import matplotlib.pyplot as plt
+from src.preprocessing.graph_utils import *
 
-def node_trace_make(G, scale_visual, density):
+cm = plt.get_cmap('RdYlGn')  # Wistia
+scale = colors.Normalize(vmin=0, vmax=1)
+scalar_map = cmx.ScalarMappable(norm=scale, cmap=cm)
+
+
+def hovering_info_edges(n1, n2, post, wight=None, state=None):
+    return "<br><b>e({},{})</b> <br>- post broken: {} <br>- weight: {} <br>- state_T: {}".format(n1, n2, post, wight, state)
+
+
+def hovering_info_nodes(n1, post, state):
+    return "<br><b>v({})</b> <br>- post broken: {} <br>- state_T: {}".format(n1, post, state)
+
+
+def node_trace_make(G, scale_visual, density, is_node_color=False):
     node_x = []
     node_y = []
 
@@ -26,21 +44,29 @@ def node_trace_make(G, scale_visual, density):
             line_width=1))
 
     node_color = []
-    node_adjacencies = []
-    node_text = []
-    for node, adjacencies in enumerate(G.adjacency()):
-        node_adjacencies.append(len(adjacencies[1]))
-        node_text.append('# of connections: {}\npos_x: {}\npos_y: {}'.format(len(adjacencies[1]), node_x[node], node_y[node]))
+    # node_adjacencies = []
+    # node_text = []
+    # for node, adjacencies in enumerate(G.adjacency()):
+    #     node_adjacencies.append(len(adjacencies[1]))
+    #     node_text.append('# of connections: {}\npos_x: {}\npos_y: {}'.format(len(adjacencies[1]), node_x[node], node_y[node]))
 
+    node_text = []
     for node in G.nodes:
-        if G.nodes[node]['state'] == co.NodeState.BROKEN.name:
-            node_color.append(co.NodeState.BROKEN.value)
-        elif G.nodes[node]['state'] == co.NodeState.WORKING.name:
-            node_color.append(co.NodeState.WORKING.value)
-        elif G.nodes[node]['state'] == co.NodeState.UNK.name:
-            node_color.append(co.NodeState.UNK.value)
+        prob = round(G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
+        state_T = G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
+        text = hovering_info_nodes(node, prob, state_T)
+        node_text.append(text)
+
+        if not is_node_color:
+            probability = 1 - G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
+            color_rgb = scalar_map.to_rgba(probability)
+            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+            node_color.append(color)
         else:
-            exit("Un handled state.")
+            probability = 1 - G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value]
+            color_rgb = scalar_map.to_rgba(probability)
+            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+            node_color.append(color)
 
     # node_trace.marker.color = node_adjacencies
     node_trace.marker.color = node_color
@@ -48,7 +74,7 @@ def node_trace_make(G, scale_visual, density):
     return node_trace
 
 
-def edge_trace_make(G, scale_visual, density):
+def edge_trace_make(G, scale_visual, density, is_node_color=False):
     edge_traces = []
 
     x_density = scale_visual["x"]*density
@@ -63,32 +89,63 @@ def edge_trace_make(G, scale_visual, density):
 
         edge_x.append(x0)
         edge_x.append(x1)
-
         edge_y.append(y0)
         edge_y.append(y1)
 
         color = None
-        if G.edges[n1, n2, gt_ori]['state'] == co.NodeState.BROKEN.name:
-            color = co.NodeState.BROKEN.value
-        elif G.edges[n1, n2, gt_ori]['state'] == co.NodeState.WORKING.name:
-            color = co.NodeState.WORKING.value
-        elif G.edges[n1, n2, gt_ori]['state'] == co.NodeState.UNK.name:
-            color = co.NodeState.UNK.value
-        elif G.edges[n1, n2, gt_ori]['state'] == co.NodeState.NA.name:
-            color = co.NodeState.NA.value
+        if is_node_color == False:
+            if G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.NA.value:
+                color = 'blue'
+            else:
+                probability = 1 - G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
+                color_rgb = scalar_map.to_rgba(probability)
+                color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
         else:
-            exit("Un handled state.")
+            if gt_ori == co.EdgeType.SUPPLY.value:
+                probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
+                color_rgb = scalar_map.to_rgba(probability)
+                color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+
+        if gt_ori == co.EdgeType.SUPPLY.value:
+            prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
+            weight = round(G.edges[n1, n2, gt_ori][co.ElemAttr.WEIGHT.value], 3)
+            state_T = G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
+            text = hovering_info_edges(n1, n2, prob, weight, state_T)
+        else:
+            prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)
+            text = hovering_info_edges(n1, n2, prob)
+            color = 'blue'
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y,
             line=dict(width=2, color=color),
-            hoverinfo='none',
             mode='lines'
         )
 
+        middle_nodes_trace = middle_node_tracer(text, color, x0, x1, y0, y1)
+        edge_traces.append(middle_nodes_trace)
+
         edge_traces.append(edge_trace)
+
     return edge_traces
 
+
+def middle_node_tracer(text, color, x0, x1, y0, y1):
+
+    middle_node_trace = go.Scatter(
+        x=[(x0 + x1) / 2],
+        y=[(y0 + y1) / 2],
+        text=[text],
+        mode='markers',
+        hoverinfo='text',
+
+        marker=dict(
+            color=color,
+            opacity=0
+        )
+    )
+
+    return middle_node_trace
 
 def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name):
 
@@ -98,9 +155,32 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
     heat_trace = []
     if distribution is not None:
         # distribution = augment_dims_for_fancy_plot(distribution)
-        heat_trace = [go.Heatmap(z=distribution, opacity=0.4)]
+        heat_trace = [go.Heatmap(z=distribution, opacity=0.3, showscale=False, hoverinfo='none')]
 
     fig = go.Figure(data=heat_trace + edge_trace + [node_trace],
+                    layout=go.Layout(
+                    showlegend=False,
+                    hovermode='closest',
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=True))
+                    )
+    if is_show:
+        fig.show()
+
+    if is_save:
+        dir = "data/dis_image/graph-{}-{}-{}".format(seed, graph_name, name)
+        fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
+        pio.write_html(fig, dir + ".html")
+
+    return fig
+
+
+def plot_prob_state(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name):
+
+    edge_trace = edge_trace_make(G, scale_visual, density, True)
+    node_trace = node_trace_make(G, scale_visual, density, True)
+
+    fig = go.Figure(data=edge_trace + [node_trace],
                     layout=go.Layout(
                         showlegend=False,
                         hovermode='closest',
@@ -111,11 +191,9 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
         fig.show()
 
     if is_save:
-        fig.write_image("data/dis_image/graph-{}-{}-{}.pdf".format(seed, graph_name, name), width=1400, height=1120, scale=2)
-
+        dir = "data/dis_image/graph-{}-{}-{}".format(seed, graph_name, name)
+        fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
+        pio.write_html(fig, dir + ".html")
     return fig
-
-
-
 
 

@@ -3,10 +3,10 @@ from src.preprocessing.graph_utils import *
 from gurobipy import *
 
 
-def is_routable(G):
+def is_routable(G, knowledge, is_fake_fixed=False):
     """ Returns True if the system of linear equations and inequalities has at least one solution. """
 
-    demand_edges = get_demand_edges(G)
+    demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
     demand_nodes = get_demand_nodes(G)
     supply_edges = get_supply_edges(G)
 
@@ -15,19 +15,19 @@ def is_routable(G):
         return True
 
     for node in demand_nodes:
-        if get_node_degree(G, node) <= 0:
+        if get_node_degree_working_edges(G, node, is_fake_fixed) <= 0:
             print("> Demand node is isolated in the supply graph.")
             return False
 
     # end preliminary checks
-    m = system_for_routability(G, demand_edges, supply_edges)
+    m = system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fixed)
     is_solution_ok = m.status == GRB.status.OPTIMAL
 
     print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
     return is_solution_ok
 
 
-def system_for_routability(G, demand_edges, supply_edges):
+def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fixed):
     """ Linear system of equations to check the routability. """
 
     var_demand_flows = []
@@ -39,7 +39,7 @@ def system_for_routability(G, demand_edges, supply_edges):
     var_demand_node_pos = demand_node_position(demand_edges, [name_flow for name_flow, _ in var_demand_flows], G.nodes)
 
     # edge: capacity map
-    var_capacity_grid = get_capacity_grid(G)
+    var_capacity_grid = get_capacity_grid(G, knowledge, is_fake_fixed)
 
     ###################################################################################################################
 

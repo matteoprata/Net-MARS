@@ -36,9 +36,10 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
         elements_val_id[n1] = element_id
         elements_id_val[element_id] = n1
 
-        G.add_nodes_from([(n1, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name, # unobservable state
+        G.add_nodes_from([(n1, {co.ElemAttr.STATE_TRUTH.value: co.NodeState.WORKING.value,  # unobservable state
                                 co.ElemAttr.LATITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LATITUDE.value]),
                                 co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value]),
+                                co.ElemAttr.WEIGHT.value: -1,
                                 co.ElemAttr.PRIOR_BROKEN.value: 0.5,
                                 co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
                                 co.ElemAttr.ID.value: element_id,
@@ -52,9 +53,10 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
             elements_val_id[(n2, n1)] = element_id
             elements_id_val[element_id] = (n1, n2)
 
-            G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE.value: co.NodeState.WORKING.name,  # unobservable state
+            G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE_TRUTH.value: co.NodeState.WORKING.value,  # unobservable state
                                                                   co.ElemAttr.CAPACITY.value: supply_capacity,
                                                                   co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity,
+                                                                  co.ElemAttr.WEIGHT.value: -1,
                                                                   co.ElemAttr.PRIOR_BROKEN.value: 0.5,
                                                                   co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
                                                                   co.ElemAttr.ID.value: element_id,
@@ -92,13 +94,13 @@ def scale_coordinates(G):
 
 
 # 3 -- destroy graph G
-def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction):
+def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, ratio=None):
     """ Handles three type of destruction. """
 
     if destruction_type == co.Destruction.GAUSSIAN:
         return dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
     elif destruction_type == co.Destruction.UNIFORM:
-        return dis.uniform_destruction(G)
+        return dis.uniform_destruction(G, ratio)
     elif destruction_type == co.Destruction.COMPLETE:
         return dis.complete_destruction(G)
 
@@ -108,18 +110,13 @@ def print_graph_info(G):
     print("graph has nodes:", len(G.nodes), "and edges:", len(G.edges))
 
 
-# 5 -- plot graph G
-def plot_graph(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed, name):
-    gp.plot(G, graph_name, distribution, density, dims_ratio, destruction_show_plot, destruction_save_plot, seed, name)
-
-
 # 6 -- demand pairs
 def add_demand_pairs(G, n_demand_pairs, demand_capacity):
     list_pairs = [np.random.choice(G.nodes, size=2, replace=True) for _ in range(n_demand_pairs)]
     for demand_pair in list_pairs:
         n1, n2 = demand_pair[0], demand_pair[1]
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE.value] = co.NodeState.NA.name
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
 
