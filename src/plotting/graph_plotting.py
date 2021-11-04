@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 from src.preprocessing.graph_utils import *
 
 
-def hovering_info_edges(n1, n2, capacity, post, wight=None, state=None, sat=None):
+def hovering_info_edges(n1, n2, id, capacity, post, wight=None, state=None, sat=None):
     sat = dict(sat) if sat is not None else sat
-    return "<br><b>e({},{})</b> <br>- cap: {} <br>- post broken: {} <br>- weight: {} <br>- state_T: {} <br>- sat:{}".format(n1, n2, capacity, post, wight, state, sat)
+    return "<br><b>e({},{})({})</b> <br>- cap: {} <br>- post broken: {} <br>- weight: {} <br>- state_T: {} <br>- sat:{}".format(n1, n2, id, capacity, post, wight, state, sat)
 
 
-def hovering_info_nodes(n1, post, state):
-    return "<br><b>v({})</b> <br>- post broken: {} <br>- state_T: {}".format(n1, post, state)
+def hovering_info_nodes(n1, id, post, state):
+    return "<br><b>v({})({})</b> <br>- post broken: {} <br>- state_T: {}".format(n1, id, post, state)
 
 
 def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges):
@@ -46,7 +46,9 @@ def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         prob = round(G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
         state_T = G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
-        text = hovering_info_nodes(node, prob, state_T)
+        ide = G.nodes[node][co.ElemAttr.ID.value]
+
+        text = hovering_info_nodes(node, ide, prob, state_T)
         node_text.append(text)
 
         if plot_type == co.PlotType.TRU:
@@ -87,14 +89,17 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
         if gt_ori == co.EdgeType.DEMAND.value:  # demand edge
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)
             sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_SUP]
-            text = hovering_info_edges(n1, n2, capacity, prob, sat=sat)
+            text = hovering_info_edges(n1, n2, 'D', capacity, prob, sat=sat)
+            dash = 'dash'
             color = 'blue'
         else:
+            dash = None
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
             weight = round(G.edges[n1, n2, gt_ori][co.ElemAttr.WEIGHT.value], 3)
             state_T = G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
             sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM]
-            text = hovering_info_edges(n1, n2, capacity, prob, weight, state_T, sat)
+            ide = G.edges[n1, n2, gt_ori][co.ElemAttr.ID.value]
+            text = hovering_info_edges(n1, n2, ide, capacity, prob, weight, state_T, sat)
 
             if plot_type == co.PlotType.TRU:
                 probability = 1 - G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
@@ -123,7 +128,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y,
-            line=dict(width=2, color=color),
+            line=dict(width=2, color=color, dash=dash),
             mode='lines'
         )
 
@@ -176,10 +181,11 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
 
     fig = go.Figure(data=heat_trace + edge_trace + [node_trace],
                     layout=go.Layout(
+                    plot_bgcolor='rgba(245,245,245,1)',
                     showlegend=False,
                     hovermode='closest',
-                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=True),
-                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=True))
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=True, showline=True, mirror=True, ticks='outside', linecolor='black'),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=True, showline=True, mirror=True, ticks='outside', linecolor='black'))
                     )
 
     save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type)

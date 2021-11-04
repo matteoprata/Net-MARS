@@ -123,13 +123,13 @@ def make_existing_edge(G, n1, n2):
 def repair_node(G, n):
     """ counts the repairs! """
     G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
-    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = 0
+    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
 
 
 def repair_edge(G, n1, n2):
     """ counts the repairs! """
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
-    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = 0
+    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
 
 
 def discover_edge(G, n1, n2, is_working):
@@ -158,7 +158,7 @@ def get_element_by_state_KT(G, graph_element, state, knowledge):
 
             # returns the elements that are truly of that type
             if knowledge == co.Knowledge.TRUTH:
-                if state.name == state_T:
+                if state.value == state_T:
                     elements.append((n1, n2, co.EdgeType.SUPPLY.value))
             elif knowledge == co.Knowledge.KNOW:
                 if sat_state_K(state, prob):
@@ -170,7 +170,7 @@ def get_element_by_state_KT(G, graph_element, state, knowledge):
             state_T = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value]
 
             if knowledge == co.Knowledge.TRUTH:
-                if state.name == state_T:
+                if state.value == state_T:
                     elements.append(n1)
             elif knowledge == co.Knowledge.KNOW:
                 if sat_state_K(state, prob):
@@ -203,6 +203,8 @@ def demand_pruning(G, path, quantity):
         cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
         assert(cap-quantity >= 0)
         G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
+
+        # debugging
         G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.SAT_DEM][(d1, d2)] += round(quantity/full_cap, 3)  # (demand edge): percentage flow
         G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)] += round(quantity/demand_full_capacity, 3)  # (demand edge): percentage flow
 
@@ -291,7 +293,7 @@ def probabilistic_edge_weights(SG, G):
         broken_guess_n2 = co.repair_cost * posterior_broken_n2 if state_K_n2 == co.NodeState.UNK else 0
 
         weight = 1 / max(co.epsilon, res_capacity) + broken_truth_edge + broken_guess_edge + \
-                 (broken_truth_n1 + broken_guess_n1 + broken_truth_n2 + broken_guess_n2) * 0.5
+                 (broken_truth_n1 + broken_guess_n1 + broken_truth_n2 + broken_guess_n2) * 1/2
 
         SG.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
         G.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight

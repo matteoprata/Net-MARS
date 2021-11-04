@@ -40,8 +40,8 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
                                 co.ElemAttr.LATITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LATITUDE.value]),
                                 co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value]),
                                 co.ElemAttr.WEIGHT.value: -1,
-                                co.ElemAttr.PRIOR_BROKEN.value: 0.5,
-                                co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
+                                co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
+                                co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
                                 co.ElemAttr.ID.value: element_id,
 
                                 })])
@@ -58,8 +58,8 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
                                                                   co.ElemAttr.CAPACITY.value: supply_capacity,
                                                                   co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity,
                                                                   co.ElemAttr.WEIGHT.value: -1,
-                                                                  co.ElemAttr.PRIOR_BROKEN.value: 0.5,
-                                                                  co.ElemAttr.POSTERIOR_BROKEN.value: 0.5,
+                                                                  co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
+                                                                  co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
                                                                   co.ElemAttr.ID.value: element_id,
                                                                   co.ElemAttr.SAT_DEM: defaultdict(int)
                                                                   })])
@@ -114,7 +114,18 @@ def print_graph_info(G):
 
 # 6 -- demand pairs
 def add_demand_pairs(G, n_demand_pairs, demand_capacity):
-    list_pairs = [np.random.choice(G.nodes, size=2, replace=True) for _ in range(n_demand_pairs)]
+    def get_max_component(G):
+        max_val, max_comp = 0, None
+        for n in G.nodes:
+            mates = nx.node_connected_component(G, n)
+            n_mates = len(mates)
+            if n_mates > max_val:
+                max_val = n_mates
+                max_comp = mates
+        return max_comp
+
+    max_comp = list(get_max_component(G))
+    list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
     for demand_pair in list_pairs:
         n1, n2 = demand_pair[0], demand_pair[1]
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)

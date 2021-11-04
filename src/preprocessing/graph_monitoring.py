@@ -22,7 +22,8 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
             # check if path broken
             for i in range(len(path_nodes) - 1):
                 n1, n2 = path_nodes[i], path_nodes[i + 1]
-                is_path_broken = n1 in broken_nodes_T or n2 in broken_nodes_T or (n1, n2) in broken_edges_T or (n2, n1) in broken_edges_T
+                n1, n2 = make_existing_edge(G, n1, n2)
+                is_path_broken = n1 in broken_nodes_T or n2 in broken_nodes_T or (n1, n2, co.EdgeType.SUPPLY.value) in broken_edges_T
                 if is_path_broken:
                     break
 
@@ -42,24 +43,17 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
                 for i in range(len(path_nodes) - 1):
                     n1, n2 = path_nodes[i], path_nodes[i + 1]
                     n1, n2 = make_existing_edge(G, n1, n2)
-
-                    try:
-                        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                            broken_unk_path_edge.append((n1, n2))
-                    except:
-                        print("ERROR")
-                        print(get_demand_edges(G))
-                        print(n1, n2)
-                        exit()
+                    if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+                        broken_unk_path_edge.append((n1, n2))
 
                 if len(broken_unk_path_node) + len(broken_unk_path_edge) == 1:  # single element is broken or unknown
                     if len(broken_unk_path_node) == 1:
                         bun = broken_unk_path_node[0]
-                        discover_node(G, bun, 0)
+                        discover_node(G, bun, is_working=0)     # bool
                     else:
                         bue = broken_unk_path_node[0]
                         n1, n2 = make_existing_edge(G, bue[0], bue[1])
-                        discover_edge(G, n1, n2, 0)
+                        discover_edge(G, n1, n2, is_working=0)  # bool
 
                 path_els = [elements_val_id[n] for n in path_nodes]
                 path_els += [elements_val_id[make_existing_edge(G, path_nodes[i], path_nodes[i + 1])] for i in range(len(path_nodes) - 1)]
@@ -82,12 +76,9 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
     return paths_out
 
 
-def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_padded, original_posterior, tot_els, paths, broken_edges_T,
+def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_padded, tot_els, paths, broken_edges_T,
                         broken_nodes_T, elements_val_id, elements_id_val):
     bpwn = broken_paths_without_n(SG, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=element)
-
-    if len(bpwn) == 0:
-        return original_posterior
 
     broken_paths_without_n_padded = np.zeros(shape=(len(bpwn), tot_els))
     for i, p in enumerate(bpwn):
@@ -96,13 +87,33 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
     working_edges_P = get_element_by_state_KT(SG, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW)
     working_nodes_P = get_element_by_state_KT(SG, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW)
 
-    working_elements_ids = [elements_val_id[e[:2]] for e in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
+    working_elements_ids = [elements_val_id[make_existing_edge(SG, n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
 
-    a_prior = SG.edges[element[0], element[1], co.EdgeType.SUPPLY.value][co.ElemAttr.PRIOR_BROKEN.value] if element_type == co.GraphElement.EDGE else SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
-    num = probability_broken(broken_paths_without_n_padded, a_prior, working_elements_ids)
+    if element_type == co.GraphElement.EDGE:
+        n1, n2 = make_existing_edge(SG, element[0], element[1])
+        a_prior = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.PRIOR_BROKEN.value]
+    else:
+        a_prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
+    # print(broken_paths_without_n_padded)
+
+    # print("ELEMENTO", element, elements_val_id[element])
+    # print("bpp", broken_paths_without_n_padded)
+    # gg = broken_paths_without_n_padded.copy()
+    # gg[np.isin(gg, working_elements_ids)] = 0
+    # print("bppz", gg)
+    #
+    # print()
+
+    if len(bpwn) == 0:
+        return None
+    else:
+        num = probability_broken(broken_paths_without_n_padded, a_prior, working_elements_ids)
+
     den = probability_broken(broken_paths_padded, a_prior, working_elements_ids)
     prob_n_broken = a_prior * num / den
-    assert(prob_n_broken >= 0)
+
+    error = "{}, {}, {}".format(num, den, prob_n_broken)
+    assert 1 >= num >= 0 and 1 >= den >= 0 and 1 >= prob_n_broken >= 0, error
     return prob_n_broken
 
 
@@ -124,6 +135,7 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
 
     # broken_paths
     bp = broken_paths_without_n(G, paths, None, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=None)
+    elements_in_paths = set().union(*bp)
     bp_padded = np.zeros(shape=(len(bp), tot_els))
     for i, p in enumerate(bp):
         bp_padded[i, :len(p)] = p
@@ -132,14 +144,19 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
     pars = tot_els, paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val
     for n1 in tqdm.tqdm(G.nodes):
         original_posterior = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
-        if original_posterior not in [0, 1]:
-            G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = gain_knowledge_of_n(G, n1, co.GraphElement.NODE, bp, bp_padded, original_posterior, *pars)
+        node_id = G.nodes[n1][co.ElemAttr.ID.value]
+        # print(node_id)
+        if original_posterior not in [0, 1] and node_id in elements_in_paths:
+            prob = gain_knowledge_of_n(G, n1, co.GraphElement.NODE, bp, bp_padded, *pars)
+            G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = prob if prob is not None else original_posterior
 
     for n1, n2, gt in tqdm.tqdm(G.edges):
         if gt == co.EdgeType.SUPPLY.value:
             original_posterior = G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value]
-            if original_posterior not in [0, 1]:
-                G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value] = gain_knowledge_of_n(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, original_posterior, *pars)
+            edge_id = G.edges[n1, n2, gt][co.ElemAttr.ID.value]
+            if original_posterior not in [0, 1] and edge_id in elements_in_paths:
+                prob = gain_knowledge_of_n(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, *pars)
+                G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value] = prob if prob is not None else original_posterior
 
 
 def probability_broken(paths, prior, working_els):
@@ -151,10 +168,10 @@ def probability_broken(paths, prior, working_els):
 
     n_paths = paths.shape[0]
     if n_paths == 0:
-        return -1
+        return None       # TODO CHECK FARLO A MONTE, unlikely che ci entra
 
     if n_paths == 1:
-        non_zeros_count = np.sum(paths[paths != 0])
+        non_zeros_count = np.sum(paths != 0)
         if non_zeros_count == 0:
             return 0
         return 1 - (1 - prior) ** non_zeros_count
@@ -163,7 +180,7 @@ def probability_broken(paths, prior, working_els):
         p1, p2 = paths[0, :], paths[1, :]
         p1p2 = np.array(list(set(p1).union(set(p2))))
 
-        l1, l2, l12 = np.sum(p1[p1 > 0]), np.sum(p2[p2 > 0]), np.sum(p1p2[p1p2 > 0])
+        l1, l2, l12 = np.sum(p1 > 0), np.sum(p2 > 0), np.sum(p1p2 > 0)
         return 1 - (1 - prior) ** l1 - (1 - prior) ** l2 + (1 - prior) ** l12
 
     else:
@@ -171,7 +188,9 @@ def probability_broken(paths, prior, working_els):
         target[np.isin(target, paths[-1, :])] = 0
         non_zeros_count_last = np.sum(paths[-1, :] > 0)
 
-        prob = probability_broken(paths[:-1, :], prior, working_els) - probability_broken(target, prior, working_els) * (1 - prior) ** non_zeros_count_last
+        prob = probability_broken(paths[:-1, :], prior, working_els) - \
+               probability_broken(target, prior, working_els) * \
+               (1 - prior) ** non_zeros_count_last
         return prob
 
 

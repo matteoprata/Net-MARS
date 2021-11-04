@@ -13,6 +13,9 @@ def is_routable(G, knowledge, is_fake_fixed=False):
     if len(demand_edges) == 0:
         print("> No demand edge left.")
         return True
+    else:
+        if not is_fake_fixed:
+            return False
 
     for node in demand_nodes:
         if get_node_degree_working_edges(G, node, is_fake_fixed) <= 0:

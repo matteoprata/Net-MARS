@@ -47,6 +47,7 @@ class ElemAttr(Enum):
     LONGITUDE = 'Longitude'
     LATITUDE = 'Latitude'
 
+    # all
     STATE_TRUTH = 'state'                  # BROKEN, WORKING  (INVISIBILE)
     PRIOR_BROKEN = 'prior_broken'          # prior that component is broken
     POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
