@@ -22,7 +22,10 @@ def run(config):
                                                        config.destruction_width, config.n_destruction, ratio=config.destruction_uniform_quantity)
 
     # add_demand_endpoints
-    add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
+    if config.is_demand_clique:
+        add_demand_clique(G, config.n_demand_clique, config.demand_capacity)
+    else:
+        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
 
     # plot graph
     pg.plot(G, config.graph_name, distribution, config.destruction_precision, dim_ratio,
@@ -89,6 +92,10 @@ def run(config):
         demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
         quantity_pruning = min(max_demand, demand_residual)
         demand_pruning(G, path_to_fix, quantity_pruning)
+
+        pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
+                config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
+                co.PlotType.ROU)
 
     pg.plot(G, config.graph_name, None, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format('final'), co.PlotType.KNO)

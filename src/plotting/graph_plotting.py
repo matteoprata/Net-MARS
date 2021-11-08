@@ -53,11 +53,15 @@ def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         if plot_type == co.PlotType.TRU:
             probability = 1 - G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
-        else:
+            color_rgb = scalar_map1.to_rgba(probability)
+            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+        elif plot_type == co.PlotType.KNO:
             probability = 1 - G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value]
+            color_rgb = scalar_map1.to_rgba(probability)
+            color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+        else:
+            color = "yellow"
 
-        color_rgb = scalar_map1.to_rgba(probability)
-        color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
         node_color.append(color)
 
     node_trace.marker.color = node_color
@@ -122,9 +126,11 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
                     shades.append([color_rgb[0], color_rgb[1], color_rgb[2]])
                     weight.append([perc])
 
-                shades, weight = np.array(shades), np.array(weight) if n_shared > 1 else np.array([1])
+                shades, weight = np.array(shades), (np.array(weight) if n_shared > 1 else np.array([1]))
                 color_rgb = np.sum(np.multiply(shades, weight), axis=0)
                 color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
+            elif plot_type == co.PlotType.ROU and n_shared == 0:
+                color = 'yellow'
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y,

@@ -114,16 +114,6 @@ def print_graph_info(G):
 
 # 6 -- demand pairs
 def add_demand_pairs(G, n_demand_pairs, demand_capacity):
-    def get_max_component(G):
-        max_val, max_comp = 0, None
-        for n in G.nodes:
-            mates = nx.node_connected_component(G, n)
-            n_mates = len(mates)
-            if n_mates > max_val:
-                max_val = n_mates
-                max_comp = mates
-        return max_comp
-
     max_comp = list(get_max_component(G))
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
     for demand_pair in list_pairs:
@@ -134,6 +124,29 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity):
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
 
+
+def get_max_component(G):
+    max_val, max_comp = 0, None
+    for n in G.nodes:
+        mates = nx.node_connected_component(G, n)
+        n_mates = len(mates)
+        if n_mates > max_val:
+            max_val = n_mates
+            max_comp = mates
+    return max_comp
+
+
+def add_demand_clique(G, n_demand_nodes, demand_capacity):
+    max_comp = list(get_max_component(G))
+    list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True)
+    for n1 in list_nodes:
+        for n2 in list_nodes:
+            if n1 > n2:
+                G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
+                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
+                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
+                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
+                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
 
 
 

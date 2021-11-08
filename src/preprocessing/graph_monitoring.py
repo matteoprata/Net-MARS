@@ -51,7 +51,7 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
                         bun = broken_unk_path_node[0]
                         discover_node(G, bun, is_working=0)     # bool
                     else:
-                        bue = broken_unk_path_node[0]
+                        bue = broken_unk_path_edge[0]
                         n1, n2 = make_existing_edge(G, bue[0], bue[1])
                         discover_edge(G, n1, n2, is_working=0)  # bool
 
@@ -84,6 +84,7 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
     for i, p in enumerate(bpwn):
         broken_paths_without_n_padded[i, :len(p)] = p
 
+    broken_paths_padded = broken_paths_padded.copy()
     working_edges_P = get_element_by_state_KT(SG, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW)
     working_nodes_P = get_element_by_state_KT(SG, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW)
 
@@ -94,26 +95,19 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
         a_prior = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.PRIOR_BROKEN.value]
     else:
         a_prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
-    # print(broken_paths_without_n_padded)
-
-    # print("ELEMENTO", element, elements_val_id[element])
-    # print("bpp", broken_paths_without_n_padded)
-    # gg = broken_paths_without_n_padded.copy()
-    # gg[np.isin(gg, working_elements_ids)] = 0
-    # print("bppz", gg)
-    #
-    # print()
 
     if len(bpwn) == 0:
-        return None
+        num = 1
     else:
         num = probability_broken(broken_paths_without_n_padded, a_prior, working_elements_ids)
-
     den = probability_broken(broken_paths_padded, a_prior, working_elements_ids)
     prob_n_broken = a_prior * num / den
 
-    error = "{}, {}, {}".format(num, den, prob_n_broken)
-    assert 1 >= num >= 0 and 1 >= den >= 0 and 1 >= prob_n_broken >= 0, error
+    error1 = "den gt prior: {}, {}".format(den, a_prior)
+    error2 = "probability leak: {}, {}, {}".format(num, den, prob_n_broken)
+
+    # assert a_prior >= den, error1
+    assert 1 >= num >= 0 and 1 >= den >= 0 and 1 >= prob_n_broken >= 0, error2
     return prob_n_broken
 
 
@@ -142,13 +136,17 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
 
     # Assign a probability to every element
     pars = tot_els, paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val
+
+    new_node_probs = dict()
+    new_edge_probs = dict()
+
     for n1 in tqdm.tqdm(G.nodes):
         original_posterior = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
         node_id = G.nodes[n1][co.ElemAttr.ID.value]
         # print(node_id)
         if original_posterior not in [0, 1] and node_id in elements_in_paths:
             prob = gain_knowledge_of_n(G, n1, co.GraphElement.NODE, bp, bp_padded, *pars)
-            G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = prob if prob is not None else original_posterior
+            new_node_probs[(n1, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
     for n1, n2, gt in tqdm.tqdm(G.edges):
         if gt == co.EdgeType.SUPPLY.value:
@@ -156,39 +154,48 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
             edge_id = G.edges[n1, n2, gt][co.ElemAttr.ID.value]
             if original_posterior not in [0, 1] and edge_id in elements_in_paths:
                 prob = gain_knowledge_of_n(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, *pars)
-                G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value] = prob if prob is not None else original_posterior
+                new_edge_probs[(n1, n2, gt, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
+
+    for k in new_node_probs:
+        n1, att = k
+        G.nodes[n1][att] = new_node_probs[k]
+
+    for k in new_edge_probs:
+        n1, n2, gt, att = k
+        G.edges[n1, n2, gt][att] = new_edge_probs[k]
 
 
-def probability_broken(paths, prior, working_els):
+def probability_broken(padded_paths, prior, working_els):
     # TODO: remove rows with same elements
     """ Viviana version! """
-
+    pp = padded_paths.copy()
     if len(working_els) > 0:
-        paths[np.isin(paths, working_els)] = 0
+        padded_paths[np.isin(padded_paths, working_els)] = 0
 
-    n_paths = paths.shape[0]
+    n_paths = padded_paths.shape[0]
     if n_paths == 0:
-        return None       # TODO CHECK FARLO A MONTE, unlikely che ci entra
+        return None       # TODO unlikely it executes it
 
     if n_paths == 1:
-        non_zeros_count = np.sum(paths != 0)
+        non_zeros_count = np.sum(padded_paths != 0)
         if non_zeros_count == 0:
             return 0
         return 1 - (1 - prior) ** non_zeros_count
 
     elif n_paths == 2:
-        p1, p2 = paths[0, :], paths[1, :]
+        p1, p2 = padded_paths[0, :], padded_paths[1, :]
         p1p2 = np.array(list(set(p1).union(set(p2))))
 
         l1, l2, l12 = np.sum(p1 > 0), np.sum(p2 > 0), np.sum(p1p2 > 0)
         return 1 - (1 - prior) ** l1 - (1 - prior) ** l2 + (1 - prior) ** l12
 
     else:
-        target = paths[:-1, :]
-        target[np.isin(target, paths[-1, :])] = 0
-        non_zeros_count_last = np.sum(paths[-1, :] > 0)
+        target = padded_paths.copy()
+        target = target[:-1, :]
+        target[np.isin(target, padded_paths[-1, :])] = 0
+        non_zeros_count_last = np.sum(padded_paths[-1, :] > 0)
 
-        prob = probability_broken(paths[:-1, :], prior, working_els) - \
+        prob = probability_broken(padded_paths[:-1, :], prior, working_els) - \
                probability_broken(target, prior, working_els) * \
                (1 - prior) ** non_zeros_count_last
         return prob

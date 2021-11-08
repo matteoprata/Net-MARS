@@ -33,6 +33,10 @@ class NodeState(Enum):
     UNK = .5
     NA = -1  # used for demand edges, since Edge is a Node GREEN
 
+# TODO: (1) NON INCHIODARE IL ROUTING, (2) OTTIMO, (3) BEST EFFORT (+ ottimizzazione)
+# TODO: confronto con ISP e SHP, Deep (check)
+# TODO: CLIQUE
+
 
 class ElemAttr(Enum):
     # edges
