@@ -2,6 +2,8 @@
 import src.constants as co
 import numpy as np
 import sys
+import networkx as nx
+
 
 # utilities requiring computation
 def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True):
@@ -18,9 +20,8 @@ def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True):
 
 
 def get_supply_edges(G):
-    """node, node, demand"""
-    supply_edges = [(n1, n2, G.edges[n1, n2, etype][co.ElemAttr.CAPACITY.value]) for n1, n2, etype in G.edges if etype == co.EdgeType.SUPPLY.value]
-    return supply_edges
+    """ Returns only supply edges. """
+    return [e for e in G.edges if e[2] == co.EdgeType.SUPPLY.value]
 
 
 def get_demand_nodes(G):
@@ -122,14 +123,18 @@ def make_existing_edge(G, n1, n2):
 
 def repair_node(G, n):
     """ counts the repairs! """
+    did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
+    return did_repair
 
 
 def repair_edge(G, n1, n2):
     """ counts the repairs! """
+    did_repair = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
+    return did_repair
 
 
 def discover_edge(G, n1, n2, is_working):
@@ -192,6 +197,7 @@ def get_path_capacity(G, path_nodes):
 
 
 def demand_pruning(G, path, quantity):
+    """ Prune the edges capacity by quantity, assumed to be small enough. """
     d1, d2 = make_existing_edge(G, path[0], path[-1])
     demand_full_capacity = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value]
     G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
@@ -205,7 +211,7 @@ def demand_pruning(G, path, quantity):
         G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= quantity
 
         # debugging
-        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.SAT_DEM][(d1, d2)] += round(quantity/full_cap, 3)  # (demand edge): percentage flow
+        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.SAT_DEM.value][(d1, d2)] += round(quantity/full_cap, 3)  # (demand edge): percentage flow
         G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)] += round(quantity/demand_full_capacity, 3)  # (demand edge): percentage flow
 
 
@@ -257,43 +263,80 @@ def get_element_state(G, n1, n2, knowledge):
             return element_state_wprob(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
+def get_path_cost(G, path_nodes):
+    """ returns the cost of this path"""
+    cap = get_path_capacity(G, path_nodes)
+
+    n_broken_els = 0
+    n_broken_els_exp = 0
+    for n1 in path_nodes:
+        if G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 0:
+            continue
+        elif G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 1:
+            n_broken_els += co.repair_cost
+        else:
+            n_broken_els_exp += co.repair_cost * G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+
+    for i in range(len(path_nodes) - 1):
+        n1, n2 = path_nodes[i], path_nodes[i + 1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+
+        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] == 0:
+            continue
+        elif G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] == 1:
+            n_broken_els += co.repair_cost
+        else:
+            n_broken_els_exp += co.repair_cost * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+
+    return (n_broken_els + n_broken_els_exp) / (cap + co.epsilon)
+
+
 def probabilistic_edge_weights(SG, G):
     for n1, n2, et in SG.edges:
+        n1, n2 = make_existing_edge(G, n1, n2)
 
-        #
-        #
-        # EDGE
-        res_capacity = SG.edges[n1, n2, et][co.ElemAttr.RESIDUAL_CAPACITY.value]
+        edge_cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+        edge_known = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+        broken_edge = 0
+        if edge_known == co.NodeState.BROKEN.value:
+            broken_edge += co.repair_cost
+        elif 1 > edge_known > 0:
+            broken_edge += co.repair_cost * edge_known
 
-        state_T_edge = get_element_state(SG, n1, n2, co.Knowledge.TRUTH)
-        state_K_edge = get_element_state(SG, n1, n2, co.Knowledge.KNOW)
-        posterior_broken_edge = SG.edges[n1, n2, et][co.ElemAttr.POSTERIOR_BROKEN.value]
+        n1_known = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        broken_n1 = 0
+        if n1_known == co.NodeState.BROKEN.value:
+            broken_n1 += co.repair_cost
+        elif 1 > n1_known > 0:
+            broken_n1 += co.repair_cost * n1_known
 
-        broken_truth_edge = co.repair_cost if state_T_edge == co.NodeState.BROKEN else 0
-        broken_guess_edge = co.repair_cost * posterior_broken_edge if state_K_edge == co.NodeState.UNK else 0
+        n2_known = G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value]
+        broken_n2 = 0
+        if n2_known == co.NodeState.BROKEN.value:
+            broken_n2 += co.repair_cost
+        elif 1 > n2_known > 0:
+            broken_n2 += co.repair_cost * n2_known
 
-        #
-        #
-        # END 1
-        state_T_n1 = get_element_state(SG, n1, None, co.Knowledge.TRUTH)
-        state_K_n1 = get_element_state(SG, n1, None, co.Knowledge.KNOW)
-        posterior_broken_n1 = SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
-
-        broken_truth_n1 = co.repair_cost if state_T_n1 == co.NodeState.BROKEN else 0
-        broken_guess_n1 = co.repair_cost * posterior_broken_n1 if state_K_n1 == co.NodeState.UNK else 0
-
-        #
-        #
-        # END 2
-        state_T_n2 = get_element_state(SG, n2, None, co.Knowledge.TRUTH)
-        state_K_n2 = get_element_state(SG, n2, None, co.Knowledge.KNOW)
-        posterior_broken_n2 = SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
-
-        broken_truth_n2 = co.repair_cost if state_T_n2 == co.NodeState.BROKEN else 0
-        broken_guess_n2 = co.repair_cost * posterior_broken_n2 if state_K_n2 == co.NodeState.UNK else 0
-
-        weight = 1 / max(co.epsilon, res_capacity) + broken_truth_edge + broken_guess_edge + \
-                 (broken_truth_n1 + broken_guess_n1 + broken_truth_n2 + broken_guess_n2) * 1/2
+        # weight = np.inf if edge_cap == 0 else (broken_edge + (broken_n1 + broken_n2) / 2) * (1/(edge_cap + co.epsilon) + 1)  # 1 stands for the crossing
+        weight = np.inf if edge_cap == 0 else (broken_edge + (broken_n1 + broken_n2) / 2) #* (1/(edge_cap + co.epsilon))  # 1 stands for the crossing
 
         SG.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
         G.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
+
+
+def broken_elements_in_path(G, path_nodes):
+    n_broken_unk = 0
+    for i in range(len(path_nodes) - 1):
+        n1, n2 = path_nodes[i], path_nodes[i + 1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] > 0:
+            n_broken_unk += 1
+    return n_broken_unk
+
+
+def set_infinite_weights(G):
+    """ Sets to infinity all the weights of the edges associated to path. """
+    for n1, n2, et in get_supply_edges(G):
+        if G.edges[n1, n2, et][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
+            G.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = np.inf
+            G.edges[n1, n2, et][co.ElemAttr.WEIGHT_UNIT.value] = np.inf

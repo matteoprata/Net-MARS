@@ -33,17 +33,14 @@ class NodeState(Enum):
     UNK = .5
     NA = -1  # used for demand edges, since Edge is a Node GREEN
 
-# TODO: (1) NON INCHIODARE IL ROUTING, (2) OTTIMO, (3) BEST EFFORT (+ ottimizzazione)
-# TODO: confronto con ISP e SHP, Deep (check)
-# TODO: CLIQUE
-
-
 class ElemAttr(Enum):
     # edges
     CAPACITY = 'capacity'
     RESIDUAL_CAPACITY = 'residual_capacity'
     TYPE = 'type'       # demand/supply
     WEIGHT = 'weight'
+    WEIGHT_UNIT = 'weight_unit'
+
     SAT_DEM = 'sat_dem'  # a map for every supply edge: demand edge, percentage of satisfiability
     SAT_SUP = 'sat_sup'  # a list of edges that satisfy the demand
 
@@ -51,8 +48,10 @@ class ElemAttr(Enum):
     LONGITUDE = 'Longitude'
     LATITUDE = 'Latitude'
 
+    CENTRALITY = 'centrality'
+
     # all
-    STATE_TRUTH = 'state'                  # BROKEN, WORKING  (INVISIBILE)
+    STATE_TRUTH = 'state'                  # BROKEN0, WORKING1  (INVISIBILE)
     PRIOR_BROKEN = 'prior_broken'          # prior that component is broken
     POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
     ID = 'id'
@@ -73,6 +72,15 @@ class PlotType(Enum):
     KNO = 1
     ROU = 2
 
+
+class AlgoName(Enum):
+    CEDAR = "CEDAR"
+    ISP = "ISP"
+    SHP = "SHP"
+    DEEP = "DEEP"
+    TOMO_CEDAR = "TOMO_CEDAR"
+    TOMO_CEDAR_FULL = "CEDAR FULL KNOW"
+    CEDARNEW = "CEDARNEW"
 
 # constants
 path_to_graph = "data/graphs/"

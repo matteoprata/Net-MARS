@@ -111,7 +111,7 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
     return prob_n_broken
 
 
-def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
+def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
     demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
@@ -121,7 +121,7 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
     for n1, n2, _ in demand_edges:
         SG = get_supply_graph(G)
         probabilistic_edge_weights(SG, G)
-        path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')
+        path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra') # weight=co.ElemAttr.WEIGHT_UNIT.value
         paths.append(path)
 
     n_edges, n_nodes = len(G.edges), len(G.nodes)
@@ -166,6 +166,8 @@ def gain_knowledge_of_all(G, elements_val_id, elements_id_val):
 
 
 def probability_broken(padded_paths, prior, working_els):
+    """ Credits to: Viviana Arrigoni. """
+
     # TODO: remove rows with same elements
     """ Viviana version! """
     pp = padded_paths.copy()
@@ -201,3 +203,9 @@ def probability_broken(padded_paths, prior, working_els):
         return prob
 
 
+def gain_knowledge_all(G):
+    for n in G.nodes:
+        G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = G.nodes[n][co.ElemAttr.STATE_TRUTH.value]
+
+    for n1, n2, et in G.edges:
+        G.edges[n1, n2, et][co.ElemAttr.POSTERIOR_BROKEN.value] = G.edges[n1, n2, et][co.ElemAttr.STATE_TRUTH.value]

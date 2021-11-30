@@ -2,6 +2,7 @@
 import numpy as np
 import networkx as nx
 import os
+import pandas as pd
 
 import src.plotting.graph_plotting as gp
 import src.preprocessing.graph_distruction as dis
@@ -9,12 +10,14 @@ import src.constants as co
 import src.utilities.util as util
 from collections import defaultdict
 
+
 # 1 -- init graph G
-def init_graph(path_to_graph, graph_name, supply_capacity):
+def init_graph(path_to_graph, graph_name, supply_capacity, config):
     """
     Set the labels for the graph components.
     Inputs graph must maintain the information of the node (ID, longitude x, latitude y, state) for the edges (capacity, state).
     """
+
     def load_graph(path_to_graph, graph_name):
         return nx.MultiGraph(nx.read_gml(os.path.join(path_to_graph, graph_name), label='id'))
 
@@ -40,6 +43,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
                                 co.ElemAttr.LATITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LATITUDE.value]),
                                 co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value]),
                                 co.ElemAttr.WEIGHT.value: -1,
+                                co.ElemAttr.WEIGHT_UNIT.value: 1,
                                 co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
                                 co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
                                 co.ElemAttr.ID.value: element_id,
@@ -53,15 +57,16 @@ def init_graph(path_to_graph, graph_name, supply_capacity):
             elements_val_id[(n1, n2)] = element_id
             elements_val_id[(n2, n1)] = element_id
             elements_id_val[element_id] = (n1, n2)
-
+            supply_capacity_rand = config.rand_generator_capacities.randint(*config.supply_capacity)
             G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE_TRUTH.value: co.NodeState.WORKING.value,  # unobservable state
-                                                                  co.ElemAttr.CAPACITY.value: supply_capacity,
-                                                                  co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity,
+                                                                  co.ElemAttr.CAPACITY.value: supply_capacity_rand,
+                                                                  co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity_rand,
                                                                   co.ElemAttr.WEIGHT.value: -1,
+                                                                  co.ElemAttr.WEIGHT_UNIT.value: 1,
                                                                   co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
                                                                   co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
                                                                   co.ElemAttr.ID.value: element_id,
-                                                                  co.ElemAttr.SAT_DEM: defaultdict(int)
+                                                                  co.ElemAttr.SAT_DEM.value: defaultdict(int)
                                                                   })])
     return G, elements_val_id, elements_id_val
 
@@ -96,15 +101,27 @@ def scale_coordinates(G):
 
 
 # 3 -- destroy graph G
-def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, ratio=None):
+def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, graph_name, sim_seed, ratio=None):
     """ Handles three type of destruction. """
 
     if destruction_type == co.Destruction.GAUSSIAN:
-        return dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
+        dist, nodes, edges = dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
     elif destruction_type == co.Destruction.UNIFORM:
-        return dis.uniform_destruction(G, ratio)
+        dist, nodes, edges = dis.uniform_destruction(G, ratio)
     elif destruction_type == co.Destruction.COMPLETE:
-        return dis.complete_destruction(G)
+        dist, nodes, edges = dis.complete_destruction(G)
+    else:
+        dist, nodes, edges = None, None, None
+        print("Unhandled destruction type.")
+        exit()
+
+    #"data/porting/demand-s|{}-g|{}.csv"
+    # write graph destruction for porting TODO: remove
+    # dfn = pd.DataFrame(nodes)
+    # dfe = pd.DataFrame(edges)
+    # dfn.to_csv("data/porting/destruction-s|{}-g|{}-des|{}-n.csv".format(sim_seed, graph_name.name, destruction_type.value))
+    # dfe.to_csv("data/porting/destruction-s|{}-g|{}-des|{}-e.csv".format(sim_seed, graph_name.name, destruction_type.value))
+    return dist, nodes, edges
 
 
 # 4 -- print_graph_info G
@@ -116,6 +133,8 @@ def print_graph_info(G):
 def add_demand_pairs(G, n_demand_pairs, demand_capacity):
     max_comp = list(get_max_component(G))
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
+    demand_edges = set()
+    demand_nodes = set()
     for demand_pair in list_pairs:
         n1, n2 = demand_pair[0], demand_pair[1]
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
@@ -124,8 +143,14 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity):
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
 
+        demand_edges.add((n1, n2))
+        demand_nodes.add(n1)
+        demand_nodes.add(n2)
+    return demand_nodes, demand_edges
+
 
 def get_max_component(G):
+    """ Get the biggest connected component to sample the demand pairs from. """
     max_val, max_comp = 0, None
     for n in G.nodes:
         mates = nx.node_connected_component(G, n)
@@ -137,6 +162,7 @@ def get_max_component(G):
 
 
 def add_demand_clique(G, n_demand_nodes, demand_capacity):
+    """ Add edges as a clique. """
     max_comp = list(get_max_component(G))
     list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True)
     for n1 in list_nodes:
@@ -147,6 +173,3 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity):
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
-
-
-

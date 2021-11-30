@@ -101,7 +101,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
             weight = round(G.edges[n1, n2, gt_ori][co.ElemAttr.WEIGHT.value], 3)
             state_T = G.edges[n1, n2, gt_ori][co.ElemAttr.STATE_TRUTH.value]
-            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM]
+            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM.value]
             ide = G.edges[n1, n2, gt_ori][co.ElemAttr.ID.value]
             text = hovering_info_edges(n1, n2, ide, capacity, prob, weight, state_T, sat)
 
@@ -116,10 +116,10 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
             color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
 
             # Here we color the edges colored based on their routing
-            n_shared = len(G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM].keys())
+            n_shared = len(G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM.value].keys())
             if plot_type == co.PlotType.ROU and n_shared > 0:
                 shades, weight = [], []
-                for d1, d2 in G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM].keys():
+                for d1, d2 in G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM.value].keys():
                     perc = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)]
                     id = demand_edges.index((d1, d2))
                     color_rgb = scalar_map2.to_rgba(id)
