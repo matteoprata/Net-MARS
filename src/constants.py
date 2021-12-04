@@ -16,6 +16,11 @@ class GraphName(Enum):
     COGE = "cogentco.gml"
 
 
+class PriorKnowledge(Enum):
+    FULL = 0
+    TOMOGRAPHY = 1
+
+
 class Destruction(Enum):
     UNIFORM = "random"
     GAUSSIAN = "gaussian"
@@ -79,7 +84,7 @@ class AlgoName(Enum):
     SHP = "SHP"
     DEEP = "DEEP"
     TOMO_CEDAR = "TOMO_CEDAR"
-    TOMO_CEDAR_FULL = "CEDAR FULL KNOW"
+    TOMO_CEDAR_FULL = "CEDAR TOMO V1"
     CEDARNEW = "CEDARNEW"
 
 # constants

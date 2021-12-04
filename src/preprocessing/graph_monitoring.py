@@ -5,6 +5,7 @@ import sys
 np.set_printoptions(threshold=sys.maxsize)
 
 import tqdm
+import src.utilities.util_routing_stpath as mxv
 
 # OK
 # lists of edges are not symmetric, check symmetric edge every time
@@ -121,7 +122,8 @@ def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
     for n1, n2, _ in demand_edges:
         SG = get_supply_graph(G)
         probabilistic_edge_weights(SG, G)
-        path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra') # weight=co.ElemAttr.WEIGHT_UNIT.value
+        #path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra') # weight=co.ElemAttr.WEIGHT_UNIT.value
+        path = mxv.widest_path_viv(SG, n1, n2)
         paths.append(path)
 
     n_edges, n_nodes = len(G.edges), len(G.nodes)

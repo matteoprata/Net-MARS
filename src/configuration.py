@@ -32,3 +32,5 @@ class Configuration:
 
         self.rand_generator_capacities = None
 
+
+        self.prior_knowledge = co.PriorKnowledge.TOMOGRAPHY

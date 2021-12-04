@@ -183,7 +183,7 @@ def get_element_by_state_KT(G, graph_element, state, knowledge):
     return elements
 
 
-def get_path_capacity(G, path_nodes):
+def get_path_residual_capacity(G, path_nodes):
     """ The capacity of the path is the minimum residual capacity of the edges of the path. """
 
     capacities = []
@@ -263,32 +263,56 @@ def get_element_state(G, n1, n2, knowledge):
             return element_state_wprob(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
-def get_path_cost(G, path_nodes):
-    """ returns the cost of this path"""
-    cap = get_path_capacity(G, path_nodes)
+def get_path_cost_VN(G, path_nodes):
+    """ VERSIONE NUOVA: returns the expected repair cost. """
+    cap = get_path_residual_capacity(G, path_nodes)
 
-    n_broken_els = 0
-    n_broken_els_exp = 0
+    cost_broken_els = 0
+    cost_broken_els_exp = 0
+
+    # expected cost of repairing the nodes
     for n1 in path_nodes:
-        if G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 0:
-            continue
-        elif G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 1:
-            n_broken_els += co.repair_cost
-        else:
-            n_broken_els_exp += co.repair_cost * G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        posterior_broken_node = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        if posterior_broken_node == 1:  # broken
+            cost_broken_els += co.repair_cost
+        elif 0 < posterior_broken_node < 1:  # unknown
+            cost_broken_els_exp += co.repair_cost * posterior_broken_node
 
+    # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
         n1, n2 = make_existing_edge(G, n1, n2)
+        posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+        if posterior_broken_edge == 1:  # broken
+            cost_broken_els += co.repair_cost
+        elif 0 < posterior_broken_edge < 1:  # unknown
+            cost_broken_els_exp += co.repair_cost * posterior_broken_edge
 
-        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] == 0:
-            continue
-        elif G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] == 1:
-            n_broken_els += co.repair_cost
-        else:
-            n_broken_els_exp += co.repair_cost * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+    return (cost_broken_els + cost_broken_els_exp) / (cap + co.epsilon)
 
-    return (n_broken_els + n_broken_els_exp) / (cap + co.epsilon)
+
+def get_path_cost_VO(G, path_nodes):
+    """ VERSIONE VECCHIA, old cedar, va peggio: Returns the expected repair cost old version. """
+    cap = get_path_residual_capacity(G, path_nodes)
+
+    cost_broken_els = 0
+    cost_broken_els_exp = 0
+
+    # expected cost of repairing the nodes
+    for n1 in path_nodes:
+        posterior_broken_node = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        if 0 < posterior_broken_node <= 1:  # broken - unknown
+            cost_broken_els_exp += co.repair_cost
+
+    # expected cost of repairing the edges
+    for i in range(len(path_nodes) - 1):
+        n1, n2 = path_nodes[i], path_nodes[i + 1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+        posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+        if 0 < posterior_broken_edge <= 1:  # broken - unknown
+            cost_broken_els_exp += co.repair_cost
+
+    return cap / (cost_broken_els + cost_broken_els_exp + co.repair_cost)
 
 
 def probabilistic_edge_weights(SG, G):
@@ -325,6 +349,7 @@ def probabilistic_edge_weights(SG, G):
 
 
 def broken_elements_in_path(G, path_nodes):
+    """ Returns the broken or unknown elements in path. """
     n_broken_unk = 0
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]

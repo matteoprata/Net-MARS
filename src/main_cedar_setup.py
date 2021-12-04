@@ -10,6 +10,7 @@ from src.preprocessing.graph_utils import *
 import src.constants as co
 import pandas as pd
 import src.utilities.util_widest_path as mx
+import src.utilities.util_routing_stpath as mxv
 
 
 def run(config):
@@ -54,16 +55,19 @@ def run(config):
     iter = 0
     # true ruotability
     routed_flow = 0
-    # gain_knowledge_all(G)
+
+    if config.prior_knowledge == co.PriorKnowledge.FULL:
+        gain_knowledge_all(G)
+
     while not is_routable(G, co.Knowledge.TRUTH):
         iter += 1
         print("\nITER", iter)
         stats = {"iter": iter, "node": [], "edge": [], "flow": routed_flow}
 
         # 1. Monitoring
-        set_infinite_weights(G)
-        gain_knowledge_tomographically(G, elements_val_id, elements_id_val)
-        # gain_knowledge_all(G)
+        # set_infinite_weights(G)
+        if config.prior_knowledge == co.PriorKnowledge.TOMOGRAPHY:
+            gain_knowledge_tomographically(G, elements_val_id, elements_id_val)
 
         pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
                 config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
@@ -77,21 +81,24 @@ def run(config):
         paths = []
         for n1, n2, _ in demand_edges:
             SG = get_supply_graph(G)
-            probabilistic_edge_weights(SG, G)
-            #path = mx.widest_path(SG, n1, n2)
-            path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
+            # probabilistic_edge_weights(SG, G)
+            path = mxv.widest_path_viv(SG, n1, n2)
+            #path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
             paths.append(path)
+
+        print(paths)
 
         # 3. Map the path to its bottleneck capacity
         paths_caps = []
         for path_nodes in paths:
             # min_cap = get_path_cost(G, path_nodes)
-            min_cap = get_path_cost(G, path_nodes)
+            min_cap = get_path_cost_VN(G, path_nodes)
             paths_caps.append(min_cap)
 
         # 4. Get the path that maximizes the minimum bottleneck capacity
         path_id_to_fix = np.argmin(paths_caps)
         # max_demand = paths_caps[path_id_to_fix]  # it could also be only the capacity of the demand edge
+        print("Selected path has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
 
         # 5. Repair edges and nodes
         path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
@@ -113,7 +120,7 @@ def run(config):
         # pruning of the max capacity prunable of the demand edge
         d1, d2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
         # st_path = nx.shortest_path(get_supply_graph(G), d1, d2, weight=co.ElemAttr.WEIGHT_UNIT.value, method='dijkstra')
-        st_path_cap = get_path_capacity(G, path_to_fix)
+        st_path_cap = get_path_residual_capacity(G, path_to_fix)
 
         demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
         quantity_pruning = min(st_path_cap, demand_residual)
