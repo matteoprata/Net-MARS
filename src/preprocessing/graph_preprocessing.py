@@ -115,13 +115,16 @@ def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_
         print("Unhandled destruction type.")
         exit()
 
+    perc_broken_elements = (len(nodes) + len(edges)) / (len(G.nodes) + len(G.edges))
+    print("percentage of broken elements", perc_broken_elements)
+
     #"data/porting/demand-s|{}-g|{}.csv"
     # write graph destruction for porting TODO: remove
     # dfn = pd.DataFrame(nodes)
     # dfe = pd.DataFrame(edges)
     # dfn.to_csv("data/porting/destruction-s|{}-g|{}-des|{}-n.csv".format(sim_seed, graph_name.name, destruction_type.value))
     # dfe.to_csv("data/porting/destruction-s|{}-g|{}-des|{}-e.csv".format(sim_seed, graph_name.name, destruction_type.value))
-    return dist, nodes, edges
+    return dist, nodes, edges, perc_broken_elements
 
 
 # 4 -- print_graph_info G
@@ -141,7 +144,7 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity):
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
 
         demand_edges.add((n1, n2))
         demand_nodes.add(n1)
@@ -163,13 +166,29 @@ def get_max_component(G):
 
 def add_demand_clique(G, n_demand_nodes, demand_capacity):
     """ Add edges as a clique. """
-    max_comp = list(get_max_component(G))
-    list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True)
+    max_comp = list(get_max_component(G))  # biggest connected component in G
+
+    # pick higher degree nodes with higher probability
+    degs = G.degree()
+    max_comp_degs = np.array([degs[n] for n in max_comp])
+    max_comp_degs = max_comp_degs / np.sum(max_comp_degs)
+    is_biased = False
+    list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True, p=max_comp_degs if is_biased else None)
+
+    # print("\nDegrees")
+    demand_edges = set()
+    demand_nodes = set()
     for n1 in list_nodes:
         for n2 in list_nodes:
             if n1 > n2:
+                # print("n1", n1, nx.degree(G, n1), degs[n1], ";", "n2", n2, nx.degree(G, n2), degs[n2])
                 G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
                 G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
-                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP] = defaultdict(int)
+                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
+
+                demand_edges.add((n1, n2))
+                demand_nodes.add(n1)
+                demand_nodes.add(n2)
+    return demand_nodes, demand_edges

@@ -21,7 +21,8 @@ def uniform_destruction(graph, ratio=.5):
     """ destroys random uniform components of the graph. """
     n_broken_nodes, n_broken_edges = int(len(graph.nodes) * ratio), int(len(graph.edges) * ratio)
     broken_nodes = random.sample(graph.nodes, n_broken_nodes)
-    broken_edges = random.sample(graph.edges, n_broken_nodes)
+
+    broken_edges = random.sample(graph.edges, n_broken_edges)
     do_break_graph_components(graph, broken_nodes, broken_edges)
     return None, broken_nodes, broken_edges
 

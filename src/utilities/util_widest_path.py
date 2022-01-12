@@ -18,7 +18,7 @@ def printpath(parent, vertex, target, out):
 # in the widest path of the given graph
 def widest_path(G, src, target):
     # To keep track of widest distance
-    widest = {n: co.epsilon for n in G.nodes}
+    widest = {n: co.EPSILON for n in G.nodes}
 
     # To get the path at the end of the algorithm
     parent = {n: 0 for n in G.nodes}
@@ -27,7 +27,7 @@ def widest_path(G, src, target):
     # widest distance vertex so far in the algorithm
     container = []
     container.append((0, src))
-    widest[src] = co.epsilon ** -1
+    widest[src] = co.EPSILON ** -1
     container = sorted(container)
     while (len(container) > 0):
         temp = container[-1]
@@ -42,7 +42,7 @@ def widest_path(G, src, target):
             n1, n2 = make_existing_edge(G, current_src, neigh)
             cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
             res_cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-            edge_unit = cap / ((cap - res_cap)+co.epsilon)
+            edge_unit = cap / ((cap - res_cap) + co.EPSILON)
 
             distance = max(widest[neigh],
                            min(widest[current_src], edge_unit))

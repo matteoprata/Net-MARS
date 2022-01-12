@@ -1,14 +1,14 @@
 import src.constants as co
-from src.preprocessing.graph_utils import *
+import src.preprocessing.graph_utils as gru
 from gurobipy import *
 
 
 def is_routable(G, knowledge, is_fake_fixed=False):
     """ Returns True if the system of linear equations and inequalities has at least one solution. """
 
-    demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
-    demand_nodes = get_demand_nodes(G)
-    supply_edges = get_supply_edges(G)
+    demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True)
+    demand_nodes = gru.get_demand_nodes(G)
+    supply_edges = gru.get_supply_edges(G)
 
     if len(demand_edges) == 0:
         print("> No demand edge left.")
@@ -18,7 +18,7 @@ def is_routable(G, knowledge, is_fake_fixed=False):
             return False
 
     for node in demand_nodes:
-        if get_node_degree_working_edges(G, node, is_fake_fixed) <= 0:
+        if gru.get_node_degree_working_edges(G, node, is_fake_fixed) <= 0:
             print("> Demand node is isolated in the supply graph.")
             return False
 
@@ -39,10 +39,10 @@ def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fix
         var_demand_flows.append((name_flow, f))
 
     # for endpoint source 0, mid 1, destination 2
-    var_demand_node_pos = demand_node_position(demand_edges, [name_flow for name_flow, _ in var_demand_flows], G.nodes)
+    var_demand_node_pos = gru.demand_node_position(demand_edges, [name_flow for name_flow, _ in var_demand_flows], G.nodes)
 
     # edge: capacity map
-    var_capacity_grid = get_capacity_grid(G, knowledge, is_fake_fixed)
+    var_capacity_grid = gru.get_capacity_grid(G, knowledge, is_fake_fixed)
 
     ###################################################################################################################
 
@@ -66,7 +66,7 @@ def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fix
     for h, dem_val in var_demand_flows:
         for j in G.nodes:
 
-            to_j, from_j = get_incident_edges_of_node(node=j, edges=supply_edges)
+            to_j, from_j = gru.get_incident_edges_of_node(node=j, edges=supply_edges)
 
             flow_out_j = quicksum(flow_var[h, j, k] for _, k in from_j)  # out flow da j
             flow_in_j = quicksum(flow_var[h, k, j] for k, _ in to_j)     # inner flow da j

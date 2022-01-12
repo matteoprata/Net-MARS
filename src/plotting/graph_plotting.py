@@ -92,7 +92,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         if gt_ori == co.EdgeType.DEMAND.value:  # demand edge
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value], 3)
-            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_SUP]
+            sat = G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_SUP.value]
             text = hovering_info_edges(n1, n2, 'D', capacity, prob, sat=sat)
             dash = 'dash'
             color = 'blue'
@@ -120,7 +120,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
             if plot_type == co.PlotType.ROU and n_shared > 0:
                 shades, weight = [], []
                 for d1, d2 in G.edges[n1, n2, gt_ori][co.ElemAttr.SAT_DEM.value].keys():
-                    perc = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP][(n1, n2)]
+                    perc = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value][(n1, n2)]
                     id = demand_edges.index((d1, d2))
                     color_rgb = scalar_map2.to_rgba(id)
                     shades.append([color_rgb[0], color_rgb[1], color_rgb[2]])

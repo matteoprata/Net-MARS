@@ -38,6 +38,7 @@ class NodeState(Enum):
     UNK = .5
     NA = -1  # used for demand edges, since Edge is a Node GREEN
 
+
 class ElemAttr(Enum):
     # edges
     CAPACITY = 'capacity'
@@ -52,7 +53,7 @@ class ElemAttr(Enum):
     # nodes
     LONGITUDE = 'Longitude'
     LATITUDE = 'Latitude'
-
+    IS_MONITOR = 'is_monitor'
     CENTRALITY = 'centrality'
 
     # all
@@ -84,13 +85,13 @@ class AlgoName(Enum):
     SHP = "SHP"
     DEEP = "DEEP"
     TOMO_CEDAR = "TOMO_CEDAR"
-    TOMO_CEDAR_FULL = "CEDAR TOMO V1"
     CEDARNEW = "CEDARNEW"
 
+
 # constants
-path_to_graph = "data/graphs/"
+PATH_TO_GRAPH = "data/graphs/"
 
-repair_cost = 1
-epsilon = 10**-10
+REPAIR_COST = 1
+EPSILON = 10 ** -10
 
-
+N_CORES = 8*2

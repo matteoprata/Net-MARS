@@ -6,13 +6,12 @@ np.set_printoptions(threshold=sys.maxsize)
 
 import tqdm
 import src.utilities.util_routing_stpath as mxv
+import scipy.special as sci
 
 # OK
 # lists of edges are not symmetric, check symmetric edge every time
-
-
 def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=None):
-    """ Returns the set of paths by ID that contain at least 1 broken element or that pass through a node element. """
+    """ Returns the set of paths by ID that contain at least 1 broken element or that do not pass through an element. """
 
     if broken_paths is None:
         broken_paths = []
@@ -77,12 +76,76 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
     return paths_out
 
 
-def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_padded, tot_els, paths, broken_edges_T,
-                        broken_nodes_T, elements_val_id, elements_id_val):
-    bpwn = broken_paths_without_n(SG, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=element)
+def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, broken_paths_padded, tot_els, paths, broken_edges_T,
+                            broken_nodes_T, elements_val_id, elements_id_val):
+    """ Approximated """
 
-    broken_paths_without_n_padded = np.zeros(shape=(len(bpwn), tot_els))
-    for i, p in enumerate(bpwn):
+    bp_without_n = broken_paths_without_n(SG, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=element)
+    bp_with_n = set([tuple(p) for p in broken_paths]) - set([tuple(p) for p in bp_without_n])
+
+    working_edges_P = get_element_by_state_KT(SG, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW)
+    working_nodes_P = get_element_by_state_KT(SG, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW)
+    working_elements_ids = [elements_val_id[make_existing_edge(SG, n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
+
+    if element_type == co.GraphElement.EDGE:
+        n1, n2 = make_existing_edge(SG, element[0], element[1])
+        ide = elements_val_id[(n1, n2)]
+    else:
+        ide = elements_val_id[element]
+
+    # if the id of the element is in the working nodes, return that the edge works
+    if ide in working_elements_ids:
+        return 0
+
+    # remove working elements in broken paths with n
+    new_bp_with_n = []
+    for list_elements in bp_with_n:
+        bp = []
+        #nodes, edges = get_path_elements(path)
+        for n in list_elements:
+            if n not in working_elements_ids:
+                bp.append(n)
+        new_bp_with_n.append(bp)
+
+    # 0 if there's at least a path that crosses the element with len 1
+    is_broken = sum([1 for p in new_bp_with_n if len(p) == 1]) > 0
+    if is_broken:  # is broken
+        return 1
+
+    el_bp = set()
+    for li in new_bp_with_n:
+        el_bp |= set(li)
+
+    eps = (len(el_bp) - 1) / len(el_bp)
+    P = len(new_bp_with_n) / len(el_bp)
+
+    # print(P, len(new_bp_with_n), len(el_bp))
+    # print(min(max(np.floor(P) - 1, 0), 1))
+    # print(1-eps / P - P)
+    # print()
+    # print()
+    # P  > 0 // < 1 // 1.5
+
+    T2 = P + heavyside(np.floor(P) - 1) * (1 - eps / P - P)
+    T1 = np.ceil(sum([np.floor(1/len(p)) for p in new_bp_with_n]) / len(new_bp_with_n))
+    C = max(T1, T2)
+
+    if not 1 >= C >= 0:
+        print("WARNING! Probability was", C)   # TODO FIX!
+        exit()
+    return C
+
+
+def heavyside(x):
+    return 1 if x >= 0 else 0
+
+
+def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_paths_padded, tot_els, paths, broken_edges_T,
+                              broken_nodes_T, elements_val_id, elements_id_val):
+    bp_without_n = broken_paths_without_n(SG, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=element)
+
+    broken_paths_without_n_padded = np.zeros(shape=(len(bp_without_n), tot_els))
+    for i, p in enumerate(bp_without_n):
         broken_paths_without_n_padded[i, :len(p)] = p
 
     broken_paths_padded = broken_paths_padded.copy()
@@ -97,10 +160,11 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
     else:
         a_prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
 
-    if len(bpwn) == 0:
+    if len(bp_without_n) == 0:
         num = 1
     else:
         num = probability_broken(broken_paths_without_n_padded, a_prior, working_elements_ids)
+
     den = probability_broken(broken_paths_padded, a_prior, working_elements_ids)
     prob_n_broken = a_prior * num / den
 
@@ -112,21 +176,42 @@ def gain_knowledge_of_n(SG, element, element_type, broken_paths, broken_paths_pa
     return prob_n_broken
 
 
-def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
-    demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
+def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val):
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
 
     # the list of path between demand nodes
     paths = []
-    for n1, n2, _ in demand_edges:
-        SG = get_supply_graph(G)
-        probabilistic_edge_weights(SG, G)
-        #path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra') # weight=co.ElemAttr.WEIGHT_UNIT.value
-        path = mxv.widest_path_viv(SG, n1, n2)
-        paths.append(path)
+    stats_packet_monitoring = 0
+    stats_monitors = set()
 
-    n_edges, n_nodes = len(G.edges), len(G.nodes)
+    # monitors from all the monitor pairs n*(n-1)/2
+    SG = get_supply_graph(G)
+    probabilistic_edge_weights(SG, G)
+
+    monitors = get_monitor_nodes(G)[:]
+    for n1_node in monitors:
+        for n2_node in monitors:
+            if n1_node > n2_node:
+                if stats_packet_monitoring_so_far + stats_packet_monitoring < threshold_monitor_message:  # threshold sui monitoring messages
+                    n1, n2 = make_existing_edge(G, n1_node, n2_node)
+                    # if G.edges[n1, n2, co.EdgeType.DEMAND][co.ElemAttr.CAPACITY.value] > 0:  # the edge is not yet saturated
+                    path = mxv.widest_path_viv(SG, n1, n2)
+                    paths.append(path)
+
+                    # append statistics
+                    stats_packet_monitoring += 1
+                    stats_monitors = stats_monitors.union({n1, n2})
+                else:
+                    break
+
+    if len(paths) < 2:
+        print("> No monitoring done. No packets left.")
+        return stats_monitors, stats_packet_monitoring
+
+    print("Done computing monitoring paths for", len(stats_monitors), "monitors:", stats_monitors)
+
+    n_edges, n_nodes = len(SG.edges), len(SG.nodes)
     tot_els = n_edges + n_nodes
 
     # broken_paths
@@ -147,7 +232,8 @@ def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
         node_id = G.nodes[n1][co.ElemAttr.ID.value]
         # print(node_id)
         if original_posterior not in [0, 1] and node_id in elements_in_paths:
-            prob = gain_knowledge_of_n(G, n1, co.GraphElement.NODE, bp, bp_padded, *pars)
+            prob = gain_knowledge_of_n_APPROX(G, n1, co.GraphElement.NODE, bp, bp_padded, *pars)
+            # print((n1), prob)
             new_node_probs[(n1, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
     for n1, n2, gt in tqdm.tqdm(G.edges):
@@ -155,7 +241,8 @@ def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
             original_posterior = G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value]
             edge_id = G.edges[n1, n2, gt][co.ElemAttr.ID.value]
             if original_posterior not in [0, 1] and edge_id in elements_in_paths:
-                prob = gain_knowledge_of_n(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, *pars)
+                prob = gain_knowledge_of_n_APPROX(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, *pars)
+                # print((n1, n2), prob)
                 new_edge_probs[(n1, n2, gt, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
     for k in new_node_probs:
@@ -165,6 +252,8 @@ def gain_knowledge_tomographically(G, elements_val_id, elements_id_val):
     for k in new_edge_probs:
         n1, n2, gt, att = k
         G.edges[n1, n2, gt][att] = new_edge_probs[k]
+
+    return stats_monitors, stats_packet_monitoring
 
 
 def probability_broken(padded_paths, prior, working_els):

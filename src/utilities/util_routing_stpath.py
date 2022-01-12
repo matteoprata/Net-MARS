@@ -3,7 +3,7 @@ import numpy as np
 
 import src.constants as co
 import networkx as nx
-from src.preprocessing.graph_utils import make_existing_edge
+import src.preprocessing.graph_utils as gu
 
 
 # Function to print required path
@@ -50,7 +50,7 @@ def widest_path_viv(G, src, target):
             if neigh == src or neigh not in container.keys():
                 continue
 
-            n1, n2 = make_existing_edge(G, current_src, neigh)
+            n1, n2 = gu.make_existing_edge(G, current_src, neigh)
             cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
             res_cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
@@ -60,7 +60,7 @@ def widest_path_viv(G, src, target):
             CA = max(min(current_src_info[1], cap), current_neigh_info[1])
             RC = max(min(current_src_info[2], res_cap), current_neigh_info[2])
             LA = current_src_info[3] + 1
-            m = 1/CA + (1/CA) / (RC+co.epsilon) + LA  # 1 is the hop
+            m = 1 / CA + (1/CA) / (RC + co.EPSILON) + LA  # 1 is the hop
             # print(m, current_src, neigh)
 
             # if m < current_neigh_info[0] < np.inf:
