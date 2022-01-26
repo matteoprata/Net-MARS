@@ -11,6 +11,7 @@ import src.constants as co
 import pandas as pd
 import src.utilities.util_widest_path as mx
 import src.utilities.util_routing_stpath as mxv
+import time
 
 
 def save_porting_dictionary(G, fname):
@@ -78,7 +79,7 @@ def run(config):
     packet_monitor = 0
     monitors_stats = set()
 
-    if config.prior_knowledge == co.PriorKnowledge.FULL:
+    if config.monitoring_type == co.PriorKnowledge.FULL:
         gain_knowledge_all(G)
 
     assert(config.monitors_budget >= len(get_demand_nodes(G)))
@@ -88,9 +89,19 @@ def run(config):
         G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
         G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
 
+    pr_on_s3, pr_on_s4 = 0, 0
+    # START
     while not is_routable(G, co.Knowledge.TRUTH):
+
+        print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
+
+        # check if the graph is still routbale on tot graph,
+        if not is_routable(G, None, is_fake_fixed=True):
+            print("This instance is no more routable!")
+            return None
+
         iter += 1
-        print("\nITER", iter)
+        print("ITER", iter)
 
         # packet_monitor -- monitors paced up to iteration i
         # monitors -- monitors placed up to now (no duplicates)
@@ -103,7 +114,9 @@ def run(config):
 
         # 1. Monitoring
         # set_infinite_weights(G)
-        if config.prior_knowledge == co.PriorKnowledge.TOMOGRAPHY:
+        print("- 1. PHASE (monitoring): starting")
+        p1_start_time = time.time()
+        if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
             stats_monitors, stats_packet_monitoring = gain_knowledge_tomography(G,
                                                                                 stats["packet_monitoring"],
                                                                                 config.monitoring_messages_budget,
@@ -117,71 +130,110 @@ def run(config):
         pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
                 config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
                 co.PlotType.KNO)
+        p1_end_time = time.time()
 
-        demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
-        print("> Residual demand edges", demand_edges)
+        print("- 1. PHASE (monitoring): terminated in", round((p1_end_time - p1_start_time), 2), "s")
+        print("\n- 2. PHASE (pruning): starting")
+        p2_start_time = time.time()
+
+        demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
+        demand_edges_to_repair = []
 
         # 1.1 do preliminary pruning of working paths
+        SG = get_supply_graph(G)
+        for d1, d2, c in demand_edges:  # TODO: randomize
+            # MONITOR HERE
+            if is_there_working_path(SG, d1, d2):
+                # pruning of the max capacity prunable of the demand edge
+                # d1, d2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+
+                monitors = get_monitor_nodes(G)[:]
+                path_to_route = mxv.protocol_routing_stpath(SG, d1, d2, monitors)
+                st_path_cap = get_path_residual_capacity(G, path_to_route)
+                demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+                quantity_pruning = min(st_path_cap, demand_residual)
+
+                demand_pruning(G, path_to_route, quantity_pruning)
+                print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2)
+                routed_flow += quantity_pruning
+                stats["flow"] = routed_flow  # quantity_pruning / len(DEMAND_EDGES) * config.demand_capacity
+            else:
+                demand_edges_to_repair.append((d1, d2, c))
+
+        demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
+        print("> Residual demand edges", demand_edges)
+
+        p2_end_time = time.time()
+        print("- 2. PHASE (pruning): terminated in", round((p2_end_time - p2_start_time), 2), "s")
+        print("\n- 3. PHASE (reparing): starting")
+        p3_start_time = time.time()
 
         # the list of path between demand nodes
         # 2. Compute all shortest paths between demand pairs
+
         paths = []
-        for n1, n2, _ in demand_edges:
+        paths_met = []
+        paths_cap = []
+        for n1, n2, _ in demand_edges_to_repair:
             SG = get_supply_graph(G)
+            path, metric, capa = mxv.protocol_repair_stpath(SG, n1, n2)
+            # path = mxv.widest_path_viv(SG, n1, n2)
             # probabilistic_edge_weights(SG, G)
-            path = mxv.widest_path_viv(SG, n1, n2)
-            #path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
+            # path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
             paths.append(path)
+            paths_met.append(metric-(len(path)-1)+1)
+            paths_cap.append(capa)
 
-        print(paths)
+            # print(n1, n2)
+            # for i in range(len(path) - 1):
+            #     n1, n2 = path[i], path[i + 1]
+            #     # n1, n2 = make_existing_edge(G, n1, n2)
+            #     cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]  # TODO
+            #     print(cap, n1, n2)
+            # print()
 
-        # 3. Map the path to its bottleneck capacity
-        paths_caps = []
-        for path_nodes in paths:
-            # min_cap = get_path_cost(G, path_nodes)
-            min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
-            paths_caps.append(min_cap)
+        print("CAPACITIES of proposed paths", {(p[0], p[-1]): get_path_residual_capacity(SG, p) for p in paths})
 
-        # 4. Get the path that maximizes the minimum bottleneck capacity
-        path_id_to_fix = np.argmin(paths_caps)
-        # max_demand = paths_caps[path_id_to_fix]  # it could also be only the capacity of the demand edge
-        print("Selected path has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
+        if len(paths) > 0:
+            # 3. Map the path to its bottleneck capacity
+            # paths_caps = []
+            # for path_nodes in paths:  # TODO: randomize
+            #     # min_cap = get_path_cost(G, path_nodes)
+            #     min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
+            #     paths_caps.append(min_cap)
+            #
+            # print(list(zip(paths_cap, [get_path_residual_capacity(G, pp) for pp in paths], paths_met, paths_caps, paths)))  # [(met, post, path)]
 
-        # 5. Repair edges and nodes
-        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
-        print("> Repairing path", path_to_fix)
+            # 4. Get the path that maximizes the minimum bottleneck capacity
+            path_id_to_fix = np.argmin(paths_met)
+            # max_demand = paths_caps[path_id_to_fix]  # it could also be only the capacity of the demand edge
+            print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
 
-        for n1 in path_to_fix:
-            did_repair = repair_node(G, n1)
-            if did_repair:
-                stats["node"].append(n1)
+            # 5. Repair edges and nodes
+            path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
+            print("> Repairing path", path_to_fix)
 
-        for i in range(len(path_to_fix) - 1):
-            n1, n2 = path_to_fix[i], path_to_fix[i + 1]
-            n1, n2 = make_existing_edge(G, n1, n2)
-            did_repair = repair_edge(G, n1, n2)
-            if did_repair:
-                stats["edge"].append((n1, n2))
+            for n1 in path_to_fix:
+                did_repair = repair_node(G, n1)
+                if did_repair:
+                    stats["node"].append(n1)
 
-        # 6. Routing
-        # pruning of the max capacity prunable of the demand edge
-        d1, d2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
-        # st_path = nx.shortest_path(get_supply_graph(G), d1, d2, weight=co.ElemAttr.WEIGHT_UNIT.value, method='dijkstra')
-        st_path_cap = get_path_residual_capacity(G, path_to_fix)
+            for i in range(len(path_to_fix) - 1):
+                n1, n2 = path_to_fix[i], path_to_fix[i + 1]
+                n1, n2 = make_existing_edge(G, n1, n2)
+                did_repair = repair_edge(G, n1, n2)
+                if did_repair:
+                    stats["edge"].append((n1, n2))
 
-        demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-        quantity_pruning = min(st_path_cap, demand_residual)
+            # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
+            #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
+            #         co.PlotType.ROU)
 
-        demand_pruning(G, path_to_fix, quantity_pruning)
-
-        routed_flow += quantity_pruning
-        stats["flow"] = routed_flow  # quantity_pruning / len(DEMAND_EDGES) * config.demand_capacity
-
-        # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
-        #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
-        #         co.PlotType.ROU)
-
-        stats_list.append(stats)
+        p3_end_time = time.time()
+        print("- 3. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
+        print("\n- 4. PHASE (add monitors): starting")
+        p4_start_time = time.time()
 
         # 7. Add 1 new monitor, after discovery
         res_demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
@@ -192,7 +244,11 @@ def run(config):
             stats["monitors"] |= monitors
             monitors_stats = stats["monitors"]
 
-        print(stats)
+        stats_list.append(stats)
+        p4_end_time = time.time()
+        print("- 4. PHASE (add monitors): terminated in", round((p4_end_time - p4_start_time), 2), "s")
+        print("stats:", stats)
+        print("\n", "#"*40, "END ITERATION", "#"*40)
 
     # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
     #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format('final'), co.PlotType.KNO)

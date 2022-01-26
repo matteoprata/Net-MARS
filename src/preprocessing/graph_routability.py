@@ -6,7 +6,7 @@ from gurobipy import *
 def is_routable(G, knowledge, is_fake_fixed=False):
     """ Returns True if the system of linear equations and inequalities has at least one solution. """
 
-    demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True)
+    demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
     demand_nodes = gru.get_demand_nodes(G)
     supply_edges = gru.get_supply_edges(G)
 
@@ -51,7 +51,7 @@ def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fix
     m.setObjective(1, GRB.MAXIMIZE)
     m.params.OutputFlag = 0
 
-    # 1. create: flow variables f_ij^h(n)
+    # 1. create: flow variables f_ij^h
     flow_var = {}
     for h, _ in var_demand_flows:
         for i, j, _ in supply_edges:

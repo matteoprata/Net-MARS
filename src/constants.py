@@ -57,7 +57,7 @@ class ElemAttr(Enum):
     CENTRALITY = 'centrality'
 
     # all
-    STATE_TRUTH = 'state'                  # BROKEN0, WORKING1  (INVISIBILE)
+    STATE_TRUTH = 'state'                  # ENUMERATOR  (INVISIBILE)
     PRIOR_BROKEN = 'prior_broken'          # prior that component is broken
     POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
     ID = 'id'

@@ -276,12 +276,6 @@ def plot_integral(source, config, seeds_values, pbro_values, algos):
     ALG = [A1, A2]
     for i, seeds_pbro in enumerate(ALG):
         seeds_pbro.columns = pbro_values
-        # trick
-        # if i == 0:
-        #     seeds_pbro.iloc[:,2] = seeds_pbro.iloc[:,2] + 1500
-        #
-        # if i == 0:
-        #     seeds_pbro.iloc[:,4] = seeds_pbro.iloc[:,4] - 500
 
         bpl = plt.boxplot(seeds_pbro, positions=positions[i])
         plt.plot([], c=colors[i], label=algos[i])

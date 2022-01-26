@@ -7,7 +7,7 @@ from multiprocessing import Pool
 import src.constants as co
 import src.configuration as configuration
 import src.main_cedar_setup as main_cedar_setup
-from utilities.util import set_seeds, block_print, enable_print
+from src.utilities.util import set_seeds, block_print, enable_print
 
 from src.plotting.stats_plotting import save_stats_as_df_ph1, plot_integral, plot_monitors_stuff
 
@@ -50,9 +50,10 @@ def execution_name(config):
                                                                 config.demand_capacity, config.supply_capacity, config.algo_name, config.destruction_uniform_quantity)
 
 
-def run_var_seed_dis(seed, dis):
+def run_var_seed_dis(seed, dis, is_parallel=False):
     config = setup_configuration()
 
+    config.mute_log = is_parallel
     config.seed = seed
     config.destruction_uniform_quantity = dis
     config.rand_generator_capacities = np.random.RandomState(config.seed)
@@ -63,21 +64,23 @@ def run_var_seed_dis(seed, dis):
 
     set_seeds(config.seed)
 
-    block_print()
+    if config.mute_log:
+        block_print()
+
     stats = main_cedar_setup.run(config)
     enable_print()
+    if stats is not None:
+        save_stats_as_df_ph1(stats, config)
 
-    save_stats_as_df_ph1(stats, config)
 
-
-def exec():
-    seeds = [4, 5, 6]  # , 4, 5, 6]  # , 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]  # range(5), 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    dis_uni = [.05, .15, .3, .5, .7]  # .05, .15, .3, .5, .7]  # [.05, .15, .30]
+def parallel_exec():
+    seeds = [1, 3, 5, 9, 10, 15, 17, 19]
+    dis_uni = [.05, .15, .3, .5, .7]
 
     processes = []
-    for seed in seeds:
-        for dis in dis_uni:
-            processes.append((seed, dis))
+    for dis in dis_uni:
+        for seed in seeds:
+            processes.append((seed, dis, True))
 
     with Pool(processes=co.N_CORES) as pool:
         pool.starmap(run_var_seed_dis, processes)
@@ -85,7 +88,7 @@ def exec():
 
 def plotting_data():
     config = setup_configuration()
-    seeds = [5, 9, 10, 15, 17]  # [1, 3, 5, 9, 10, 15, 17, 19]
+    seeds = [1, 2, 3, 5]  #[1, 3, 5, 9, 10, 15, 17, 19]
     dis_uni = [.05, .15, .3, .5, .7]
     algos = ["CEDAR", "CEDARNEW"]
     source = "data/experiments/"
@@ -96,7 +99,9 @@ def plotting_data():
 
 
 if __name__ == '__main__':
-    exec()
-    #plotting_data()
+    # parallel_exec()
+    plotting_data()
+    # run_var_seed_dis(17, .7)
+
 
 

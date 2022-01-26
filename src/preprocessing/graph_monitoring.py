@@ -187,7 +187,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
 
     # monitors from all the monitor pairs n*(n-1)/2
     SG = get_supply_graph(G)
-    probabilistic_edge_weights(SG, G)
+    # probabilistic_edge_weights(SG, G)
 
     monitors = get_monitor_nodes(G)[:]
     for n1_node in monitors:
@@ -196,7 +196,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                 if stats_packet_monitoring_so_far + stats_packet_monitoring < threshold_monitor_message:  # threshold sui monitoring messages
                     n1, n2 = make_existing_edge(G, n1_node, n2_node)
                     # if G.edges[n1, n2, co.EdgeType.DEMAND][co.ElemAttr.CAPACITY.value] > 0:  # the edge is not yet saturated
-                    path = mxv.widest_path_viv(SG, n1, n2)
+                    path = mxv.protocol_routing_stpath(SG, n1, n2, monitors)
                     paths.append(path)
 
                     # append statistics
@@ -227,7 +227,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     new_node_probs = dict()
     new_edge_probs = dict()
 
-    for n1 in tqdm.tqdm(G.nodes):
+    for n1 in tqdm.tqdm(G.nodes, disable=True):
         original_posterior = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
         node_id = G.nodes[n1][co.ElemAttr.ID.value]
         # print(node_id)
@@ -236,7 +236,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             # print((n1), prob)
             new_node_probs[(n1, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
-    for n1, n2, gt in tqdm.tqdm(G.edges):
+    for n1, n2, gt in tqdm.tqdm(G.edges, disable=True):
         if gt == co.EdgeType.SUPPLY.value:
             original_posterior = G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value]
             edge_id = G.edges[n1, n2, gt][co.ElemAttr.ID.value]

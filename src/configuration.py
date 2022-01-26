@@ -7,6 +7,7 @@ class Configuration:
     def __init__(self):
         self.seed = 10
 
+        self.mute_log = False
         self.algo_name = co.AlgoName.CEDARNEW.value
         self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
@@ -32,7 +33,7 @@ class Configuration:
         self.n_demand_pairs = 5
 
         self.rand_generator_capacities = None
-        self.prior_knowledge = co.PriorKnowledge.TOMOGRAPHY
+        self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-        self.monitors_budget = np.inf  # int(self.n_demand_clique + (self.n_demand_clique * (self.n_demand_clique-1) / 2) / 2)  # n + ( n*(n-1)/2 ) / 4
-        self.monitoring_messages_budget = 2300  # np.inf
+        self.monitors_budget = 22  # int(self.n_demand_clique + (self.n_demand_clique * (self.n_demand_clique-1) / 2) / 2)  # n + ( n*(n-1)/2 ) / 4
+        self.monitoring_messages_budget = np.inf
