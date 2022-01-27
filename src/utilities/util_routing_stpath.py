@@ -21,16 +21,17 @@ def printpath(src, parent, vertex, target, out):
 
 # Function to return the maximum weight
 # in the widest path of the given graph
-def protocol_routing_stpath(G, src, target, monitors):
+def protocol_routing_stpath(G, src, target):
     parent = {n: None for n in G.nodes}
+    node_metric = {n: None for n in G.nodes}
     parent[src] = src
 
     # metric, cap, res_cap, delay, node_id | min su metric, min is in position 0
     container = dict()
-    container[src] = (np.inf, np.inf, np.inf, 0)
+    container[src] = (np.inf, np.inf, np.inf, 0, 0)
     for nid in G.nodes:
         if nid != src:
-            container[nid] = (np.inf, -np.inf, -np.inf, np.inf)
+            container[nid] = (np.inf, -np.inf, -np.inf, np.inf, 0)
 
     while len(container) > 0:
         temp = list(container.items())[0]
@@ -41,17 +42,10 @@ def protocol_routing_stpath(G, src, target, monitors):
         if current_src == target:
             break
 
-        # print("Tocca a", current_src, current_src_info)
-        # if current_src_info[3] == np.inf:  # isolated node
-        #     break
-
         # print("Passed it. Iter now.", list(G.neighbors(current_src)))
         for neigh in G.neighbors(current_src):
             if neigh == current_src or neigh not in container.keys():
                 continue
-
-            # if neigh in set(monitors) - {src, target}:  # TODO RICONSIDERA
-            #     continue
 
             n1, n2 = gu.make_existing_edge(G, current_src, neigh)
             cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
@@ -62,22 +56,22 @@ def protocol_routing_stpath(G, src, target, monitors):
             is_n2_broken = bool(G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
             is_n1n2_broken = bool(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value])
 
-            if is_n1_broken or is_n2_broken or is_n1n2_broken:
-                res_cap = 0
+            wo_flag = -1 if is_n1_broken or is_n2_broken or is_n1n2_broken else 0
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            CA = max(min(current_src_info[1], cap), current_neigh_info[1])
-            RC = max(min(current_src_info[2], res_cap), current_neigh_info[2])
+            WO = min(0, wo_flag)
+            CA = min(current_src_info[1], cap)
+            RC = min(current_src_info[2], res_cap)
             LA = current_src_info[3] + 1
-            m = 1/CA + (1/CA) / (RC + co.EPSILON) + LA  # 1 is the hop
+            m = (1/CA + (1/CA) / RC + LA) - WO * len(G.edges) if RC > 0 else np.inf
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
-                container[neigh] = (m, CA, RC, LA)
+                container[neigh] = (m, CA, RC, LA, WO)
                 parent[neigh] = current_src
-
+                node_metric[neigh] = m
                 container_items = sorted(container.items(), key=lambda x: x[1][0])
                 container = {i[0]: i[1] for i in container_items}
 
@@ -89,12 +83,9 @@ def protocol_routing_stpath(G, src, target, monitors):
                     if m <= container[n][0]:
                         break
 
-    # print(src, target)
-    # print(current_src, current_src_info)
     a = printpath(src, parent, target, target, [])
-    # print(a)
-
-    return a
+    metric_out = node_metric[target]
+    return a, metric_out
 
 
 def protocol_repair_stpath_OLD(G, src, target):

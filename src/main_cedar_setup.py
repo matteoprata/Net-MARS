@@ -113,15 +113,16 @@ def run(config):
                  "packet_monitoring": packet_monitor}
 
         # 1. Monitoring
-        # set_infinite_weights(G)
         print("- 1. PHASE (monitoring): starting")
         p1_start_time = time.time()
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
-            stats_monitors, stats_packet_monitoring = gain_knowledge_tomography(G,
-                                                                                stats["packet_monitoring"],
-                                                                                config.monitoring_messages_budget,
-                                                                                elements_val_id,
-                                                                                elements_id_val)
+            stats_monitors, stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = gain_knowledge_tomography(G,
+                                                                                                        stats["packet_monitoring"],
+                                                                                                        config.monitoring_messages_budget,
+                                                                                                        elements_val_id,
+                                                                                                        elements_id_val)
+            routed_flow += sum(demand_edges_routed_flow)
+            stats["flow"] = routed_flow
             stats["packet_monitoring"] += stats_packet_monitoring
             stats["monitors"] |= stats_monitors  # union !
             packet_monitor = stats["packet_monitoring"]
@@ -132,41 +133,12 @@ def run(config):
                 co.PlotType.KNO)
         p1_end_time = time.time()
 
-        print("- 1. PHASE (monitoring): terminated in", round((p1_end_time - p1_start_time), 2), "s")
-        print("\n- 2. PHASE (pruning): starting")
-        p2_start_time = time.time()
-
-        demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
-        demand_edges_to_repair = []
-
-        # 1.1 do preliminary pruning of working paths
-        SG = get_supply_graph(G)
-        for d1, d2, c in demand_edges:  # TODO: randomize
-            # MONITOR HERE
-            if is_there_working_path(SG, d1, d2):
-                # pruning of the max capacity prunable of the demand edge
-                # d1, d2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
-
-                monitors = get_monitor_nodes(G)[:]
-                path_to_route = mxv.protocol_routing_stpath(SG, d1, d2, monitors)
-                st_path_cap = get_path_residual_capacity(G, path_to_route)
-                demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-
-                quantity_pruning = min(st_path_cap, demand_residual)
-
-                demand_pruning(G, path_to_route, quantity_pruning)
-                print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2)
-                routed_flow += quantity_pruning
-                stats["flow"] = routed_flow  # quantity_pruning / len(DEMAND_EDGES) * config.demand_capacity
-            else:
-                demand_edges_to_repair.append((d1, d2, c))
-
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", demand_edges)
 
-        p2_end_time = time.time()
-        print("- 2. PHASE (pruning): terminated in", round((p2_end_time - p2_start_time), 2), "s")
-        print("\n- 3. PHASE (reparing): starting")
+        print("- 1. PHASE (monitoring): terminated in", round((p1_end_time - p1_start_time), 2), "s")
+
+        print("\n- 2. PHASE (reparing): starting")
         p3_start_time = time.time()
 
         # the list of path between demand nodes
@@ -175,7 +147,7 @@ def run(config):
         paths = []
         paths_met = []
         paths_cap = []
-        for n1, n2, _ in demand_edges_to_repair:
+        for n1, n2 in demand_edges_to_repair:
             SG = get_supply_graph(G)
             path, metric, capa = mxv.protocol_repair_stpath(SG, n1, n2)
             # path = mxv.widest_path_viv(SG, n1, n2)
@@ -231,8 +203,8 @@ def run(config):
             #         co.PlotType.ROU)
 
         p3_end_time = time.time()
-        print("- 3. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
-        print("\n- 4. PHASE (add monitors): starting")
+        print("- 2. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
+        print("\n- 3. PHASE (add monitors): starting")
         p4_start_time = time.time()
 
         # 7. Add 1 new monitor, after discovery
@@ -246,7 +218,7 @@ def run(config):
 
         stats_list.append(stats)
         p4_end_time = time.time()
-        print("- 4. PHASE (add monitors): terminated in", round((p4_end_time - p4_start_time), 2), "s")
+        print("- 3. PHASE (add monitors): terminated in", round((p4_end_time - p4_start_time), 2), "s")
         print("stats:", stats)
         print("\n", "#"*40, "END ITERATION", "#"*40)
 

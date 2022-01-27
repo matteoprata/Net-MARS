@@ -1,3 +1,4 @@
+import numpy as np
 
 from src.preprocessing.graph_utils import *
 import networkx as nx
@@ -7,6 +8,8 @@ np.set_printoptions(threshold=sys.maxsize)
 import tqdm
 import src.utilities.util_routing_stpath as mxv
 import scipy.special as sci
+import src.utilities.util as util
+from itertools import combinations
 
 # OK
 # lists of edges are not symmetric, check symmetric edge every time
@@ -180,6 +183,10 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
 
+    bubbles = []
+    demand_edges_to_repair = []
+    demand_edges_routed_flow = []
+
     # the list of path between demand nodes
     paths = []
     stats_packet_monitoring = 0
@@ -189,21 +196,77 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     SG = get_supply_graph(G)
     # probabilistic_edge_weights(SG, G)
 
-    monitors = get_monitor_nodes(G)[:]
-    for n1_node in monitors:
-        for n2_node in monitors:
-            if n1_node > n2_node:
-                if stats_packet_monitoring_so_far + stats_packet_monitoring < threshold_monitor_message:  # threshold sui monitoring messages
-                    n1, n2 = make_existing_edge(G, n1_node, n2_node)
-                    # if G.edges[n1, n2, co.EdgeType.DEMAND][co.ElemAttr.CAPACITY.value] > 0:  # the edge is not yet saturated
-                    path = mxv.protocol_routing_stpath(SG, n1, n2, monitors)
-                    paths.append(path)
+    monitors = get_monitor_nodes(G)
+    demand_nodes = get_demand_nodes(G)
 
-                    # append statistics
-                    stats_packet_monitoring += 1
-                    stats_monitors = stats_monitors.union({n1, n2})
-                else:
-                    break
+    demand_nodes_residual = get_demand_nodes(G, is_residual=True)
+    set_useful_monitors = (set(monitors) - demand_nodes).union(demand_nodes_residual)
+    only_monitors = set(monitors) - demand_nodes
+
+    iter, n_to_repair_paths = 0, 0
+    n_monitor_couples = len(set_useful_monitors) * (len(set_useful_monitors) - 1) / 2
+    priority_paths = {}  # k:path, v:priority
+
+    # if stats_packet_monitoring_so_far + stats_packet_monitoring < threshold_monitor_message:  # threshold sui monitoring messages
+    halt_monitoring = False
+    while iter < n_monitor_couples - n_to_repair_paths and not halt_monitoring:
+        print(iter,  n_monitor_couples - n_to_repair_paths, halt_monitoring)
+        n_to_repair_paths = 0
+        combs = list(combinations(set_useful_monitors, r=2))
+        for n1_node, n2_node in tqdm.tqdm(combs, disable=True):
+
+            if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:
+                halt_monitoring = True
+                break
+
+            n1, n2 = make_existing_edge(G, n1_node, n2_node)
+
+            if not ((n1, n2) in get_demand_edges(G, is_capacity=False, is_check_unsatisfied=True)
+                    or n1 in only_monitors or n2 in only_monitors):
+                continue
+
+            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1, n2))
+            stats_packet_monitoring += 1
+
+            if st_path_out is None:
+                print("Flow is not routable.")
+                exit()
+
+            path, metric = st_path_out
+            paths.append(path)
+
+            if metric < len(G.edges):  # works AND has capacity
+                if n1 in demand_nodes and n2 in demand_nodes:
+                    if is_bubble(G, path):
+                        bubbles.append(path)
+                        print("Urrà, found a bubble!", n1, n2)
+                    else:
+                        priority = heuristic_priority_pruning(G, n1, n2)
+                        priority_paths[tuple(path)] = priority
+
+            else:  # path is broken
+                print("Il path è rotto", metric, path, (n1, n2))
+                if n1 in demand_nodes and n2 in demand_nodes:
+                    demand_edges_to_repair.append((n1, n2))
+                n_to_repair_paths += 1
+
+        # --- choose a pruning path ---
+
+        if len(bubbles) > 0:
+            bubble_path = bubbles[0]
+            do_prune(G, bubble_path)
+        else:
+            if len(priority_paths) > 0:
+                priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority
+                lowest_priority = list(priority_paths_items[0][0])
+                do_prune(G, lowest_priority)
+
+        demand_nodes_residual = get_demand_nodes(G, is_residual=True)
+        set_useful_monitors = (set(monitors) - demand_nodes).union(demand_nodes_residual)
+
+        bubbles = list()
+        priority_paths = dict()
+        iter += 1
 
     if len(paths) < 2:
         print("> No monitoring done. No packets left.")
@@ -253,7 +316,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         n1, n2, gt, att = k
         G.edges[n1, n2, gt][att] = new_edge_probs[k]
 
-    return stats_monitors, stats_packet_monitoring
+    return stats_monitors, stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow
 
 
 def probability_broken(padded_paths, prior, working_els):

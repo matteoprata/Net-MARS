@@ -28,10 +28,11 @@ def get_supply_edges(G):
     return [e for e in G.edges if e[2] == co.EdgeType.SUPPLY.value]
 
 
-def get_demand_nodes(G):
+def get_demand_nodes(G, is_residual=False):
     demand_nodes = set()
     for n1, n2, _ in get_demand_edges(G):
-        demand_nodes |= {n1, n2}
+        if not is_residual or G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] > 0:
+            demand_nodes |= {n1, n2}
     return demand_nodes
 
 
@@ -73,8 +74,8 @@ def monitor_placement_ours(G, demand_edges):
 
     paths = []
     for n1, n2, _ in demand_edges:
-        monitors = get_monitor_nodes(G)[:]
-        paths.append(mxv.protocol_routing_stpath(get_supply_graph(G), n1, n2, monitors))
+        path, _, _ = mxv.protocol_repair_stpath_OLD(get_supply_graph(G), n1, n2)
+        paths.append(path)
 
     if len(paths) > 0:
         for n in get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW):
@@ -104,7 +105,7 @@ def is_demand_edge(G, n1, n2):
     return (n1, n2) in get_demand_edges(G, is_capacity=False)
 
 
-def is_there_working_path(G, n1o, n2o):
+def is_there_worcap_path(G, n1o, n2o):
     """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
     GCO = G.copy()
     nodes = list(GCO.nodes)[:]
@@ -123,6 +124,94 @@ def is_there_working_path(G, n1o, n2o):
     except:
         return False
 
+
+def is_there_working_path(G, n1o, n2o):
+    """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
+    GCO = G.copy()
+    nodes = list(GCO.nodes)[:]
+    for n in nodes:
+        if GCO.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value:
+            GCO.remove_node(n)
+
+    edges = list(GCO.edges)[:]
+    for n1, n2, _ in edges:
+        if GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value:
+            GCO.remove_edge(n1, n2)
+    try:
+        nx.shortest_path(GCO, n1o, n2o)
+        return True
+    except:
+        return False
+
+
+def heuristic_priority_pruning(G, d1, d2):
+    """ Priority is the average (over the endpoints) of the ratio demand edge residual capacity over sum of residual
+    capacities over the neighbouring nodes. """
+
+    SG = get_supply_graph(G)
+    res_d1, res_d2 = 0, 0
+    demand_res_cap = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+    for ne in SG.neighbors(d1):
+        ns, nd = make_existing_edge(G, ne, d1)
+        res_d1 += G.edges[ns, nd, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+    for ne in SG.neighbors(d2):
+        ns, nd = make_existing_edge(G, ne, d2)
+        res_d2 += G.edges[ns, nd, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+    priority = (demand_res_cap/res_d1 + demand_res_cap/res_d2) / 2
+    return priority
+
+
+def is_bubble(G, path):
+    """ Condition 1 only the endpoint demand edges are the demand edges within the path.
+        Condition 2, all nodes in the path (except the endpoints) must have only connections within the set of nodes of the path. """
+
+    SG = get_supply_graph(G)
+    d1, d2 = path[0], path[-1]
+    d1, d2 = make_existing_edge(SG, d1, d2)
+    dem_nodes = get_demand_nodes(SG, is_residual=True)
+
+    tuple_is_unique = len(set(path).intersection(dem_nodes - {d1, d2})) == 0
+
+    for i in range(len(path)-2):
+        node = path[i+1]
+        for ne in SG.neighbors(node):
+            n1, n2 = make_existing_edge(G, node, ne)
+            cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+            if ne not in path and cap > 0:
+                return False
+    return tuple_is_unique
+
+
+def do_prune(G, path):
+    d1, d2 = path[0], path[-1]
+    d1, d2 = make_existing_edge(G, d1, d2)
+
+    st_path_cap = get_path_residual_capacity(G, path)
+    demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+    quantity_pruning = min(st_path_cap, demand_residual)
+    demand_pruning(G, path, quantity_pruning)
+    print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2)
+    return quantity_pruning
+
+
+def is_worcap_path(G, path):
+    """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
+
+    for i in range(len(path) - 1):
+        n1, n2 = path[i], path[i + 1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+        state_n1 = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value]
+        state_n2 = G.nodes[n2][co.ElemAttr.STATE_TRUTH.value]
+        state_n1n2 = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
+        capacity_n1n2 = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+        assert(capacity_n1n2 > 0)
+        if state_n1 or state_n2 or state_n1n2 or capacity_n1n2 <= 0:
+            return False
+    return True
 
 def get_node_degree_working_edges(G, node, is_fake_fixed):
     """ Degree of a node excluding the demand edges."""
@@ -440,7 +529,7 @@ def saturating_paths(G, d_edges):
         all_paths_saturate, capacity_all_paths_saturate = [], []
 
         while res_capacity > 0:  # reset residual capacity adding paths
-            path = mxv.protocol_routing_stpath(get_supply_graph(Gmom_all), d1, d2)
+            path, _ = mxv.protocol_routing_stpath(get_supply_graph(Gmom_all), d1, d2)
             path_capacity = get_path_residual_capacity(Gmom_all, path)
             path_capacity_min = min(path_capacity, res_capacity)
 

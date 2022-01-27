@@ -4,7 +4,7 @@ import random
 import sys
 import os
 
-
+import traceback
 class Singleton(type):
     _instances = {}
 
@@ -31,6 +31,15 @@ def min_max_normalizer(value, startLB, startUB, endLB=0, endUB=1):
 def set_seeds(seed):
     np.random.seed(seed)
     random.seed(seed)
+
+
+def safe_exec(func, pars):
+    try:
+        out = func(*pars)
+        return True, out
+    except:
+        traceback.print_exception(*sys.exc_info())
+        return False, None
 
 
 def block_print():
