@@ -213,7 +213,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         print(iter,  n_monitor_couples - n_to_repair_paths, halt_monitoring)
         n_to_repair_paths = 0
         combs = list(combinations(set_useful_monitors, r=2))
-        for n1_node, n2_node in tqdm.tqdm(combs, disable=True):
+        for n1_node, n2_node in tqdm.tqdm(combs, disable=False):
 
             if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:
                 halt_monitoring = True
@@ -235,7 +235,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             path, metric = st_path_out
             paths.append(path)
 
-            if metric < len(G.edges):  # works AND has capacity
+            if metric < len(SG.edges):  # works AND has capacity
                 if n1 in demand_nodes and n2 in demand_nodes:
                     if is_bubble(G, path):
                         bubbles.append(path)
@@ -245,7 +245,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                         priority_paths[tuple(path)] = priority
 
             else:  # path is broken
-                print("Il path è rotto", metric, path, (n1, n2))
+                # print("Il path è rotto", metric, path, (n1, n2))
                 if n1 in demand_nodes and n2 in demand_nodes:
                     demand_edges_to_repair.append((n1, n2))
                 n_to_repair_paths += 1
@@ -255,11 +255,11 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         if len(bubbles) > 0:
             bubble_path = bubbles[0]
             do_prune(G, bubble_path)
-        else:
-            if len(priority_paths) > 0:
-                priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority
-                lowest_priority = list(priority_paths_items[0][0])
-                do_prune(G, lowest_priority)
+
+        elif len(priority_paths) > 0:
+            priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority
+            lowest_priority = list(priority_paths_items[0][0])
+            do_prune(G, lowest_priority)
 
         demand_nodes_residual = get_demand_nodes(G, is_residual=True)
         set_useful_monitors = (set(monitors) - demand_nodes).union(demand_nodes_residual)

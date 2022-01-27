@@ -39,12 +39,9 @@ def protocol_routing_stpath(G, src, target):
         current_src_info = temp[1]  # node id
         del container[current_src]
 
-        if current_src == target:
-            break
-
         # print("Passed it. Iter now.", list(G.neighbors(current_src)))
         for neigh in G.neighbors(current_src):
-            if neigh == current_src or neigh not in container.keys():
+            if neigh not in container.keys():
                 continue
 
             n1, n2 = gu.make_existing_edge(G, current_src, neigh)
@@ -56,32 +53,25 @@ def protocol_routing_stpath(G, src, target):
             is_n2_broken = bool(G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
             is_n1n2_broken = bool(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value])
 
-            wo_flag = -1 if is_n1_broken or is_n2_broken or is_n1n2_broken else 0
+            wo_flag = 1 if is_n1_broken or is_n2_broken or is_n1n2_broken else 0
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            WO = min(0, wo_flag)
+            WO = max(current_src_info[4], wo_flag)
             CA = min(current_src_info[1], cap)
             RC = min(current_src_info[2], res_cap)
             LA = current_src_info[3] + 1
-            m = (1/CA + (1/CA) / RC + LA) - WO * len(G.edges) if RC > 0 else np.inf
+            m = ((1/CA + (1/CA) / RC + LA) + WO * len(G.edges)) if RC > 0 else np.inf
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
+                # print("assigned", (src, neigh), m, CA, RC, LA, WO, WO * len(G.edges))
                 container[neigh] = (m, CA, RC, LA, WO)
                 parent[neigh] = current_src
                 node_metric[neigh] = m
                 container_items = sorted(container.items(), key=lambda x: x[1][0])
                 container = {i[0]: i[1] for i in container_items}
-
-                # for i in container:
-                #     print(i, container[i])
-
-            if neigh == target:
-                for n in container:
-                    if m <= container[n][0]:
-                        break
 
     a = printpath(src, parent, target, target, [])
     metric_out = node_metric[target]
