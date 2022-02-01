@@ -174,16 +174,16 @@ def run(config):
 
         if len(paths) > 0:
             # 3. Map the path to its bottleneck capacity
-            # paths_caps = []
-            # for path_nodes in paths:  # TODO: randomize
-            #     # min_cap = get_path_cost(G, path_nodes)
-            #     min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
-            #     paths_caps.append(min_cap)
+            paths_caps = []
+            for path_nodes in paths:  # TODO: randomize
+                # min_cap = get_path_cost(G, path_nodes)
+                min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
+                paths_caps.append(min_cap)
             #
             # print(list(zip(paths_cap, [get_path_residual_capacity(G, pp) for pp in paths], paths_met, paths_caps, paths)))  # [(met, post, path)]
 
             # 4. Get the path that maximizes the minimum bottleneck capacity
-            path_id_to_fix = np.argmin(paths_met)
+            path_id_to_fix = np.argmin(paths_caps)
             # max_demand = paths_caps[path_id_to_fix]  # it could also be only the capacity of the demand edge
             print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
 

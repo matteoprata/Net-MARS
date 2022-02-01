@@ -455,7 +455,6 @@ def get_path_cost_VN(G, path_nodes):
     """ VERSIONE NUOVA: returns the expected repair cost. """
     cap = get_path_residual_capacity(G, path_nodes)
 
-    cost_broken_els = 0
     cost_broken_els_exp = 0
 
     # expected cost of repairing the nodes
@@ -470,7 +469,7 @@ def get_path_cost_VN(G, path_nodes):
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge
 
-    exp_cost = cost_broken_els + cost_broken_els_exp + 1
+    exp_cost = cost_broken_els_exp + 1
 
     exp_inutility = exp_cost / (cap + co.EPSILON)  # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)

@@ -205,7 +205,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     # iter_value, flows_to_consider = 0, n_demand_pairs
 
     handled_pairs, to_handle_pairs = set(), set()
-    for pair in set(combinations(set_useful_monitors, r=2)):
+    for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
         p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
         if p1 in demand_nodes and p2 in demand_nodes:
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
@@ -232,12 +232,14 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                 break
 
             # if no capacitive path exists, abort, this should not happen
-            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))
+            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
             stats_packet_monitoring += 1
 
             if not went_through:
-                print("Flow is not routable.")
-                return None
+                handled_pairs.add((n1_mon, n2_mon))
+                print("Flow is not routable for pair", n1_mon, n2_mon)
+                continue
+                # return None
 
             path, metric, rc = st_path_out
 
@@ -245,15 +247,15 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             # assert prc == rc
             # print(metric, prc, rc, path)
 
-            paths.append(path)
+            paths.append(path)  # TODO check
 
             if metric < len(SG.edges):  # works AND has capacity
-                if n1_mon in demand_nodes and n2_mon in demand_nodes:
+                if n1_mon in demand_nodes and n2_mon in demand_nodes:  # demand edge
                     if is_bubble(G, path):
                         bubbles.append(path)
                         print("Urrà, found a bubble!", n1_mon, n2_mon)
                     else:
-                        priority = heuristic_priority_pruning(G, n1_mon, n2_mon)  # was 1
+                        priority = heuristic_priority_pruning(G, n1_mon, n2_mon)
                         priority_paths[tuple(path)] = priority
                     continue
 
@@ -285,6 +287,8 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             n1, n2 = path_to_prune[0], path_to_prune[-1]
             if G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
                 handled_pairs.add((n1, n2))
+
+    ######
 
     if len(paths) < 2:
         print("> No monitoring done. No packets left.")

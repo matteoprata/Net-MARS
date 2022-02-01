@@ -100,9 +100,9 @@ def plotting_data():
 
 
 if __name__ == '__main__':
-    #parallel_exec()
+    # parallel_exec()
     plotting_data()
-    #run_var_seed_dis(5, .05) # 17
+    # run_var_seed_dis(5, .3)  # 17
 
 
 
