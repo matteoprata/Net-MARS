@@ -1,5 +1,6 @@
 import numpy as np
 
+from src.preprocessing.graph_routability import *
 from src.preprocessing.graph_utils import *
 import networkx as nx
 import sys
@@ -183,96 +184,111 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
 
-    bubbles = []
     demand_edges_to_repair = []
     demand_edges_routed_flow = []
 
     # the list of path between demand nodes
     paths = []
     stats_packet_monitoring = 0
-    stats_monitors = set()
 
     # monitors from all the monitor pairs n*(n-1)/2
-    SG = get_supply_graph(G)
-    # probabilistic_edge_weights(SG, G)
 
     monitors = get_monitor_nodes(G)
     demand_nodes = get_demand_nodes(G)
-
     demand_nodes_residual = get_demand_nodes(G, is_residual=True)
-    set_useful_monitors = (set(monitors) - demand_nodes).union(demand_nodes_residual)
     only_monitors = set(monitors) - demand_nodes
 
-    iter, n_to_repair_paths = 0, 0
-    n_monitor_couples = len(set_useful_monitors) * (len(set_useful_monitors) - 1) / 2
-    priority_paths = {}  # k:path, v:priority
+    set_useful_monitors = only_monitors.union(demand_nodes_residual)
+    #
+    # n_demand_pairs = int(len(demand_nodes_residual) * (len(demand_nodes_residual) - 1) / 2)
+    # n_monitor_couples = len(set_useful_monitors) * (len(set_useful_monitors) - 1) / 2
+    # iter_value, flows_to_consider = 0, n_demand_pairs
 
-    # if stats_packet_monitoring_so_far + stats_packet_monitoring < threshold_monitor_message:  # threshold sui monitoring messages
+    handled_pairs, to_handle_pairs = set(), set()
+    for pair in set(combinations(set_useful_monitors, r=2)):
+        p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
+        if p1 in demand_nodes and p2 in demand_nodes:
+            res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+            if res_cap > 0:
+                to_handle_pairs.add((p1,p2))
+        else:
+            to_handle_pairs.add((p1, p2))
+
     halt_monitoring = False
-    while iter < n_monitor_couples - n_to_repair_paths and not halt_monitoring:
-        print(iter,  n_monitor_couples - n_to_repair_paths, halt_monitoring)
-        n_to_repair_paths = 0
-        combs = list(combinations(set_useful_monitors, r=2))
-        for n1_node, n2_node in tqdm.tqdm(combs, disable=False):
+    while len(to_handle_pairs - handled_pairs) > 0:
+        SG = get_supply_graph(G)
+        priority_paths = {}  # k:path, v:priority
+        bubbles = []
 
-            if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:
+        if halt_monitoring:
+            break
+
+        print(len(to_handle_pairs-handled_pairs), to_handle_pairs-handled_pairs)
+
+        still_handle = to_handle_pairs - handled_pairs
+        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=True):
+            if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:  # halt due to monitoring msg
                 halt_monitoring = True
                 break
 
-            n1, n2 = make_existing_edge(G, n1_node, n2_node)
-
-            if not ((n1, n2) in get_demand_edges(G, is_capacity=False, is_check_unsatisfied=True)
-                    or n1 in only_monitors or n2 in only_monitors):
-                continue
-
-            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1, n2))
+            # if no capacitive path exists, abort, this should not happen
+            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))
             stats_packet_monitoring += 1
 
-            if st_path_out is None:
+            if not went_through:
                 print("Flow is not routable.")
-                exit()
+                return None
 
-            path, metric = st_path_out
+            path, metric, rc = st_path_out
+
+            # prc = get_path_residual_capacity(G, path)
+            # assert prc == rc
+            # print(metric, prc, rc, path)
+
             paths.append(path)
 
             if metric < len(SG.edges):  # works AND has capacity
-                if n1 in demand_nodes and n2 in demand_nodes:
+                if n1_mon in demand_nodes and n2_mon in demand_nodes:
                     if is_bubble(G, path):
                         bubbles.append(path)
-                        print("Urrà, found a bubble!", n1, n2)
+                        print("Urrà, found a bubble!", n1_mon, n2_mon)
                     else:
-                        priority = heuristic_priority_pruning(G, n1, n2)
+                        priority = heuristic_priority_pruning(G, n1_mon, n2_mon)  # was 1
                         priority_paths[tuple(path)] = priority
+                    continue
 
-            else:  # path is broken
-                # print("Il path è rotto", metric, path, (n1, n2))
-                if n1 in demand_nodes and n2 in demand_nodes:
-                    demand_edges_to_repair.append((n1, n2))
-                n_to_repair_paths += 1
+            # path was broken
+            elif n1_mon in demand_nodes and n2_mon in demand_nodes:
+                demand_edges_to_repair.append((n1_mon, n2_mon))
+                # print("path is broken", n_to_repair_paths)
+
+            handled_pairs.add((n1_mon, n2_mon))
 
         # --- choose a pruning path ---
-
+        path_to_prune = None
         if len(bubbles) > 0:
-            bubble_path = bubbles[0]
-            do_prune(G, bubble_path)
+            path_to_prune = bubbles[0]
 
         elif len(priority_paths) > 0:
             priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority
-            lowest_priority = list(priority_paths_items[0][0])
-            do_prune(G, lowest_priority)
+            path_to_prune = list(priority_paths_items[0][0])
 
-        demand_nodes_residual = get_demand_nodes(G, is_residual=True)
-        set_useful_monitors = (set(monitors) - demand_nodes).union(demand_nodes_residual)
+        if path_to_prune is not None:
 
-        bubbles = list()
-        priority_paths = dict()
-        iter += 1
+            if get_path_residual_capacity(G, path_to_prune) == 0:
+                if not is_routable(G, knowledge=None, is_fake_fixed=True):
+                    return None
+
+            pruned_quant = do_prune(G, path_to_prune)
+            demand_edges_routed_flow.append(pruned_quant)
+
+            n1, n2 = path_to_prune[0], path_to_prune[-1]
+            if G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
+                handled_pairs.add((n1, n2))
 
     if len(paths) < 2:
         print("> No monitoring done. No packets left.")
-        return stats_monitors, stats_packet_monitoring
-
-    print("Done computing monitoring paths for", len(stats_monitors), "monitors:", stats_monitors)
+        return stats_packet_monitoring, None, None
 
     n_edges, n_nodes = len(SG.edges), len(SG.nodes)
     tot_els = n_edges + n_nodes
@@ -290,33 +306,33 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     new_node_probs = dict()
     new_edge_probs = dict()
 
-    for n1 in tqdm.tqdm(G.nodes, disable=True):
-        original_posterior = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
-        node_id = G.nodes[n1][co.ElemAttr.ID.value]
+    for n1_mon in tqdm.tqdm(G.nodes, disable=True):
+        original_posterior = G.nodes[n1_mon][co.ElemAttr.POSTERIOR_BROKEN.value]
+        node_id = G.nodes[n1_mon][co.ElemAttr.ID.value]
         # print(node_id)
         if original_posterior not in [0, 1] and node_id in elements_in_paths:
-            prob = gain_knowledge_of_n_APPROX(G, n1, co.GraphElement.NODE, bp, bp_padded, *pars)
+            prob = gain_knowledge_of_n_APPROX(G, n1_mon, co.GraphElement.NODE, bp, bp_padded, *pars)
             # print((n1), prob)
-            new_node_probs[(n1, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
+            new_node_probs[(n1_mon, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
-    for n1, n2, gt in tqdm.tqdm(G.edges, disable=True):
+    for n1_mon, n2_mon, gt in tqdm.tqdm(G.edges, disable=True):
         if gt == co.EdgeType.SUPPLY.value:
-            original_posterior = G.edges[n1, n2, gt][co.ElemAttr.POSTERIOR_BROKEN.value]
-            edge_id = G.edges[n1, n2, gt][co.ElemAttr.ID.value]
+            original_posterior = G.edges[n1_mon, n2_mon, gt][co.ElemAttr.POSTERIOR_BROKEN.value]
+            edge_id = G.edges[n1_mon, n2_mon, gt][co.ElemAttr.ID.value]
             if original_posterior not in [0, 1] and edge_id in elements_in_paths:
-                prob = gain_knowledge_of_n_APPROX(G, (n1, n2), co.GraphElement.EDGE, bp, bp_padded, *pars)
+                prob = gain_knowledge_of_n_APPROX(G, (n1_mon, n2_mon), co.GraphElement.EDGE, bp, bp_padded, *pars)
                 # print((n1, n2), prob)
-                new_edge_probs[(n1, n2, gt, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
+                new_edge_probs[(n1_mon, n2_mon, gt, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
     for k in new_node_probs:
-        n1, att = k
-        G.nodes[n1][att] = new_node_probs[k]
+        n1_mon, att = k
+        G.nodes[n1_mon][att] = new_node_probs[k]
 
     for k in new_edge_probs:
-        n1, n2, gt, att = k
-        G.edges[n1, n2, gt][att] = new_edge_probs[k]
+        n1_mon, n2_mon, gt, att = k
+        G.edges[n1_mon, n2_mon, gt][att] = new_edge_probs[k]
 
-    return stats_monitors, stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow
+    return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow
 
 
 def probability_broken(padded_paths, prior, working_els):

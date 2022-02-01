@@ -88,8 +88,9 @@ def parallel_exec():
 
 def plotting_data():
     config = setup_configuration()
-    seeds = [1, 2, 3, 5]  #[1, 3, 5, 9, 10, 15, 17, 19]
+    seeds = [1, 3, 5, 9, 10, 15, 17, 19]
     dis_uni = [.05, .15, .3, .5, .7]
+
     algos = ["CEDAR", "CEDARNEW"]
     source = "data/experiments/"
 
@@ -99,9 +100,9 @@ def plotting_data():
 
 
 if __name__ == '__main__':
-    # parallel_exec()
-    # plotting_data()
-    run_var_seed_dis(17, 1)
+    #parallel_exec()
+    plotting_data()
+    #run_var_seed_dis(5, .05) # 17
 
 
 

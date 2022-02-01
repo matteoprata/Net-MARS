@@ -88,6 +88,7 @@ def run(config):
     for n1, n2, _ in get_demand_edges(G):
         G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
         G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        monitors_stats |= {n1, n2}
 
     pr_on_s3, pr_on_s4 = 0, 0
     # START
@@ -98,7 +99,7 @@ def run(config):
         # check if the graph is still routbale on tot graph,
         if not is_routable(G, None, is_fake_fixed=True):
             print("This instance is no more routable!")
-            return None
+            return stats_list
 
         iter += 1
         print("ITER", iter)
@@ -116,17 +117,21 @@ def run(config):
         print("- 1. PHASE (monitoring): starting")
         p1_start_time = time.time()
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
-            stats_monitors, stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = gain_knowledge_tomography(G,
-                                                                                                        stats["packet_monitoring"],
-                                                                                                        config.monitoring_messages_budget,
-                                                                                                        elements_val_id,
-                                                                                                        elements_id_val)
+            monitoring = gain_knowledge_tomography(G,
+                                                    stats["packet_monitoring"],
+                                                    config.monitoring_messages_budget,
+                                                    elements_val_id,
+                                                    elements_id_val)
+
+            if monitoring is None:
+                stats_list.append(stats)
+                return stats_list
+
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = monitoring
             routed_flow += sum(demand_edges_routed_flow)
             stats["flow"] = routed_flow
             stats["packet_monitoring"] += stats_packet_monitoring
-            stats["monitors"] |= stats_monitors  # union !
             packet_monitor = stats["packet_monitoring"]
-            monitors_stats = stats["monitors"]
 
         pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
                 config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
@@ -134,7 +139,7 @@ def run(config):
         p1_end_time = time.time()
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
-        print("> Residual demand edges", demand_edges)
+        print("> Residual demand edges", len(demand_edges), demand_edges)
 
         print("- 1. PHASE (monitoring): terminated in", round((p1_end_time - p1_start_time), 2), "s")
 

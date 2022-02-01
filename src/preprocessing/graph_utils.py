@@ -74,7 +74,7 @@ def monitor_placement_ours(G, demand_edges):
 
     paths = []
     for n1, n2, _ in demand_edges:
-        path, _, _ = mxv.protocol_repair_stpath_OLD(get_supply_graph(G), n1, n2)
+        path, _, _ = mxv.protocol_repair_stpath(get_supply_graph(G), n1, n2)
         paths.append(path)
 
     if len(paths) > 0:
@@ -194,7 +194,7 @@ def do_prune(G, path):
     demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
     quantity_pruning = min(st_path_cap, demand_residual)
     demand_pruning(G, path, quantity_pruning)
-    print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2)
+    print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2, "of res capacity", demand_residual, "on path of capacity", st_path_cap)
     return quantity_pruning
 
 
@@ -293,10 +293,10 @@ def get_incident_edges_of_node(node, edges):
 
 def make_existing_edge(G, n1, n2):
     """ Returns the oriented graph, for undirected graphs """
-    if (n1, n2) in [(e1, e2) for e1, e2, _ in G.edges]:
-        return n1, n2
-    else:
-        return n2, n1
+    for e1, e2, _ in G.edges:
+        if (e1, e2) == (n1, n2):
+            return n1, n2
+    return n2, n1
 
 
 def repair_node(G, n):

@@ -33,6 +33,15 @@ def set_seeds(seed):
     random.seed(seed)
 
 
+def detuple_list(li):
+    """ li: [(el1, el2, el3...), ] -> [el1, el2, el3..., ]"""
+    nuli = set()
+    for tuple in li:
+        for el in tuple:
+            nuli.add(el)
+    return nuli
+
+
 def safe_exec(func, pars):
     try:
         out = func(*pars)
