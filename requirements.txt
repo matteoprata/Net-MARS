@@ -1,0 +1,8 @@
+gurobipy==9.5.0
+matplotlib==3.4.3
+networkx==2.5
+numpy==1.21.2
+pandas==1.2.4
+plotly==5.3.1
+scipy==1.6.2
+tqdm==4.62.3

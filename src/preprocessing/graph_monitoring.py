@@ -210,9 +210,9 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         if p1 in demand_nodes and p2 in demand_nodes:
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
-                to_handle_pairs.add((p1,p2))
+                to_handle_pairs.add((p1,p2))  # edges demand not satisfied
         else:
-            to_handle_pairs.add((p1, p2))
+            to_handle_pairs.add((p1, p2))  # edges monitoring
 
     halt_monitoring = False
     while len(to_handle_pairs - handled_pairs) > 0:
@@ -251,7 +251,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
 
             if metric < len(SG.edges):  # works AND has capacity
                 if n1_mon in demand_nodes and n2_mon in demand_nodes:  # demand edge
-                    if is_bubble(G, path):
+                    if is_bubble(G, path):   # consider removing on paper
                         bubbles.append(path)
                         print("Urrà, found a bubble!", n1_mon, n2_mon)
                     else:
@@ -269,7 +269,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         # --- choose a pruning path ---
         path_to_prune = None
         if len(bubbles) > 0:
-            path_to_prune = bubbles[0]
+            path_to_prune = bubbles[0]  # TODO do prune all the bubbles
 
         elif len(priority_paths) > 0:
             priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority

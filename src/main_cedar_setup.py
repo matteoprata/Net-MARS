@@ -92,6 +92,8 @@ def run(config):
 
     pr_on_s3, pr_on_s4 = 0, 0
     # START
+    # TODO: azzoppare cedar con routing nostro
+    # TODO: is routable according to routing algorithm! Not the system of equations
     while not is_routable(G, co.Knowledge.TRUTH):
 
         print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
@@ -209,7 +211,7 @@ def run(config):
 
         p3_end_time = time.time()
         print("- 2. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
-        print("\n- 3. PHASE (add monitors): starting")
+        print("\n- 3. PHASE (add monitors): starting")  # TODO: move above after the monitoring
         p4_start_time = time.time()
 
         # 7. Add 1 new monitor, after discovery

@@ -160,7 +160,8 @@ def heuristic_priority_pruning(G, d1, d2):
         ns, nd = make_existing_edge(G, ne, d2)
         res_d2 += G.edges[ns, nd, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
-    priority = (demand_res_cap/res_d1 + demand_res_cap/res_d2) / 2
+    priority = (demand_res_cap/res_d1 + demand_res_cap/res_d2) / 2    # TODO remove / 2, choose min
+                                                                      # || find couple of endpoint which has the min prob.
     return priority
 
 
@@ -180,7 +181,7 @@ def is_bubble(G, path):
         for ne in SG.neighbors(node):
             n1, n2 = make_existing_edge(G, node, ne)
             cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-
+            # TODO check if broken, if so, not a bubble
             if ne not in path and cap > 0:
                 return False
     return tuple_is_unique
