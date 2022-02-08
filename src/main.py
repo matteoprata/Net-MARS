@@ -74,7 +74,7 @@ def run_var_seed_dis(seed, dis, is_parallel=False):
 
 
 def parallel_exec():
-    seeds = [1, 3, 5, 9, 10, 15, 17, 19]
+    seeds = range(5)
     dis_uni = [.05, .15, .3, .5, .7]
 
     processes = []
@@ -85,10 +85,12 @@ def parallel_exec():
     with Pool(processes=co.N_CORES) as pool:
         pool.starmap(run_var_seed_dis, processes)
 
+    print("COMPLETED SUCCESSFULLY")
+
 
 def plotting_data():
     config = setup_configuration()
-    seeds = [1, 3, 5, 9, 10, 15, 17, 19]
+    seeds = range(5)  # [1, 3, 5, 9, 10, 15, 17, 19]
     dis_uni = [.05, .15, .3, .5, .7]
 
     algos = ["CEDAR", "CEDARNEW"]
@@ -97,12 +99,13 @@ def plotting_data():
     plot_integral(source, config, seeds, dis_uni, algos)
     plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg")
     plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors")
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs")
 
 
 if __name__ == '__main__':
     # parallel_exec()
     plotting_data()
-    # run_var_seed_dis(5, .3)  # 17
+    # run_var_seed_dis(5, .3)
 
 
 

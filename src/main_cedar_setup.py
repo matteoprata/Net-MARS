@@ -160,6 +160,7 @@ def run(config):
             # path = mxv.widest_path_viv(SG, n1, n2)
             # probabilistic_edge_weights(SG, G)
             # path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
+
             paths.append(path)
             paths_met.append(metric-(len(path)-1)+1)
             paths_cap.append(capa)

@@ -255,7 +255,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                         bubbles.append(path)
                         print("Urrà, found a bubble!", n1_mon, n2_mon)
                     else:
-                        priority = heuristic_priority_pruning(G, n1_mon, n2_mon)
+                        priority = heuristic_priority_pruning_V2(G, n1_mon, n2_mon, path)
                         priority_paths[tuple(path)] = priority
                     continue
 
@@ -272,7 +272,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             path_to_prune = bubbles[0]  # TODO do prune all the bubbles
 
         elif len(priority_paths) > 0:
-            priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1])  # path, priority
+            priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1], reverse=True)  # path, priority
             path_to_prune = list(priority_paths_items[0][0])
 
         if path_to_prune is not None:

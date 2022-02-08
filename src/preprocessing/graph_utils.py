@@ -165,6 +165,15 @@ def heuristic_priority_pruning(G, d1, d2):
     return priority
 
 
+def heuristic_priority_pruning_V2(G, d1, d2, path):
+    """ Priority is the average (over the endpoints) of the ratio demand edge residual capacity over sum of residual
+    capacities over the neighbouring nodes. """
+    cap_path = get_path_residual_capacity(G, path)
+    cap_dem = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
+    return cap_dem / cap_path
+
+
 def is_bubble(G, path):
     """ Condition 1 only the endpoint demand edges are the demand edges within the path.
         Condition 2, all nodes in the path (except the endpoints) must have only connections within the set of nodes of the path. """

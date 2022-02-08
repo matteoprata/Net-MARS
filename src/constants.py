@@ -1,6 +1,6 @@
 
 from enum import Enum
-
+import multiprocessing
 
 class GraphName(Enum):
     PALMETTO = "PALMETTO.gml"
@@ -94,4 +94,5 @@ PATH_TO_GRAPH = "data/graphs/"
 REPAIR_COST = 1
 EPSILON = 10 ** -10
 
-N_CORES = 8*2
+
+N_CORES = multiprocessing.cpu_count() - 1

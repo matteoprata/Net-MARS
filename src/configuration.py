@@ -23,7 +23,7 @@ class Configuration:
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (70, 91)  # (50, 71)
+        self.supply_capacity = (150, 200)  # (50, 71)
 
         # Clique world
         self.is_demand_clique = True

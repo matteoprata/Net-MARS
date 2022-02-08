@@ -180,7 +180,7 @@ def plot_ph3(config, type):
 
 
 def plot_monitors_stuff(source, config, seeds_values, pbro_values, algos, typep):
-    plot_name = {"n_monitors": "Number monitors", "n_monitor_msg": "Number monitoring messages"}
+    plot_name = {"n_monitors": "Number monitors", "n_monitor_msg": "Number monitoring messages", "n_repairs": "Number repairs"}
     path_prefix = source + "{}"
 
     slices = []
@@ -196,7 +196,8 @@ def plot_monitors_stuff(source, config, seeds_values, pbro_values, algos, typep)
                                                                                            al, pbro)
                 path = path_prefix.format(regex_fname)
 
-                df = pd.read_csv(path)[typep]
+                df = pd.read_csv(path)
+                df = df[typep]
                 df = pd.DataFrame([df.iloc[0]])
                 dfs.append(df)
 
@@ -217,6 +218,8 @@ def plot_monitors_stuff(source, config, seeds_values, pbro_values, algos, typep)
     plt.ylabel(plot_name[typep])
     plt.grid(alpha=.4)
     plt.xticks(pbro_values, pbro_values)
+    if typep == "n_monitor_msg":
+        plt.yscale('log')
 
     # print(out)
     plt.show()
@@ -276,7 +279,6 @@ def plot_integral(source, config, seeds_values, pbro_values, algos):
     ALG = [A1, A2]
     for i, seeds_pbro in enumerate(ALG):
         seeds_pbro.columns = pbro_values
-
         bpl = plt.boxplot(seeds_pbro, positions=positions[i])
         plt.plot([], c=colors[i], label=algos[i])
 
@@ -288,7 +290,7 @@ def plot_integral(source, config, seeds_values, pbro_values, algos):
     plt.legend()
     plt.xticks(range(0, len(pbro_values) * 2, 2), pbro_values)
     plt.xlabel("Probability Broken")
-    plt.ylabel("Cumulative Flow Integral")
+    plt.ylabel("Cumulative Flow")
     plt.grid(alpha=.4)
     plt.show()
     plt.savefig(path_prefix.format("integral_flow_box.png"), dpi=400)
@@ -306,7 +308,7 @@ def plot_integral(source, config, seeds_values, pbro_values, algos):
     plt.legend()
     plt.xticks(pbro_values, pbro_values)
     plt.xlabel("Probability Broken")
-    plt.ylabel("Cumulative Flow Integral")
+    plt.ylabel("Cumulative Flow")
     plt.grid(alpha=.4)
     plt.show()
     plt.savefig(path_prefix.format("integral_flow_curves.png"), dpi=400)
