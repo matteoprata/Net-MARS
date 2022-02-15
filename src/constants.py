@@ -25,6 +25,7 @@ class Destruction(Enum):
     UNIFORM = "random"
     GAUSSIAN = "gaussian"
     COMPLETE = "complete"
+    GAUSSIAN_PROGRESSIVE = "gaussian_progressive"
 
 
 class EdgeType(Enum):
@@ -95,4 +96,4 @@ REPAIR_COST = 1
 EPSILON = 10 ** -10
 
 
-N_CORES = multiprocessing.cpu_count() - 1
+N_CORES = multiprocessing.cpu_count()

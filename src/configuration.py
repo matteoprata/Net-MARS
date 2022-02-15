@@ -12,11 +12,11 @@ class Configuration:
         self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
 
-        self.destruction_show_plot = False
+        self.destruction_show_plot = True
         self.destruction_save_plot = False
 
-        self.destruction_type = co.Destruction.UNIFORM
-        self.destruction_uniform_quantity = .3
+        self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
+        self.destruction_quantity = .2
 
         self.destruction_width = .05
         self.destruction_precision = 1000  # density of the [1,0] grid
@@ -37,3 +37,6 @@ class Configuration:
 
         self.monitors_budget = 22  # int(self.n_demand_clique + (self.n_demand_clique * (self.n_demand_clique-1) / 2) / 2)  # n + ( n*(n-1)/2 ) / 4
         self.monitoring_messages_budget = np.inf
+
+        self.n_backbone_pairs = 5
+        self.percentage_flow_backbone = .5  # increase in flow quantity

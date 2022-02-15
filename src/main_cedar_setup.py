@@ -46,7 +46,7 @@ def run(config):
     dim_ratio = scale_coordinates(G)
 
     distribution, broken_nodes, broken_edges, perc_broken_elements = destroy(G, config.destruction_type, config.destruction_precision, dim_ratio,
-                                                       config.destruction_width, config.n_destruction, config.graph_dataset, config.seed, ratio=config.destruction_uniform_quantity)
+                                                                             config.destruction_width, config.n_destruction, config.graph_dataset, config.seed, ratio=config.destruction_quantity)
 
     # add_demand_endpoints
     if config.is_demand_clique:
@@ -54,7 +54,7 @@ def run(config):
     else:
         add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
 
-    # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_pairs,
+    # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                              config.demand_capacity, config.destruction_uniform_quantity)
     # save_porting_dictionary(G, path)
     # return

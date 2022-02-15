@@ -6,6 +6,8 @@ import pandas as pd
 
 import src.plotting.graph_plotting as gp
 import src.preprocessing.graph_distruction as dis
+import src.preprocessing.graph_utils as grau
+
 import src.constants as co
 import src.utilities.util as util
 from collections import defaultdict
@@ -57,7 +59,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
             elements_val_id[(n1, n2)] = element_id
             elements_val_id[(n2, n1)] = element_id
             elements_id_val[element_id] = (n1, n2)
-            supply_capacity_rand = config.rand_generator_capacities.randint(*config.supply_capacity)
+            supply_capacity_rand = config.supply_capacity[0]  # config.rand_generator_capacities.randint(*config.supply_capacity)
             G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE_TRUTH.value: co.NodeState.WORKING.value,  # unobservable state
                                                                   co.ElemAttr.CAPACITY.value: supply_capacity_rand,
                                                                   co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity_rand,
@@ -68,6 +70,18 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   co.ElemAttr.ID.value: element_id,
                                                                   co.ElemAttr.SAT_DEM.value: defaultdict(int)
                                                                   })])
+
+    max_comp = list(get_max_component(G))
+    list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(config.n_backbone_pairs)]
+    for p1, p2 in list_pairs:
+        path = nx.shortest_path(G, p1, p2)
+        for i in range(len(path)-1):
+            e1, e2 = path[i], path[i+1]
+            e1, e2 = grau.make_existing_edge(G, e1, e2)
+            backbone_flow = config.supply_capacity[0] * (1 + config.percentage_flow_backbone)
+            G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_flow
+            G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_flow
+
     return G, elements_val_id, elements_id_val
 
 
@@ -106,6 +120,8 @@ def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_
 
     if destruction_type == co.Destruction.GAUSSIAN:
         dist, nodes, edges = dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
+    elif destruction_type == co.Destruction.GAUSSIAN_PROGRESSIVE:
+        dist, nodes, edges = dis.gaussian_progressive_destruction(G, destruction_precision, dims_ratio, ratio)
     elif destruction_type == co.Destruction.UNIFORM:
         dist, nodes, edges = dis.uniform_destruction(G, ratio)
     elif destruction_type == co.Destruction.COMPLETE:
