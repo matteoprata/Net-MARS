@@ -31,18 +31,23 @@ def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
         node_x.append(x)
         node_y.append(y)
 
+
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode='markers',
         hoverinfo='text',
         marker=dict(
             line_color="black",
-            size=10,
             line_width=1))
 
+    node_sizes = []
     node_color = []
     node_text = []
     for node in G.nodes:
+
+        is_epicenter = co.ElemAttr.IS_EPICENTER.value in G.nodes[node].keys() and G.nodes[node][co.ElemAttr.IS_EPICENTER.value] == 1
+        nodesize = 10 if not is_epicenter else 40
+        node_sizes.append(nodesize)
 
         prob = round(G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
         state_T = G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
@@ -64,6 +69,7 @@ def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         node_color.append(color)
 
+    node_trace.marker.size = node_sizes
     node_trace.marker.color = node_color
     node_trace.text = node_text
     return node_trace

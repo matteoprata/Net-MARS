@@ -56,6 +56,7 @@ class ElemAttr(Enum):
     LATITUDE = 'Latitude'
     IS_MONITOR = 'is_monitor'
     CENTRALITY = 'centrality'
+    IS_EPICENTER = 'is_epicenter'
 
     # all
     STATE_TRUTH = 'state'                  # ENUMERATOR  (INVISIBILE)

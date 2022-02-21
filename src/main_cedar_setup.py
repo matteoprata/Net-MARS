@@ -61,6 +61,10 @@ def run(config):
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU)
+    #
+    # print(broken_nodes)
+    # print(broken_edges)
+    # exit()
 
     # hypothetical routability
     if not is_routable(G, None, is_fake_fixed=True):

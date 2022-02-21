@@ -14,6 +14,10 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+def is_distance_tolerated(perc_broken_sofar, destruction_quantity, tolerance):
+    return abs(perc_broken_sofar - destruction_quantity) < tolerance
+
+
 def min_max_normalizer(value, startLB, startUB, endLB=0, endUB=1):
     # Figure out how 'wide' each range is
     value = np.asarray(value)

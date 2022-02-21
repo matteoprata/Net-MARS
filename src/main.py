@@ -138,7 +138,7 @@ def plotting_data():
 if __name__ == '__main__':
     # parallel_exec()
     # plotting_data()
-    run_var_seed_dis(seed=5, dis=.1, budget=50, nnodes=10, flowpp=20)
+    run_var_seed_dis(seed=10, dis=.3, budget=50, nnodes=10, flowpp=10)
 
 
 

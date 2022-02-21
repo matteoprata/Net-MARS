@@ -49,7 +49,6 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                 co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
                                 co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
                                 co.ElemAttr.ID.value: element_id,
-
                                 })])
 
     # every edge will work by default
@@ -71,6 +70,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   co.ElemAttr.SAT_DEM.value: defaultdict(int)
                                                                   })])
 
+    # ADD the backbones!
     max_comp = list(get_max_component(G))
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(config.n_backbone_pairs)]
     for p1, p2 in list_pairs:
