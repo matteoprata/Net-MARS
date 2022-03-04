@@ -3,7 +3,22 @@ import src.preprocessing.graph_utils as gru
 from gurobipy import *
 
 
+def is_feasible(G, is_fake_fixed=True):
+    """ System of equations checks if solution exists. """
+
+    demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
+    supply_edges = gru.get_supply_edges(G)
+
+    m = system_for_routability(G, demand_edges, supply_edges, None, is_fake_fixed)
+    is_solution_ok = m.status == GRB.status.OPTIMAL
+
+    print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
+    return is_solution_ok
+
+
+# DO NOT USE THIS
 def is_routable(G, knowledge, is_fake_fixed=False):
+
     """ Returns True if the system of linear equations and inequalities has at least one solution. """
 
     demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
@@ -71,13 +86,15 @@ def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fix
             flow_out_j = quicksum(flow_var[h, j, k] for _, k in from_j)  # out flow da j
             flow_in_j = quicksum(flow_var[h, k, j] for k, _ in to_j)     # inner flow da j
 
-            if var_demand_node_pos[j, h] == 0:
+            if var_demand_node_pos[j, h] == 0:    # source
                 m.addConstr(flow_out_j - flow_in_j == dem_val, 'node_%s_%s' % (h, j))
-            elif var_demand_node_pos[j, h] == 2:
+            elif var_demand_node_pos[j, h] == 2:  # destination
                 m.addConstr(flow_in_j - flow_out_j == dem_val, 'node_%s_%s' % (h, j))
-            elif var_demand_node_pos[j, h] == 1:
+            elif var_demand_node_pos[j, h] == 1:  # intermediate
                 m.addConstr(flow_in_j == flow_out_j, 'node_%s_%s' % (h, j))
 
     m.update()
     m.optimize()
     return m
+
+

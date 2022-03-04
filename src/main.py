@@ -77,14 +77,14 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, is_parallel=False):
 
 
 def parallel_exec():
-    seeds = [0, 1, 2, 3, 5]
-    dis_uni = [.7]  # [.05, .15, .3, .5, .7]
-    budget = [500]   # [10, 15, 20, 25, 30, 40, 50]
-    npairs = [5, 6, 7, 8, 9, 10]    # [5, 6, 7, 8, 9, 10]
-    flowpp = [16]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]
+    seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    dis_uni = [.3]   # [.05, .15, .3, .5, .7]
+    budget_n_monitor = [20]   # [10, 15, 20, 25, 30, 40, 50]
+    npairs = [5, 6, 7, 8, 9, 10]     # [5, 6, 7, 8, 9, 10]
+    flowpp = [10.0]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]
 
     processes = []
-    for bu in budget:
+    for bu in budget_n_monitor:
         for dis in dis_uni:
             for seed in seeds:
                 for npe in npairs:
@@ -105,41 +105,25 @@ def initializer():
     """Ignore CTRL+C in the worker process."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
+
 def plotting_data():
     config = setup_configuration()
-    seeds = range(5)  # [1, 3, 5, 9, 10, 15, 17, 19]
-    dis_uni = [.05, .15, .3, .5, .7]  #[5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]  # 5, 6, 7, 8, 9, 10 [.05, .15, .3, .5, .7]
+    seeds = [0, 1, 2, 3, 4, 5]  # [1, 3, 5, 9, 10, 15, 17, 19]
+    dis_uni = [5, 6, 7, 8, 9, 10]  # [.05, .15, .3, .5, .7]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]  # 5, 6, 7, 8, 9, 10 [.05, .15, .3, .5, .7]
 
-    # algos = ["CEDARNEW_BUD_20", "CEDAR_BUD_20"]
-    algos = ["CEDAR-HOP1-INFMON",
-             "CEDAR-HOP5-INFMON",
-             "CEDAR-HOP10-INFMON",
-             "CEDAR-HOP20-INFMON"]
-
-    # algos += [#"CEDAR_BUD_50",
-    #          #"CEDAR_BUD_40",
-    #          #"CEDAR_BUD_30",
-    #          #"CEDAR_BUD_25",
-    #          #"CEDAR_BUD_20",
-    #          #"CEDAR_BUD_15",
-    #          "CEDAR_BUD_10"
-    #         ]
+    algos = ["CEDARNEW_BUD_20", "CEDAR_BUD_20"]
 
     source = "data/experiments/"
 
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=2)
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=2)
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=1)
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=1)
 
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=2)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=2)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=2)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=1)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=1)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=1)
 
 
 if __name__ == '__main__':
     # parallel_exec()
     # plotting_data()
-    run_var_seed_dis(seed=10, dis=.3, budget=50, nnodes=10, flowpp=10)
-
-
-
-
+    run_var_seed_dis(seed=90, dis=.4, budget=20, nnodes=12, flowpp=10)

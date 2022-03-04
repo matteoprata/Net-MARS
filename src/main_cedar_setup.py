@@ -55,19 +55,19 @@ def run(config):
         add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
-    #                                                              config.demand_capacity, config.destruction_uniform_quantity)
+    #                                                                           config.demand_capacity, config.destruction_quantity)
     # save_porting_dictionary(G, path)
     # return
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU)
-    #
+
     # print(broken_nodes)
     # print(broken_edges)
     # exit()
 
     # hypothetical routability
-    if not is_routable(G, None, is_fake_fixed=True):
+    if not is_feasible(G, is_fake_fixed=True):
         print("This instance is not solvable. Check the number of demand edges, theirs and supply links capacity.\n\n\n")
         return None
 
@@ -98,12 +98,13 @@ def run(config):
     # START
     # TODO: azzoppare cedar con routing nostro
     # TODO: is routable according to routing algorithm! Not the system of equations
-    while not is_routable(G, co.Knowledge.TRUTH):
+    while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
+        # go on if there are demand edges to satisfy, and still is_feasible
 
         print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
 
         # check if the graph is still routbale on tot graph,
-        if not is_routable(G, None, is_fake_fixed=True):
+        if not is_feasible(G, is_fake_fixed=True):
             print("This instance is no more routable!")
             return stats_list
 
@@ -139,9 +140,13 @@ def run(config):
             stats["packet_monitoring"] += stats_packet_monitoring
             packet_monitor = stats["packet_monitoring"]
 
-        pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
-                config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
-                co.PlotType.KNO)
+        # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
+        #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
+        #         co.PlotType.KNO)
+
+        pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
+                config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU)
+
         p1_end_time = time.time()
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
@@ -186,7 +191,7 @@ def run(config):
                 # min_cap = get_path_cost(G, path_nodes)
                 min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
                 paths_caps.append(min_cap)
-            #
+
             # print(list(zip(paths_cap, [get_path_residual_capacity(G, pp) for pp in paths], paths_met, paths_caps, paths)))  # [(met, post, path)]
 
             # 4. Get the path that maximizes the minimum bottleneck capacity

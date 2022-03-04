@@ -199,7 +199,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     only_monitors = set(monitors) - demand_nodes
 
     set_useful_monitors = only_monitors.union(demand_nodes_residual)
-    #
+
     # n_demand_pairs = int(len(demand_nodes_residual) * (len(demand_nodes_residual) - 1) / 2)
     # n_monitor_couples = len(set_useful_monitors) * (len(set_useful_monitors) - 1) / 2
     # iter_value, flows_to_consider = 0, n_demand_pairs
@@ -232,12 +232,12 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                 break
 
             # if no capacitive path exists, abort, this should not happen
-            went_through, st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+            st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
             stats_packet_monitoring += 1
 
-            if not went_through:
+            if st_path_out is None:
                 handled_pairs.add((n1_mon, n2_mon))
-                print("Flow is not routable for pair", n1_mon, n2_mon)
+                print("Flow is not routable or pingable for pair", n1_mon, n2_mon)
                 continue
                 # return None
 
@@ -247,7 +247,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             # assert prc == rc
             # print(metric, prc, rc, path)
 
-            paths.append(path)  # TODO check
+            paths.append(path)
 
             if metric < len(SG.edges):  # works AND has capacity
                 if n1_mon in demand_nodes and n2_mon in demand_nodes:  # demand edge
@@ -255,6 +255,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                         bubbles.append(path)
                         print("Urrà, found a bubble!", n1_mon, n2_mon)
                     else:
+                        # dem path capacity / residual capacity of the path
                         priority = heuristic_priority_pruning_V2(G, n1_mon, n2_mon, path)
                         priority_paths[tuple(path)] = priority
                     continue
@@ -277,9 +278,11 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
 
         if path_to_prune is not None:
 
-            if get_path_residual_capacity(G, path_to_prune) == 0:
-                if not is_routable(G, knowledge=None, is_fake_fixed=True):
-                    return None
+            # if get_path_residual_capacity(G, path_to_prune) == 0:
+            #     if not is_feasible(G, is_fake_fixed=True):
+            #         return None
+
+            assert get_path_residual_capacity(G, path_to_prune) > 0
 
             pruned_quant = do_prune(G, path_to_prune)
             demand_edges_routed_flow.append(pruned_quant)

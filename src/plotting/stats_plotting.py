@@ -75,27 +75,30 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
         for pbro in X_vals:
             dfs = []  # many dfs as the seeds (columns to average on axis 0)
             for ss in seeds_values:
-                # varying probs
-                regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
-                                                                                           config.n_demand_pairs,
-                                                                                           config.demand_capacity,
-                                                                                           config.supply_capacity,
-                                                                                           al, pbro)
 
-                # regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
-                #                                                                            config.graph_dataset.name,
-                #                                                                            pbro,
-                #                                                                            config.demand_capacity,
-                #                                                                            config.supply_capacity,
-                #                                                                            al, 0.3)
+                if x_position == 0:
+                    # varying probs
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
+                                                                                               config.n_demand_pairs,
+                                                                                               int(config.demand_capacity),
+                                                                                               config.supply_capacity,
+                                                                                               al, pbro)
+                elif x_position == 1:
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
+                                                                                               config.graph_dataset.name,
+                                                                                               pbro,
+                                                                                               int(config.demand_capacity),
+                                                                                               config.supply_capacity,
+                                                                                               al, 0.3)
 
-                # # varying flow pp
-                # regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
-                #                                                                            config.graph_dataset.name,
-                #                                                                            8,
-                #                                                                            pbro,
-                #                                                                            config.supply_capacity,
-                #                                                                            al, 0.3)
+                elif x_position == 2:
+                    # varying flow pp
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
+                                                                                               config.graph_dataset.name,
+                                                                                               8,
+                                                                                               pbro,
+                                                                                               config.supply_capacity,
+                                                                                               al, 0.3)
 
                 path = path_prefix.format(regex_fname)
 
@@ -125,8 +128,8 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
         plt.yscale('log')
 
     # print(out)
-    plt.show()
     plt.savefig(path_prefix.format(typep + ".png"), dpi=400)
+    plt.show()
     plt.clf()
 
 
@@ -151,25 +154,27 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
             dfs = []  # many dfs as the seeds (columns to average on axis 0)
             for ss in seeds_values:
                 # varying probability
-                regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
-                                                                                           config.n_demand_pairs,
-                                                                                           config.demand_capacity,
-                                                                                           config.supply_capacity,
-                                                                                           algo, x)
-                # # varying n pairs
-                # regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|0.3.csv".format(ss, config.graph_dataset.name,
-                #                                                                            x,
-                #                                                                            config.demand_capacity,
-                #                                                                            config.supply_capacity,
-                #                                                                            algo)
+                if x_position == 0:
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
+                                                                                               config.n_demand_pairs,
+                                                                                               int(config.demand_capacity),
+                                                                                               config.supply_capacity,
+                                                                                               algo, x)
+                elif x_position == 1:
+                    # # varying n pairs
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|0.3.csv".format(ss, config.graph_dataset.name,
+                                                                                               x,
+                                                                                               int(config.demand_capacity),
+                                                                                               config.supply_capacity,
+                                                                                               algo)
 
-                # # varying flow pp
-                # regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
-                #                                                                             config.graph_dataset.name,
-                #                                                                             8,
-                #                                                                             x,
-                #                                                                             config.supply_capacity,
-                #                                                                             algo, 0.3)
+                elif x_position == 2:
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
+                                                                                                config.graph_dataset.name,
+                                                                                                8,
+                                                                                                x,
+                                                                                                config.supply_capacity,
+                                                                                                algo, 0.3)
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)["flow_cum"]
@@ -244,8 +249,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     plt.xlabel(Xlabels[x_position])
     plt.ylabel("Total Flow" if is_total else "Cumulative Flow")
     plt.grid(alpha=.4)
+    plt.savefig(path_prefix.format("integral_flow_curves_{}.png".format(int(is_total))), dpi=400)
     plt.show()
-    plt.savefig(path_prefix.format("integral_flow_curves.png"), dpi=400)
     plt.clf()
 
 

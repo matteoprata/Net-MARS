@@ -49,10 +49,10 @@ def detuple_list(li):
 def safe_exec(func, pars):
     try:
         out = func(*pars)
-        return True, out
+        return out
     except:
-        traceback.print_exception(*sys.exc_info())
-        return False, None
+        # traceback.print_exception(*sys.exc_info())
+        return None
 
 
 def block_print():

@@ -97,4 +97,4 @@ REPAIR_COST = 1
 EPSILON = 10 ** -10
 
 
-N_CORES = multiprocessing.cpu_count()
+N_CORES = int(multiprocessing.cpu_count() / 2)

@@ -138,8 +138,10 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
             elif plot_type == co.PlotType.ROU and n_shared == 0:
                 color = 'yellow'
 
+        res_cap_perc = G.edges[n1, n2, gt_ori][co.ElemAttr.RESIDUAL_CAPACITY.value] / G.edges[n1, n2, gt_ori][co.ElemAttr.CAPACITY.value]
+
         edge_trace = go.Scatter(
-            x=edge_x, y=edge_y,
+            x=edge_x, y=edge_y, opacity=res_cap_perc,
             line=dict(width=2, color=color, dash=dash),
             mode='lines'
         )

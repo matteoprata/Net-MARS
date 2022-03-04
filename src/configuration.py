@@ -30,7 +30,7 @@ class Configuration:
         self.n_demand_clique = 8
 
         # Edges world
-        self.n_demand_pairs = 5
+        self.n_demand_pairs = 8
 
         self.rand_generator_capacities = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
