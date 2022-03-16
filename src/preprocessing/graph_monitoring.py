@@ -84,6 +84,7 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, broken_p
                             broken_nodes_T, elements_val_id, elements_id_val):
     """ Approximated """
 
+    # failed paths
     bp_without_n = broken_paths_without_n(SG, paths, broken_paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=element)
     bp_with_n = set([tuple(p) for p in broken_paths]) - set([tuple(p) for p in bp_without_n])
 
@@ -101,22 +102,25 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, broken_p
     if ide in working_elements_ids:
         return 0
 
+    if len(bp_with_n) == 0:
+        return co.NodeState.UNK.value
+
     # remove working elements in broken paths with n
     new_bp_with_n = []
     for list_elements in bp_with_n:
         bp = []
         #nodes, edges = get_path_elements(path)
         for n in list_elements:
-            if n not in working_elements_ids:
+            if n not in working_elements_ids:  # se n è rotto o unk
                 bp.append(n)
-        new_bp_with_n.append(bp)
+        new_bp_with_n.append(bp)  # path i cui element func non ci sono
 
     # 0 if there's at least a path that crosses the element with len 1
-    is_broken = sum([1 for p in new_bp_with_n if len(p) == 1]) > 0
+    is_broken = sum([1 for p in new_bp_with_n if len(p) == 1]) > 0  # se c'è aleno un path di lunghezza 1 (e quell'uno è per forza l'elemento)  [1,1,1]
     if is_broken:  # is broken
         return 1
 
-    el_bp = set()
+    el_bp = set()   # insieme degli elementi rotti o sconosciuti
     for li in new_bp_with_n:
         el_bp |= set(li)
 
@@ -232,12 +236,15 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
                 break
 
             # if no capacitive path exists, abort, this should not happen
-            st_path_out = util.safe_exec(mxv.protocol_routing_stpath, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+            st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
             stats_packet_monitoring += 1
 
             if st_path_out is None:
                 handled_pairs.add((n1_mon, n2_mon))
-                print("Flow is not routable or pingable for pair", n1_mon, n2_mon)
+                demand_nodes = get_demand_nodes(G)
+                is_demand_path = n1_mon in demand_nodes and n2_mon in demand_nodes
+                str_info = "ROUTABLE" if is_demand_path else "PINGABLE"
+                print("Flow is not {} for pair".format(str_info), n1_mon, n2_mon)
                 continue
                 # return None
 

@@ -36,7 +36,7 @@ class EdgeType(Enum):
 class NodeState(Enum):
     BROKEN = 1
     WORKING = 0
-    UNK = .5
+    UNK = .1
     NA = -1  # used for demand edges, since Edge is a Node GREEN
 
 
@@ -90,11 +90,23 @@ class AlgoName(Enum):
     CEDARNEW = "CEDARNEW"
 
 
+class ProtocolRepairingPath(Enum):
+    SHORTEST = 0
+    MAX_BOT_CAP = 1
+    MIN_COST_BOT_CAP = 2
+    IP = 3
+
+
+class ProtocolPickingPath(Enum):
+    RANDOM = 0
+    MAX_BOT_CAP = 1
+    MIN_COST_BOT_CAP = 2
+
+
 # constants
 PATH_TO_GRAPH = "data/graphs/"
 
 REPAIR_COST = 1
 EPSILON = 10 ** -10
 
-
-N_CORES = int(multiprocessing.cpu_count() / 2)
+N_CORES = multiprocessing.cpu_count()

@@ -9,7 +9,7 @@ class Configuration:
 
         self.mute_log = False
         self.algo_name = co.AlgoName.CEDARNEW.value
-        self.graph_dataset = co.GraphName.MINNESOTA
+        self.graph_dataset = co.GraphName.UNINET
         self.graph_path = self.graph_dataset.value
 
         self.destruction_show_plot = False
@@ -33,6 +33,7 @@ class Configuration:
         self.n_demand_pairs = 8
 
         self.rand_generator_capacities = None
+        self.rand_generator_path_choice = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
         self.monitors_budget = 22  # int(self.n_demand_clique + (self.n_demand_clique * (self.n_demand_clique-1) / 2) / 2)  # n + ( n*(n-1)/2 ) / 4
@@ -40,3 +41,6 @@ class Configuration:
 
         self.n_backbone_pairs = 5
         self.percentage_flow_backbone = .5  # increase in flow quantity
+
+        self.repairing_mode = co.ProtocolRepairingPath.MIN_COST_BOT_CAP
+        self.picking_mode = co.ProtocolPickingPath.MIN_COST_BOT_CAP

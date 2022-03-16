@@ -21,10 +21,6 @@ def save_stats_as_df_ph1(stats, config):
         n_repairs += len(vals)
 
     flow_perc[-1] = stats[-1]["flow"]
-        # for every flow increase, find expected routed flow for the path
-        # for _ in range(n_vals):
-        #     routed_flow += dic["flow"] / n_vals
-        #     flow_cum += [routed_flow]
 
     df = pd.DataFrame()
     df["repairs"] = repairs
@@ -48,8 +44,15 @@ def save_stats_as_df_ph1(stats, config):
     df["n_monitor_msg"] = n_monitor_msg_messages
 
     key = "_BUD_" + str(config.monitors_budget)
-    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
-                                                                         config.demand_capacity, config.supply_capacity, config.algo_name + key, config.destruction_quantity)
+    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}I{}.csv".format(config.seed,
+                                                                                   config.graph_dataset.name,
+                                                                                   config.n_demand_clique,
+                                                                                   config.demand_capacity,
+                                                                                   config.supply_capacity,
+                                                                                   config.algo_name + key,
+                                                                                   config.destruction_quantity,
+                                                                                   config.repairing_mode.value,
+                                                                                   config.picking_mode.value)
     print("saving stats > {}".format(fname))
     df.to_csv("data/experiments/{}".format(fname))
 
@@ -72,17 +75,18 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     slices = []
     for al in algos:
         seeds_pbro = []
+        algo, rep = al
         for pbro in X_vals:
             dfs = []  # many dfs as the seeds (columns to average on axis 0)
             for ss in seeds_values:
-
                 if x_position == 0:
                     # varying probs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
-                                                                                               config.n_demand_pairs,
-                                                                                               int(config.demand_capacity),
-                                                                                               config.supply_capacity,
-                                                                                               al, pbro)
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}.csv".format(ss,
+                                                                                                      config.graph_dataset.name,
+                                                                                                      config.n_demand_pairs,
+                                                                                                      int(config.demand_capacity),
+                                                                                                      config.supply_capacity,
+                                                                                                      algo, pbro, rep)
                 elif x_position == 1:
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
                                                                                                config.graph_dataset.name,
@@ -146,20 +150,22 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     """
     path_prefix = source + "{}"  # "data/experiments/{}"
     Xlabels = {0:"Probability Broken", 1:"Number Demand Nodes", 2:"Demand Flow"}
+    NAM = {1:"CED", 0:"TOMOCE", 2:"RAND", 3:"IP"}
 
     algos_values = [[] for _ in range(len(algos))]
     for x in X_var:
         seeds_pbro = []
         for i, algo in enumerate(algos):
+            algo, rep = algo
             dfs = []  # many dfs as the seeds (columns to average on axis 0)
             for ss in seeds_values:
                 # varying probability
                 if x_position == 0:
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss, config.graph_dataset.name,
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}.csv".format(ss, config.graph_dataset.name,
                                                                                                config.n_demand_pairs,
                                                                                                int(config.demand_capacity),
                                                                                                config.supply_capacity,
-                                                                                               algo, x)
+                                                                                               algo, x, rep)
                 elif x_position == 1:
                     # # varying n pairs
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|0.3.csv".format(ss, config.graph_dataset.name,
@@ -241,8 +247,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
         mev = seeds_pbro.mean(axis=0)
         stv = seeds_pbro.std(axis=0)
 
-        plt.plot(X_var, mev)
-        plt.fill_between(X_var, mev - stv, mev + stv, alpha=0.2, label=algos[i])
+        plt.plot(X_var, mev, label=algos[i][1])
+        # plt.fill_between(X_var, mev - stv, mev + stv, alpha=0.2)
 
     plt.legend()
     plt.xticks(X_var, X_var)

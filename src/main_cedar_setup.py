@@ -12,6 +12,7 @@ import pandas as pd
 import src.utilities.util_widest_path as mx
 import src.utilities.util_routing_stpath as mxv
 import time
+import random
 
 
 def save_porting_dictionary(G, fname):
@@ -160,64 +161,16 @@ def run(config):
         # the list of path between demand nodes
         # 2. Compute all shortest paths between demand pairs
 
-        paths = []
-        paths_met = []
-        paths_cap = []
-        for n1, n2 in demand_edges_to_repair:
-            SG = get_supply_graph(G)
-            path, metric, capa = mxv.protocol_repair_stpath(SG, n1, n2)
-            # path = mxv.widest_path_viv(SG, n1, n2)
-            # probabilistic_edge_weights(SG, G)
-            # path = nx.shortest_path(SG, n1, n2, weight=co.ElemAttr.WEIGHT.value, method='dijkstra')  # co.ElemAttr.WEIGHT_UNIT.value
+        # path_to_fix = repairing_like_TOMO_CEDAR(G, demand_edges_to_repair, mxv.protocol_repair_stpath)
+        # path_to_fix = repairing_like_IP(G, demand_edges_to_repair)
+        # find_paths_to_repair(config.repairing_mode)(G, demand_edges_to_repair)
 
-            paths.append(path)
-            paths_met.append(metric-(len(path)-1)+1)
-            paths_cap.append(capa)
+        paths_proposed = find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair)
+        path_to_fix = find_path_picker(config.picking_mode, G, paths_proposed)
+        fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
 
-            # print(n1, n2)
-            # for i in range(len(path) - 1):
-            #     n1, n2 = path[i], path[i + 1]
-            #     # n1, n2 = make_existing_edge(G, n1, n2)
-            #     cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]  # TODO
-            #     print(cap, n1, n2)
-            # print()
-
-        print("CAPACITIES of proposed paths", {(p[0], p[-1]): get_path_residual_capacity(SG, p) for p in paths})
-
-        if len(paths) > 0:
-            # 3. Map the path to its bottleneck capacity
-            paths_caps = []
-            for path_nodes in paths:  # TODO: randomize
-                # min_cap = get_path_cost(G, path_nodes)
-                min_cap = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
-                paths_caps.append(min_cap)
-
-            # print(list(zip(paths_cap, [get_path_residual_capacity(G, pp) for pp in paths], paths_met, paths_caps, paths)))  # [(met, post, path)]
-
-            # 4. Get the path that maximizes the minimum bottleneck capacity
-            path_id_to_fix = np.argmin(paths_caps)
-            # max_demand = paths_caps[path_id_to_fix]  # it could also be only the capacity of the demand edge
-            print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
-
-            # 5. Repair edges and nodes
-            path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
-            print("> Repairing path", path_to_fix)
-
-            for n1 in path_to_fix:
-                did_repair = repair_node(G, n1)
-                if did_repair:
-                    stats["node"].append(n1)
-
-            for i in range(len(path_to_fix) - 1):
-                n1, n2 = path_to_fix[i], path_to_fix[i + 1]
-                n1, n2 = make_existing_edge(G, n1, n2)
-                did_repair = repair_edge(G, n1, n2)
-                if did_repair:
-                    stats["edge"].append((n1, n2))
-
-            # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
-            #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
-            #         co.PlotType.ROU)
+        stats["node"] += fixed_nodes
+        stats["edge"] += fixed_edges
 
         p3_end_time = time.time()
         print("- 2. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
@@ -239,11 +192,107 @@ def run(config):
         print("stats:", stats)
         print("\n", "#"*40, "END ITERATION", "#"*40)
 
-    # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
-    #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter{}".format('final'), co.PlotType.KNO)
-
     return stats_list
 
 
+# - - - - - - - - - - REPAIRING - - - - - - - - - -
+
+def find_paths_to_repair(id, G, demand_edges_to_repair):
+    paths = []
+    for n1, n2 in demand_edges_to_repair:
+        SG = get_supply_graph(G)
+
+        if id == co.ProtocolRepairingPath.SHORTEST:
+            path = mxv.protocol_stpath_capacity(SG, n1, n2)
+        elif id == co.ProtocolRepairingPath.IP:
+            path, _, _ = mxv.protocol_routing_IP(SG, n1, n2)
+        elif id == co.ProtocolRepairingPath.MIN_COST_BOT_CAP:  # TOMO-CEDAR
+            path, _, _ = mxv.protocol_repair_min_exp_cost(SG, n1, n2)
+        elif id == co.ProtocolRepairingPath.MAX_BOT_CAP:  # CEDAR
+            path, _, _ = mxv.protocol_repair_cedarlike(SG, n1, n2)
+        else:
+            path = None
+
+        paths.append(path)
+    return paths
 
 
+def find_path_picker(id, G, paths):
+    if id == co.ProtocolPickingPath.RANDOM:
+        return __pick_random_repair_path(G, paths)
+
+    elif id == co.ProtocolPickingPath.MAX_BOT_CAP:
+        return __pick_cedar_repair_path(G, paths)
+
+    elif id == co.ProtocolPickingPath.MIN_COST_BOT_CAP:
+        return __pick_tomocedar_repair_path(G, paths)
+
+
+def do_fix_path(G, path_to_fix):
+    """ Fixes the edges and nodes and returns them """
+    fixed_edges, fixed_nodes = [], []
+
+    if path_to_fix is not None:
+
+        for n1 in path_to_fix:
+            did_repair = repair_node(G, n1)
+            if did_repair:
+                fixed_nodes.append(n1)
+
+        for i in range(len(path_to_fix) - 1):
+            n1, n2 = path_to_fix[i], path_to_fix[i + 1]
+            n1, n2 = make_existing_edge(G, n1, n2)
+            did_repair = repair_edge(G, n1, n2)
+            if did_repair:
+                fixed_edges.append((n1, n2))
+
+    return fixed_nodes, fixed_edges
+
+
+def __pick_cedar_repair_path(G, paths):
+    if len(paths) > 0:
+        # PICK MAX CAPACITY
+        # Map the path to its bottleneck capacity
+        paths_caps = []
+        for path_nodes in paths:
+            cap = get_path_residual_capacity(G, path_nodes)
+            paths_caps.append(cap)
+
+        path_id_to_fix = np.argmax(paths_caps)
+        print("> Selected path to recover has capacity", paths_caps[path_id_to_fix])
+
+        # 5. Repair edges and nodes
+        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
+        print("> Repairing path", path_to_fix)
+        return path_to_fix
+
+
+def __pick_tomocedar_repair_path(G, paths):
+    if len(paths) > 0:
+        # 3. Map the path to its bottleneck capacity
+        paths_exp_cost = []
+        for path_nodes in paths:  # TODO: randomize
+            # min_cap = get_path_cost(G, path_nodes)
+            exp_cost = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
+            paths_exp_cost.append(exp_cost)
+
+        # 4. Get the path that maximizes the minimum bottleneck capacity
+        path_id_to_fix = np.argmin(paths_exp_cost)
+        print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
+
+        # 5. Repair edges and nodes
+        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
+        print("> Repairing path", path_to_fix)
+        return path_to_fix
+
+
+def __pick_random_repair_path(G, paths):
+    if len(paths) > 0:
+        # PICK RANDOM PATH
+        path_id_to_fix = random.randint(0, len(paths) - 1)
+        print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
+
+        # 5. Repair edges and nodes
+        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
+        print("> Repairing path", path_to_fix)
+        return path_to_fix

@@ -74,7 +74,7 @@ def monitor_placement_ours(G, demand_edges):
 
     paths = []
     for n1, n2, _ in demand_edges:
-        path, _, _ = mxv.protocol_repair_stpath(get_supply_graph(G), n1, n2)
+        path, _, _ = mxv.protocol_repair_min_exp_cost(get_supply_graph(G), n1, n2)
         paths.append(path)
 
     if len(paths) > 0:
@@ -479,7 +479,7 @@ def get_path_cost_VN(G, path_nodes):
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge
 
-    exp_cost = cost_broken_els_exp + 1
+    exp_cost = cost_broken_els_exp + co.EPSILON
 
     exp_inutility = exp_cost / (cap + co.EPSILON)  # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)
@@ -538,7 +538,7 @@ def saturating_paths(G, d_edges):
         all_paths_saturate, capacity_all_paths_saturate = [], []
 
         while res_capacity > 0:  # reset residual capacity adding paths
-            path, _ = mxv.protocol_routing_stpath(get_supply_graph(Gmom_all), d1, d2)
+            path, _ = mxv.protocol_routing_IP(get_supply_graph(Gmom_all), d1, d2)
             path_capacity = get_path_residual_capacity(Gmom_all, path)
             path_capacity_min = min(path_capacity, res_capacity)
 

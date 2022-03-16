@@ -1,6 +1,6 @@
 
 import numpy as np
-import random
+import itertools
 import argparse
 from multiprocessing import Pool
 
@@ -46,21 +46,25 @@ def print_configuration(config):
     return str_values
 
 
-def execution_name(config):
-    return "s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}".format(config.seed, config.graph_path, config.n_demand_pairs,
-                                                                config.demand_capacity, config.supply_capacity, config.algo_name, config.destruction_quantity)
+# def execution_name(config):
+#     return "s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}".format(config.seed, config.graph_path, config.n_demand_pairs,
+#                                                                 config.demand_capacity, config.supply_capacity, config.algo_name, config.destruction_quantity)
 
 
-def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, is_parallel=False):
+def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, is_parallel=False):
     config = setup_configuration()
 
     config.mute_log = is_parallel
     config.seed = seed
     config.destruction_quantity = dis
     config.rand_generator_capacities = np.random.RandomState(config.seed)
+    config.rand_generator_path_choice = np.random.RandomState(config.seed)
     config.monitors_budget = budget
     config.n_demand_clique = nnodes
     config.demand_capacity = flowpp
+    config.repairing_mode = rep_mode
+    config.picking_mode = pick_mode
+
     config_details = print_configuration(config)
     print()
     print("NOW running...\n\n", config_details, "\n")
@@ -77,19 +81,39 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, is_parallel=False):
 
 
 def parallel_exec():
-    seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    dis_uni = [.3]   # [.05, .15, .3, .5, .7]
-    budget_n_monitor = [20]   # [10, 15, 20, 25, 30, 40, 50]
-    npairs = [5, 6, 7, 8, 9, 10]     # [5, 6, 7, 8, 9, 10]
-    flowpp = [10.0]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]
+
+    # seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    # dis_uni = [.3]   # [.05, .15, .3, .5, .7]
+    # budget_n_monitor = [20]   # [10, 15, 20, 25, 30, 40, 50]
+    # npairs = [5, 6, 7, 8, 9, 10]     # [5, 6, 7, 8, 9, 10]
+    # flowpp = [10.0]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]
+    # reps = [co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #             co.ProtocolRepairingPath.SHORTEST,
+    #             co.ProtocolRepairingPath.MAX_BOT_CAP,
+    #             co.ProtocolRepairingPath.IP]
+    #
+    # pick = [co.ProtocolPickingPath.RANDOM,
+    #         co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+    #         co.ProtocolPickingPath.MAX_BOT_CAP]
+
+    seeds = [5,6,7,8,9]
+    dis_uni = [.05, .15, .3, .5, .7]
+    budget_n_monitor = [20]
+    npairs = [8]
+    flowpp = [10.0]
+
+    reps = [co.ProtocolRepairingPath.SHORTEST,
+            co.ProtocolRepairingPath.MAX_BOT_CAP,
+            co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+            ]  # co.ProtocolRepairingPath.IP
+
+    pick = [co.ProtocolPickingPath.RANDOM,
+            co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+            co.ProtocolPickingPath.MAX_BOT_CAP]
 
     processes = []
-    for bu in budget_n_monitor:
-        for dis in dis_uni:
-            for seed in seeds:
-                for npe in npairs:
-                    for fl in flowpp:
-                        processes.append((seed, dis, bu, npe, fl, True))
+    for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp, reps, pick, [True]):
+        processes.append(execution)
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
         try:
@@ -108,22 +132,29 @@ def initializer():
 
 def plotting_data():
     config = setup_configuration()
-    seeds = [0, 1, 2, 3, 4, 5]  # [1, 3, 5, 9, 10, 15, 17, 19]
-    dis_uni = [5, 6, 7, 8, 9, 10]  # [.05, .15, .3, .5, .7]  # [5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0]  # 5, 6, 7, 8, 9, 10 [.05, .15, .3, .5, .7]
+    seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    dis_uni = [.05, .15, .3, .5, .7]
 
-    algos = ["CEDARNEW_BUD_20", "CEDAR_BUD_20"]
+    algos = [("CEDARNEW_BUD_20", "{}I{}".format(i,j)) for i in range(3) for j in range(3)]
+    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(i,j)) for i in range(1) for j in range(2,3)]
+
+    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 2))]
+    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 1))]
 
     source = "data/experiments/"
 
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=1)
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=1)
-
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=1)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=1)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=1)
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=0)
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=0)
+    #
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=0)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=0)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=0)
 
 
 if __name__ == '__main__':
+
     # parallel_exec()
-    # plotting_data()
-    run_var_seed_dis(seed=90, dis=.4, budget=20, nnodes=12, flowpp=10)
+    plotting_data()
+    # run_var_seed_dis(seed=80, dis=.8, budget=20, nnodes=8, flowpp=10,
+    #                   rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #                   pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP)
