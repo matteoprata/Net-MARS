@@ -1,39 +1,14 @@
-import time
-
-import networkx as nx
 
 import src.plotting.graph_plotting as pg
-from src.preprocessing.graph_routability import *
 from src.preprocessing.graph_preprocessing import *
 from src.preprocessing.graph_monitoring import *
 from src.preprocessing.graph_utils import *
 import src.constants as co
-import pandas as pd
-import src.utilities.util_widest_path as mx
-import src.utilities.util_routing_stpath as mxv
+
+from src.recovery_protocols import finder_recovery_path as frp
+from src.recovery_protocols import finder_recovery_path_pick as frpp
+
 import time
-import random
-
-
-def save_porting_dictionary(G, fname):
-    """ Stores the graph characteristics. """
-    demand_edges_flow = {str((n1, n2)): c for n1, n2, c in get_demand_edges(G)}
-    normal_edges_flow = {str((n1, n2)): G.edges[n1, n2, tip][co.ElemAttr.CAPACITY.value] for n1, n2, tip in G.edges if
-                         tip == co.EdgeType.SUPPLY.value}
-
-    normal_edges_stat = {str((n1, n2)): G.edges[n1, n2, tip][co.ElemAttr.STATE_TRUTH.value] for n1, n2, tip in G.edges if
-                         tip == co.EdgeType.SUPPLY.value}
-    normal_nodes_stat = {str(n): G.nodes[n][co.ElemAttr.STATE_TRUTH.value] for n in G.nodes}
-
-    out = {"demand_edges_flow": demand_edges_flow,
-           "normal_edges_flow": normal_edges_flow,
-           "normal_edges_stat": normal_edges_stat,
-           "normal_nodes_stat": normal_nodes_stat
-           }
-
-    import json
-    with open(fname, 'w') as f:
-        json.dump(out, f)
 
 
 def run(config):
@@ -47,13 +22,14 @@ def run(config):
     dim_ratio = scale_coordinates(G)
 
     distribution, broken_nodes, broken_edges, perc_broken_elements = destroy(G, config.destruction_type, config.destruction_precision, dim_ratio,
-                                                                             config.destruction_width, config.n_destruction, config.graph_dataset, config.seed, ratio=config.destruction_quantity)
+                                                                             config.destruction_width, config.n_destruction, config.graph_dataset, config.seed, ratio=config.destruction_quantity,
+                                                                             config=config)
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity)
+        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity)
+        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                           config.demand_capacity, config.destruction_quantity)
@@ -126,10 +102,11 @@ def run(config):
         p1_start_time = time.time()
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
             monitoring = gain_knowledge_tomography(G,
-                                                    stats["packet_monitoring"],
-                                                    config.monitoring_messages_budget,
-                                                    elements_val_id,
-                                                    elements_id_val)
+                                                   stats["packet_monitoring"],
+                                                   config.monitoring_messages_budget,
+                                                   elements_val_id,
+                                                   elements_id_val,
+                                                   config.UNK_prior)
 
             if monitoring is None:
                 stats_list.append(stats)
@@ -165,8 +142,8 @@ def run(config):
         # path_to_fix = repairing_like_IP(G, demand_edges_to_repair)
         # find_paths_to_repair(config.repairing_mode)(G, demand_edges_to_repair)
 
-        paths_proposed = find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair)
-        path_to_fix = find_path_picker(config.picking_mode, G, paths_proposed)
+        paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, is_oracle=config.is_oracle_baseline)
+        path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
         fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
 
         stats["node"] += fixed_nodes
@@ -194,105 +171,3 @@ def run(config):
 
     return stats_list
 
-
-# - - - - - - - - - - REPAIRING - - - - - - - - - -
-
-def find_paths_to_repair(id, G, demand_edges_to_repair):
-    paths = []
-    for n1, n2 in demand_edges_to_repair:
-        SG = get_supply_graph(G)
-
-        if id == co.ProtocolRepairingPath.SHORTEST:
-            path = mxv.protocol_stpath_capacity(SG, n1, n2)
-        elif id == co.ProtocolRepairingPath.IP:
-            path, _, _ = mxv.protocol_routing_IP(SG, n1, n2)
-        elif id == co.ProtocolRepairingPath.MIN_COST_BOT_CAP:  # TOMO-CEDAR
-            path, _, _ = mxv.protocol_repair_min_exp_cost(SG, n1, n2)
-        elif id == co.ProtocolRepairingPath.MAX_BOT_CAP:  # CEDAR
-            path, _, _ = mxv.protocol_repair_cedarlike(SG, n1, n2)
-        else:
-            path = None
-
-        paths.append(path)
-    return paths
-
-
-def find_path_picker(id, G, paths):
-    if id == co.ProtocolPickingPath.RANDOM:
-        return __pick_random_repair_path(G, paths)
-
-    elif id == co.ProtocolPickingPath.MAX_BOT_CAP:
-        return __pick_cedar_repair_path(G, paths)
-
-    elif id == co.ProtocolPickingPath.MIN_COST_BOT_CAP:
-        return __pick_tomocedar_repair_path(G, paths)
-
-
-def do_fix_path(G, path_to_fix):
-    """ Fixes the edges and nodes and returns them """
-    fixed_edges, fixed_nodes = [], []
-
-    if path_to_fix is not None:
-
-        for n1 in path_to_fix:
-            did_repair = repair_node(G, n1)
-            if did_repair:
-                fixed_nodes.append(n1)
-
-        for i in range(len(path_to_fix) - 1):
-            n1, n2 = path_to_fix[i], path_to_fix[i + 1]
-            n1, n2 = make_existing_edge(G, n1, n2)
-            did_repair = repair_edge(G, n1, n2)
-            if did_repair:
-                fixed_edges.append((n1, n2))
-
-    return fixed_nodes, fixed_edges
-
-
-def __pick_cedar_repair_path(G, paths):
-    if len(paths) > 0:
-        # PICK MAX CAPACITY
-        # Map the path to its bottleneck capacity
-        paths_caps = []
-        for path_nodes in paths:
-            cap = get_path_residual_capacity(G, path_nodes)
-            paths_caps.append(cap)
-
-        path_id_to_fix = np.argmax(paths_caps)
-        print("> Selected path to recover has capacity", paths_caps[path_id_to_fix])
-
-        # 5. Repair edges and nodes
-        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
-        print("> Repairing path", path_to_fix)
-        return path_to_fix
-
-
-def __pick_tomocedar_repair_path(G, paths):
-    if len(paths) > 0:
-        # 3. Map the path to its bottleneck capacity
-        paths_exp_cost = []
-        for path_nodes in paths:  # TODO: randomize
-            # min_cap = get_path_cost(G, path_nodes)
-            exp_cost = get_path_cost_VN(G, path_nodes)  # MINIMIZE expected cost of repair
-            paths_exp_cost.append(exp_cost)
-
-        # 4. Get the path that maximizes the minimum bottleneck capacity
-        path_id_to_fix = np.argmin(paths_exp_cost)
-        print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
-
-        # 5. Repair edges and nodes
-        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
-        print("> Repairing path", path_to_fix)
-        return path_to_fix
-
-
-def __pick_random_repair_path(G, paths):
-    if len(paths) > 0:
-        # PICK RANDOM PATH
-        path_id_to_fix = random.randint(0, len(paths) - 1)
-        print("> Selected path to recover has capacity", get_path_residual_capacity(G, paths[path_id_to_fix]))
-
-        # 5. Repair edges and nodes
-        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
-        print("> Repairing path", path_to_fix)
-        return path_to_fix

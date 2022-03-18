@@ -57,6 +57,11 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, is_
     config.mute_log = is_parallel
     config.seed = seed
     config.destruction_quantity = dis
+
+    # the prior probability that the node is broke is higher when the actual destruction is high
+    if config.is_dynamic_prior:
+        config.UNK_prior = config.destruction_quantity
+
     config.rand_generator_capacities = np.random.RandomState(config.seed)
     config.rand_generator_path_choice = np.random.RandomState(config.seed)
     config.monitors_budget = budget
@@ -96,7 +101,7 @@ def parallel_exec():
     #         co.ProtocolPickingPath.MIN_COST_BOT_CAP,
     #         co.ProtocolPickingPath.MAX_BOT_CAP]
 
-    seeds = [5,6,7,8,9]
+    seeds = range(30, 39)
     dis_uni = [.05, .15, .3, .5, .7]
     budget_n_monitor = [20]
     npairs = [8]
@@ -132,7 +137,7 @@ def initializer():
 
 def plotting_data():
     config = setup_configuration()
-    seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    seeds = list(range(1, 10)) + list(range(11, 19)) + list(range(30, 39))
     dis_uni = [.05, .15, .3, .5, .7]
 
     algos = [("CEDARNEW_BUD_20", "{}I{}".format(i,j)) for i in range(3) for j in range(3)]
@@ -154,7 +159,7 @@ def plotting_data():
 if __name__ == '__main__':
 
     # parallel_exec()
-    plotting_data()
-    # run_var_seed_dis(seed=80, dis=.8, budget=20, nnodes=8, flowpp=10,
-    #                   rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-    #                   pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP)
+    # plotting_data()
+    run_var_seed_dis(seed=80, dis=.8, budget=20, nnodes=9, flowpp=10,
+                      rep_mode=co.ProtocolRepairingPath.MAX_BOT_CAP,
+                      pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP)

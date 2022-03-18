@@ -47,7 +47,7 @@ def save_stats_as_df_ph1(stats, config):
     fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}I{}.csv".format(config.seed,
                                                                                    config.graph_dataset.name,
                                                                                    config.n_demand_clique,
-                                                                                   config.demand_capacity,
+                                                                                   int(config.demand_capacity),
                                                                                    config.supply_capacity,
                                                                                    config.algo_name + key,
                                                                                    config.destruction_quantity,
@@ -207,7 +207,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
         for i in range(len(algos)):
             algos_values[i].append(algos_values_in[i])
 
-    print(algos_values[0])
+
 
     if is_total:
         A = [pd.concat(algos_values[i], axis=1).fillna(method="ffill").max(axis=0) for i in range(len(algos))]
@@ -216,6 +216,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     A = [pd.DataFrame(A[i].values.reshape(len(seeds_values), len(X_var), order='F')) for i in range(len(algos))]
 
     ALG = A
+
+
     # extend the integral!
     # positions = [np.array(range(len(pbro_values))) * 2.0 - 0.4,
     #              np.array(range(len(pbro_values))) * 2.0 + 0.4]

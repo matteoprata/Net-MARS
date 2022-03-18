@@ -36,7 +36,7 @@ class EdgeType(Enum):
 class NodeState(Enum):
     BROKEN = 1
     WORKING = 0
-    UNK = .1
+    UNK = None  # dyanamic
     NA = -1  # used for demand edges, since Edge is a Node GREEN
 
 

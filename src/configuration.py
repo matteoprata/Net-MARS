@@ -9,7 +9,7 @@ class Configuration:
 
         self.mute_log = False
         self.algo_name = co.AlgoName.CEDARNEW.value
-        self.graph_dataset = co.GraphName.UNINET
+        self.graph_dataset = co.GraphName.MINNESOTA  # UNINET
         self.graph_path = self.graph_dataset.value
 
         self.destruction_show_plot = False
@@ -42,5 +42,12 @@ class Configuration:
         self.n_backbone_pairs = 5
         self.percentage_flow_backbone = .5  # increase in flow quantity
 
-        self.repairing_mode = co.ProtocolRepairingPath.MIN_COST_BOT_CAP
-        self.picking_mode = co.ProtocolPickingPath.MIN_COST_BOT_CAP
+        self.repairing_mode = None  # co.ProtocolRepairingPath.MIN_COST_BOT_CAP
+        self.picking_mode = None  # co.ProtocolPickingPath.MIN_COST_BOT_CAP
+
+        # self.is_adaptive_prior = True
+        self.is_oracle_baseline = False  # baseline TOMOCEDAR
+        self.is_xindvar_destruction = True
+
+        self.is_dynamic_prior = True
+        self.UNK_prior = None

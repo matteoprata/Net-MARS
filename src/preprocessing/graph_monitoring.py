@@ -81,7 +81,7 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
 
 
 def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, broken_paths_padded, tot_els, paths, broken_edges_T,
-                            broken_nodes_T, elements_val_id, elements_id_val):
+                            broken_nodes_T, elements_val_id, elements_id_val, UNK_prior):
     """ Approximated """
 
     # failed paths
@@ -103,7 +103,7 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, broken_p
         return 0
 
     if len(bp_with_n) == 0:
-        return co.NodeState.UNK.value
+        return UNK_prior
 
     # remove working elements in broken paths with n
     new_bp_with_n = []
@@ -184,7 +184,7 @@ def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_pa
     return prob_n_broken
 
 
-def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val):
+def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val, UNK_prior):
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
 
@@ -254,7 +254,8 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             # assert prc == rc
             # print(metric, prc, rc, path)
 
-            paths.append(path)
+            pappo, _, _ = util.safe_exec(mxv.protocol_repair_min_exp_cost, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+            paths.append(pappo)
 
             if metric < len(SG.edges):  # works AND has capacity
                 if n1_mon in demand_nodes and n2_mon in demand_nodes:  # demand edge
@@ -315,7 +316,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         bp_padded[i, :len(p)] = p
 
     # Assign a probability to every element
-    pars = tot_els, paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val
+    pars = tot_els, paths, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, UNK_prior
 
     new_node_probs = dict()
     new_edge_probs = dict()

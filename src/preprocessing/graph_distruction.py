@@ -106,13 +106,20 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     return distribution, broken_nodes, broken_edges
 
 
-def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, n_bins=50, mu=0, sig=.5, distance_factor=1):
+def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=0, sig=.5, distance_factor=1):
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
     # TODO: check randomness
     # the epicenter is a randomly picked node
+    if not config.is_xindvar_destruction:
+        np.random.seed(0)
+
     epicenter = random.choice(graph.nodes)['id']
+
+    if not config.is_xindvar_destruction:
+        np.random.seed(config.seed)
+
     graph.nodes[epicenter][co.ElemAttr.IS_EPICENTER.value] = 1
 
     x, y = graph.nodes[epicenter][co.ElemAttr.LONGITUDE.value], graph.nodes[epicenter][co.ElemAttr.LATITUDE.value]

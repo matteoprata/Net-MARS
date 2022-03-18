@@ -78,6 +78,8 @@ def monitor_placement_ours(G, demand_edges):
         paths.append(path)
 
     if len(paths) > 0:
+        # between all nodes that are known as working and aren't monitors,
+        # the new monitor is the one that resides on most recovery paths
         for n in get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW):
             if co.ElemAttr.IS_MONITOR.value not in G.nodes[n].keys() or not G.nodes[n][co.ElemAttr.IS_MONITOR.value]:  # is not a monitor already
                 node_cent = 0
@@ -309,6 +311,29 @@ def make_existing_edge(G, n1, n2):
     return n2, n1
 
 
+# - - - - - - - - - - REPAIRING - - - - - - - - - -
+
+def do_fix_path(G, path_to_fix):
+    """ Fixes the edges and nodes and returns them """
+    fixed_edges, fixed_nodes = [], []
+
+    if path_to_fix is not None:
+
+        for n1 in path_to_fix:
+            did_repair = repair_node(G, n1)
+            if did_repair:
+                fixed_nodes.append(n1)
+
+        for i in range(len(path_to_fix) - 1):
+            n1, n2 = path_to_fix[i], path_to_fix[i + 1]
+            n1, n2 = make_existing_edge(G, n1, n2)
+            did_repair = repair_edge(G, n1, n2)
+            if did_repair:
+                fixed_edges.append((n1, n2))
+
+    return fixed_nodes, fixed_edges
+
+
 def repair_node(G, n):
     """ counts the repairs! """
     did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
@@ -461,22 +486,23 @@ def get_path_elements(path):
     return nodes, edges
 
 
-def get_path_cost_VN(G, path_nodes):
+def get_path_cost_VN(G, path_nodes, is_oracle=False):
     """ VERSIONE NUOVA: returns the expected repair cost. """
     cap = get_path_residual_capacity(G, path_nodes)
 
     cost_broken_els_exp = 0
+    attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
 
     # expected cost of repairing the nodes
     for n1 in path_nodes:
-        posterior_broken_node = G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
+        posterior_broken_node = G.nodes[n1][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_node
 
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
         n1, n2 = make_existing_edge(G, n1, n2)
-        posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+        posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge
 
     exp_cost = cost_broken_els_exp + co.EPSILON

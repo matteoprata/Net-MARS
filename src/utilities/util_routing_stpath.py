@@ -85,7 +85,7 @@ def protocol_routing_IP(SG, src, target):
     return a, metric_out, parent_residual_cap[target]
 
 
-def protocol_repair_min_exp_cost(SG, src, target):
+def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
     parent = {n: None for n in SG.nodes}
     node_metric = {n: None for n in SG.nodes}
     node_capacity = {n: None for n in SG.nodes}
@@ -115,9 +115,10 @@ def protocol_repair_min_exp_cost(SG, src, target):
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
-            prob_n1 = SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value]
-            prob_n2 = SG.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value]
-            prob_n1n2 = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+            attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
+            prob_n1 = SG.nodes[n1][attribute]
+            prob_n2 = SG.nodes[n2][attribute]
+            prob_n1n2 = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
@@ -225,10 +226,11 @@ def protocol_repair_cedarlike(SG, src, target):
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
+            attribute = co.ElemAttr.POSTERIOR_BROKEN.value
             # CHANGES THIS
             # prob_n1 = 0 if SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 0 else 1  # sconosciuto o rotto
-            prob_n2 = 0 if SG.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == 0 else 1
-            prob_n1n2 = 0 if SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] == 0 else 1
+            prob_n2 = 0 if SG.nodes[n2][attribute] == 0 else 1
+            prob_n1n2 = 0 if SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute] == 0 else 1
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]

@@ -3,8 +3,12 @@ import numpy as np
 import random
 import sys
 import os
-
+import json
 import traceback
+from src import constants as co
+from src.preprocessing import graph_utils as gu
+
+
 class Singleton(type):
     _instances = {}
 
@@ -62,3 +66,21 @@ def block_print():
 # Restore
 def enable_print():
     sys.stdout = sys.__stdout__
+
+
+def save_porting_dictionary(G, fname):
+    """ Stores the graph characteristics. """
+    demand_edges_flow = {str((n1, n2)): c for n1, n2, c in gu.get_demand_edges(G)}
+    normal_edges_flow = {str((n1, n2)): G.edges[n1, n2, tip][co.ElemAttr.CAPACITY.value] for n1, n2, tip in G.edges if tip == co.EdgeType.SUPPLY.value}
+
+    normal_edges_stat = {str((n1, n2)): G.edges[n1, n2, tip][co.ElemAttr.STATE_TRUTH.value] for n1, n2, tip in G.edges if tip == co.EdgeType.SUPPLY.value}
+    normal_nodes_stat = {str(n): G.nodes[n][co.ElemAttr.STATE_TRUTH.value] for n in G.nodes}
+
+    out = {"demand_edges_flow": demand_edges_flow,
+           "normal_edges_flow": normal_edges_flow,
+           "normal_edges_stat": normal_edges_stat,
+           "normal_nodes_stat": normal_nodes_stat
+           }
+
+    with open(fname, 'w') as f:
+        json.dump(out, f)

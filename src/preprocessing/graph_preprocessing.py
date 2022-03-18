@@ -46,8 +46,8 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                 co.ElemAttr.LONGITUDE.value: float(raw_graph.nodes[n1][co.ElemAttr.LONGITUDE.value]),
                                 co.ElemAttr.WEIGHT.value: -1,
                                 co.ElemAttr.WEIGHT_UNIT.value: 1,
-                                co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
-                                co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
+                                co.ElemAttr.PRIOR_BROKEN.value: config.UNK_prior,
+                                co.ElemAttr.POSTERIOR_BROKEN.value: config.UNK_prior,
                                 co.ElemAttr.ID.value: element_id,
                                 })])
 
@@ -64,15 +64,19 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity_rand,
                                                                   co.ElemAttr.WEIGHT.value: -1,
                                                                   co.ElemAttr.WEIGHT_UNIT.value: 1,
-                                                                  co.ElemAttr.PRIOR_BROKEN.value: co.NodeState.UNK.value,
-                                                                  co.ElemAttr.POSTERIOR_BROKEN.value: co.NodeState.UNK.value,
+                                                                  co.ElemAttr.PRIOR_BROKEN.value: config.UNK_prior,
+                                                                  co.ElemAttr.POSTERIOR_BROKEN.value: config.UNK_prior,
                                                                   co.ElemAttr.ID.value: element_id,
                                                                   co.ElemAttr.SAT_DEM.value: defaultdict(int)
                                                                   })])
 
     # ADD the backbones!
     max_comp = list(get_max_component(G))
+
+    np.random.seed(0)  # this does not vary
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(config.n_backbone_pairs)]
+    np.random.seed(config.seed)
+
     for p1, p2 in list_pairs:
         path = nx.shortest_path(G, p1, p2)
         for i in range(len(path)-1):
@@ -115,13 +119,13 @@ def scale_coordinates(G):
 
 
 # 3 -- destroy graph G
-def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, graph_name, sim_seed, ratio=None):
+def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, graph_name, sim_seed, config, ratio=None):
     """ Handles three type of destruction. """
 
     if destruction_type == co.Destruction.GAUSSIAN:
         dist, nodes, edges = dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
     elif destruction_type == co.Destruction.GAUSSIAN_PROGRESSIVE:
-        dist, nodes, edges = dis.gaussian_progressive_destruction(G, destruction_precision, dims_ratio, ratio)
+        dist, nodes, edges = dis.gaussian_progressive_destruction(G, destruction_precision, dims_ratio, ratio, config=config)
     elif destruction_type == co.Destruction.UNIFORM:
         dist, nodes, edges = dis.uniform_destruction(G, ratio)
     elif destruction_type == co.Destruction.COMPLETE:
@@ -149,9 +153,17 @@ def print_graph_info(G):
 
 
 # 6 -- demand pairs
-def add_demand_pairs(G, n_demand_pairs, demand_capacity):
+def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     max_comp = list(get_max_component(G))
+
+    if config.is_xindvar_destruction:
+        np.random.seed(0)  # destruction varies > vary only the epicenter
+
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
+
+    if config.is_xindvar_destruction:
+        np.random.seed(config.seed)
+
     demand_edges = set()
     demand_nodes = set()
     for demand_pair in list_pairs:
@@ -180,7 +192,7 @@ def get_max_component(G):
     return max_comp
 
 
-def add_demand_clique(G, n_demand_nodes, demand_capacity):
+def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     """ Add edges as a clique. """
     max_comp = list(get_max_component(G))  # biggest connected component in G
 
@@ -189,7 +201,15 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity):
     max_comp_degs = np.array([degs[n] for n in max_comp])
     max_comp_degs = max_comp_degs / np.sum(max_comp_degs)
     is_biased = False
+
+    # choose n_demand_nodes randomly in the graph
+    if config.is_xindvar_destruction:
+        np.random.seed(0)  # do not vary the positions of the demands
+
     list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True, p=max_comp_degs if is_biased else None)
+
+    if config.is_xindvar_destruction:
+        np.random.seed(config.seed)
 
     # print("\nDegrees")
     demand_edges = set()
