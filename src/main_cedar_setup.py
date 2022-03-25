@@ -7,6 +7,7 @@ import src.constants as co
 
 from src.recovery_protocols import finder_recovery_path as frp
 from src.recovery_protocols import finder_recovery_path_pick as frpp
+from src.monitor_placement_protocols import adding_monitors as mon
 
 import time
 
@@ -33,15 +34,16 @@ def run(config):
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                           config.demand_capacity, config.destruction_quantity)
-    # save_porting_dictionary(G, path)
+    # util.save_porting_dictionary(G, path)
     # return
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
-            config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU)
+            config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
 
     # print(broken_nodes)
     # print(broken_edges)
-    # exit()
+    # time.sleep(10)
+    # return
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
@@ -52,6 +54,7 @@ def run(config):
     demand_node = get_demand_nodes(G)
     for dn in demand_node:
         repair_node(G, dn)
+        # INITIAL NODES repairs are not counted in the stats
 
     iter = 0
     # true ruotability
@@ -66,10 +69,14 @@ def run(config):
     assert(config.monitors_budget >= len(get_demand_nodes(G)))
 
     # set as monitors all the nodes that are demand endpoints
+    monitors_map = defaultdict(list)
     for n1, n2, _ in get_demand_edges(G):
         G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
         G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
         monitors_stats |= {n1, n2}
+
+        monitors_map[n1].append((n1, n2))
+        monitors_map[n2].append((n1, n2))
 
     pr_on_s3, pr_on_s4 = 0, 0
     # START
@@ -97,16 +104,32 @@ def run(config):
                  "monitors": monitors_stats,
                  "packet_monitoring": packet_monitor}
 
-        # 1. Monitoring
-        print("- 1. PHASE (monitoring): starting")
-        p1_start_time = time.time()
+        # -------------- 0. Monitor placement --------------
+
+        if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT:
+            monitors_map = mon.removing_monitor(G, monitors_map, config)
+            monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, config)
+            monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)
+            # stats["node"] += monitors_repaired
+
+        elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP:
+            monitors = mon.original_monitoring_add(G, config)
+            stats["monitors"] |= monitors
+            monitors_stats = stats["monitors"]
+
+        # no monitor for ORACLE mode
+
+        # -------------- 1. Tomography --------------
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
             monitoring = gain_knowledge_tomography(G,
                                                    stats["packet_monitoring"],
                                                    config.monitoring_messages_budget,
                                                    elements_val_id,
                                                    elements_id_val,
-                                                   config.UNK_prior)
+                                                   config.UNK_prior,
+                                                   monitors_map,
+                                                   config.protocol_monitor_placement,
+                                                   config.is_exhaustive_paths)
 
             if monitoring is None:
                 stats_list.append(stats)
@@ -118,56 +141,17 @@ def run(config):
             stats["packet_monitoring"] += stats_packet_monitoring
             packet_monitor = stats["packet_monitoring"]
 
-        # pg.plot(G, config.graph_path, None, config.destruction_precision, dim_ratio,
-        #         config.destruction_show_plot, config.destruction_save_plot, config.seed, "iter-af{}".format(iter),
-        #         co.PlotType.KNO)
-
-        pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
-                config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU)
-
-        p1_end_time = time.time()
-
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", len(demand_edges), demand_edges)
 
-        print("- 1. PHASE (monitoring): terminated in", round((p1_end_time - p1_start_time), 2), "s")
-
-        print("\n- 2. PHASE (reparing): starting")
-        p3_start_time = time.time()
-
-        # the list of path between demand nodes
-        # 2. Compute all shortest paths between demand pairs
-
-        # path_to_fix = repairing_like_TOMO_CEDAR(G, demand_edges_to_repair, mxv.protocol_repair_stpath)
-        # path_to_fix = repairing_like_IP(G, demand_edges_to_repair)
-        # find_paths_to_repair(config.repairing_mode)(G, demand_edges_to_repair)
-
+        # -------------- 2. Repairing --------------
         paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, is_oracle=config.is_oracle_baseline)
         path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
         fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
 
         stats["node"] += fixed_nodes
         stats["edge"] += fixed_edges
-
-        p3_end_time = time.time()
-        print("- 2. PHASE (reparing): terminated in", round((p3_end_time - p3_start_time), 2), "s")
-        print("\n- 3. PHASE (add monitors): starting")  # TODO: move above after the monitoring
-        p4_start_time = time.time()
-
-        # 7. Add 1 new monitor, after discovery
-        res_demand_edges = get_demand_edges(G, is_check_unsatisfied=True)
-        monitor_nodes = get_monitor_nodes(G)
-        if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
-            # monitors = monitor_placement_centrality(G, res_demand_edges)
-            monitors = monitor_placement_ours(G, res_demand_edges)
-            stats["monitors"] |= monitors
-            monitors_stats = stats["monitors"]
-
         stats_list.append(stats)
-        p4_end_time = time.time()
-        print("- 3. PHASE (add monitors): terminated in", round((p4_end_time - p4_start_time), 2), "s")
-        print("stats:", stats)
-        print("\n", "#"*40, "END ITERATION", "#"*40)
 
     return stats_list
 

@@ -2,15 +2,15 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="686227b2-e12f-400d-a14a-1b5cc340a5a5" name="matteo@radiohead">
+      <webServer id="686227b2-e12f-400d-a14a-1b5cc340a5a5" name="matteo@queen">
         <fileTransfer accessType="SFTP" host="100.86.193.44" port="22" sshConfigId="6464b3cd-f1cd-49c0-a073-99cfb1df21f4" sshConfig="prata@100.86.193.44:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>
-      <webServer id="dceae192-2039-46d6-bab3-ad049afaf0d1" name="matteo@queen">
-        <fileTransfer accessType="SFTP" host="100.86.193.44" port="22" sshConfigId="6464b3cd-f1cd-49c0-a073-99cfb1df21f4" sshConfig="prata@100.86.193.44:22 password">
+      <webServer id="dceae192-2039-46d6-bab3-ad049afaf0d1" name="matteo@radiohead">
+        <fileTransfer accessType="SFTP" host="100.67.43.25" port="22" sshConfigId="04499c17-8c8c-491c-9d35-61684b6a7002" sshConfig="prata@100.67.43.25:22 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

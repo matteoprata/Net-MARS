@@ -182,7 +182,7 @@ def setup_color_maps(n_demand_edges):
     return scalar_map1, scalar_map2
 
 
-def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name, plot_type):
+def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, seed, name, plot_type, percbro):
     demand_edges = get_demand_edges(G, is_capacity=False)
 
     scalar_map1, scalar_map2 = setup_color_maps(len(demand_edges))
@@ -202,14 +202,14 @@ def plot(G, graph_name, distribution, density, scale_visual, is_show, is_save, s
                     yaxis=dict(showgrid=False, zeroline=False, showticklabels=True, showline=True, mirror=True, ticks='outside', linecolor='black'))
                     )
 
-    save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type)
+    save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type, percbro)
 
 
-def save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type):
+def save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type, percbro):
     if is_show:
         fig.show()
 
     if is_save:
-        dir = "data/dis_image/{}-{}-{}-{}".format(plot_type.name, seed, graph_name, name)
+        dir = "data/dis_image/{}-{}-{}-{}-{}".format(plot_type.name, seed, graph_name, name, percbro)
         fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
         pio.write_html(fig, dir + ".html")

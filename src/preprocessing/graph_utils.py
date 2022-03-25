@@ -67,42 +67,6 @@ def monitor_placement_centrality(G, d_edges):
         return {}
 
 
-def monitor_placement_ours(G, demand_edges):
-    # print("Updating centrality")
-    bc = None
-    bc_centrality = -np.inf
-
-    paths = []
-    for n1, n2, _ in demand_edges:
-        path, _, _ = mxv.protocol_repair_min_exp_cost(get_supply_graph(G), n1, n2)
-        paths.append(path)
-
-    if len(paths) > 0:
-        # between all nodes that are known as working and aren't monitors,
-        # the new monitor is the one that resides on most recovery paths
-        for n in get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW):
-            if co.ElemAttr.IS_MONITOR.value not in G.nodes[n].keys() or not G.nodes[n][co.ElemAttr.IS_MONITOR.value]:  # is not a monitor already
-                node_cent = 0
-                for path in paths:
-                    node_cent += 1 if n in path else 0
-
-                # print("Node", n, "has centrality", node_cent)
-                if node_cent > 0 and node_cent > bc_centrality:
-                    bc_centrality = node_cent
-                    bc = n
-
-        if bc is not None:
-            G.nodes[bc][co.ElemAttr.IS_MONITOR.value] = True
-            print("Highest centrality node is", bc)
-            return {bc}
-        else:
-            print("No new added monitor.")
-            return set()
-    else:
-        print("No paths of demand.")
-        return set()
-
-
 def is_demand_edge(G, n1, n2):
     return (n1, n2) in get_demand_edges(G, is_capacity=False)
 
@@ -489,6 +453,9 @@ def get_path_elements(path):
 def get_path_cost_VN(G, path_nodes, is_oracle=False):
     """ VERSIONE NUOVA: returns the expected repair cost. """
     cap = get_path_residual_capacity(G, path_nodes)
+
+    if cap == 0:
+        return np.inf
 
     cost_broken_els_exp = 0
     attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value

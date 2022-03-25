@@ -126,10 +126,11 @@ def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
             RC = min(current_src_info[2], res_cap)  # max(min(current_src_info[2], res_cap) , current_neigh_info[2])   # residual
 
             cost_prev_but_max_rc = 0 if current_src_info[2] == np.inf else (current_src_info[0] * current_src_info[2])  # cost of before without counting the RC | PASSATO
-            cost_now_but_max_rc = co.REPAIR_COST * (prob_n2 + prob_n1n2) + co.EPSILON  # cost of now without the RC                 # PRESENTE
+            cost_now_but_max_rc = co.REPAIR_COST * (prob_n2 + prob_n1n2)  # NEW! # cost of now without the RC                 # PRESENTE
             # cost_now_but_max_rc = co.REPAIR_COST * ((prob_n1 + prob_n2) / 2 + prob_n1n2) + 1
 
             m = (cost_prev_but_max_rc + cost_now_but_max_rc) / (RC + co.EPSILON)
+            m = m if RC > 0 else np.inf  # 0/eps cannot be 0! or loops would happen! if RC == 0, the path cannot be chosen
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
@@ -229,19 +230,18 @@ def protocol_repair_cedarlike(SG, src, target):
             attribute = co.ElemAttr.POSTERIOR_BROKEN.value
             # CHANGES THIS
             # prob_n1 = 0 if SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 0 else 1  # sconosciuto o rotto
-            prob_n2 = 0 if SG.nodes[n2][attribute] == 0 else 1
-            prob_n1n2 = 0 if SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute] == 0 else 1
+            # prob_n2 = 0 if SG.nodes[n2][attribute] == 0 else 1
+            # prob_n1n2 = 0 if SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute] == 0 else 1
 
+            prob_n2 = SG.nodes[n2][attribute]
+            prob_n1n2 = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
+            n_broken = 0 if SG.nodes[n2][attribute] == 0 else 1
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            RC = min(current_src_info[2], res_cap)  # max(min(current_src_info[2], res_cap) , current_neigh_info[2])   # residual
-
-            # WARNING (SOLVED): NOT REALLY the cedar version, the capacity is the bottleneck
-            # cost_prev_but_max_rc = 0 if current_src_info[2] == np.inf else (current_src_info[0] * current_src_info[2])  # cost of before without counting the RC
-            # cost_now_but_max_rc = co.REPAIR_COST * ((prob_n1 + prob_n2) / 2 + prob_n1n2)  # cost of now without the RC
-            m = current_src_info[0] + (1-prob_n1n2) / (res_cap + co.EPSILON) + co.REPAIR_COST * (prob_n1n2 / (res_cap + co.EPSILON) + prob_n2)
-            # 1 / (RC + co.EPSILON) * (cost_prev_but_max_rc + cost_now_but_max_rc)
+            RC = min(current_src_info[2], res_cap)
+            # m = current_src_info[0] + (1-prob_n1n2) / (res_cap + co.EPSILON) + co.REPAIR_COST * (prob_n1n2 / (res_cap + co.EPSILON) + prob_n2)
+            m = current_src_info[0] + (1-n_broken) / (res_cap + co.EPSILON) + co.REPAIR_COST * (prob_n1n2 / (res_cap + co.EPSILON) + prob_n2)
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:

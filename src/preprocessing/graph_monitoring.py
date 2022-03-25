@@ -184,7 +184,7 @@ def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_pa
     return prob_n_broken
 
 
-def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val, UNK_prior):
+def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val, UNK_prior, monitors_map, protocol_monitor_placement, is_exhaustive_paths):
     broken_edges_T = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
     broken_nodes_T = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
 
@@ -214,7 +214,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
         if p1 in demand_nodes and p2 in demand_nodes:
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
-                to_handle_pairs.add((p1,p2))  # edges demand not satisfied
+                to_handle_pairs.add((p1, p2))  # edges demand not satisfied
         else:
             to_handle_pairs.add((p1, p2))  # edges monitoring
 
@@ -234,6 +234,39 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:  # halt due to monitoring msg
                 halt_monitoring = True
                 break
+
+            # PRUNING
+            if protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT and not is_exhaustive_paths:
+                # ADDED LATER
+                is_n1_only_monitor = n1_mon not in demand_nodes
+                is_n2_only_monitor = n2_mon not in demand_nodes
+
+                # monitor | monitor > map[m1] \intersect map[m2] non è vuoto
+                # monitor | dem     > il monitor deve servire questa domanda (dem, monitor) \in map[m]
+                # dem     | monitor > il monitor deve servire questa domanda (dem, monitor) \in map[m]
+                # dem     | dem     > tutti casi ok
+
+                func_flat = lambda li: set(list(zip(*li))[0] + list(zip(*li))[1])
+
+                to_handle = False
+                if is_n1_only_monitor and is_n2_only_monitor:  # both monitors must serve at least 1 demand edge in common
+                    if len(set(monitors_map[n1_mon]).intersection(monitors_map[n2_mon])) != 0:
+                        to_handle = True
+
+                elif is_n1_only_monitor and not is_n2_only_monitor:
+                    if n2_mon in func_flat(monitors_map[n1_mon]):  # n2_mon is demand endpoint, the other is a monitor
+                        to_handle = True
+
+                elif not is_n1_only_monitor and is_n2_only_monitor:
+                    if n1_mon in func_flat(monitors_map[n2_mon]):  # n1_mon is demand endpoint
+                        to_handle = True
+
+                elif not is_n1_only_monitor and not is_n2_only_monitor:  # both demand endpoints
+                    to_handle = True
+
+                if not to_handle:
+                    handled_pairs.add((n1_mon, n2_mon))
+                    continue
 
             # if no capacitive path exists, abort, this should not happen
             st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
@@ -303,7 +336,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
 
     if len(paths) < 2:
         print("> No monitoring done. No packets left.")
-        return stats_packet_monitoring, None, None
+        return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow
 
     n_edges, n_nodes = len(SG.edges), len(SG.nodes)
     tot_els = n_edges + n_nodes
@@ -321,6 +354,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
     new_node_probs = dict()
     new_edge_probs = dict()
 
+    # ASSIGN NODE PROBABILITY BROKEN
     for n1_mon in tqdm.tqdm(G.nodes, disable=True):
         original_posterior = G.nodes[n1_mon][co.ElemAttr.POSTERIOR_BROKEN.value]
         node_id = G.nodes[n1_mon][co.ElemAttr.ID.value]
@@ -330,6 +364,7 @@ def gain_knowledge_tomography(G, stats_packet_monitoring_so_far, threshold_monit
             # print((n1), prob)
             new_node_probs[(n1_mon, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
+    # ASSIGN EDGE PROBABILITY BROKEN
     for n1_mon, n2_mon, gt in tqdm.tqdm(G.edges, disable=True):
         if gt == co.EdgeType.SUPPLY.value:
             original_posterior = G.edges[n1_mon, n2_mon, gt][co.ElemAttr.POSTERIOR_BROKEN.value]

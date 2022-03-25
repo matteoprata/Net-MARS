@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="novella@100.112.137.18:22 password" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnTargetInSync="false">
+  <component name="PublishConfigData" serverName="novella@reginaelena" remoteFilesAllowedToDisappearOnAutoupload="false" showNewOnSourceInSync="false">
     <serverData>
       <paths name="matteo@queen">
         <serverdata>
@@ -16,7 +16,7 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="novella@100.112.137.18:22 password">
+      <paths name="novella@reginaelena">
         <serverdata>
           <mappings>
             <mapping deploy="/home/novella/tomo-cedar" local="$PROJECT_DIR$" />

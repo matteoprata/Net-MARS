@@ -7,7 +7,7 @@ from collections import defaultdict
 import random
 
 
-def save_stats_as_df_ph1(stats, config):
+def save_stats_as_df_ph1(stats, fname):
     """ saving number of repairs and flow routed """
 
     repairs, iter, flow_cum, flow_perc = [], [], [], []
@@ -43,16 +43,6 @@ def save_stats_as_df_ph1(stats, config):
     n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
     df["n_monitor_msg"] = n_monitor_msg_messages
 
-    key = "_BUD_" + str(config.monitors_budget)
-    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}I{}.csv".format(config.seed,
-                                                                                   config.graph_dataset.name,
-                                                                                   config.n_demand_clique,
-                                                                                   int(config.demand_capacity),
-                                                                                   config.supply_capacity,
-                                                                                   config.algo_name + key,
-                                                                                   config.destruction_quantity,
-                                                                                   config.repairing_mode.value,
-                                                                                   config.picking_mode.value)
     print("saving stats > {}".format(fname))
     df.to_csv("data/experiments/{}".format(fname))
 
@@ -81,12 +71,17 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
             for ss in seeds_values:
                 if x_position == 0:
                     # varying probs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}.csv".format(ss,
-                                                                                                      config.graph_dataset.name,
-                                                                                                      config.n_demand_pairs,
-                                                                                                      int(config.demand_capacity),
-                                                                                                      config.supply_capacity,
-                                                                                                      algo, pbro, rep)
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        config.n_demand_pairs,
+                        int(config.demand_capacity),
+                        config.supply_capacity,
+                        algo,
+                        config.monitors_budget,
+                        pbro,
+                        rep[0], rep[1], rep[2])
+
                 elif x_position == 1:
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
                                                                                                config.graph_dataset.name,
@@ -150,7 +145,6 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     """
     path_prefix = source + "{}"  # "data/experiments/{}"
     Xlabels = {0:"Probability Broken", 1:"Number Demand Nodes", 2:"Demand Flow"}
-    NAM = {1:"CED", 0:"TOMOCE", 2:"RAND", 3:"IP"}
 
     algos_values = [[] for _ in range(len(algos))]
     for x in X_var:
@@ -161,11 +155,15 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
             for ss in seeds_values:
                 # varying probability
                 if x_position == 0:
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}-rep|{}.csv".format(ss, config.graph_dataset.name,
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(ss,
+                                                                                               config.graph_dataset.name,
                                                                                                config.n_demand_pairs,
                                                                                                int(config.demand_capacity),
                                                                                                config.supply_capacity,
-                                                                                               algo, x, rep)
+                                                                                               algo,
+                                                                                               config.monitors_budget,
+                                                                                               x,
+                                                                                               rep[0], rep[1], rep[2])
                 elif x_position == 1:
                     # # varying n pairs
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|0.3.csv".format(ss, config.graph_dataset.name,

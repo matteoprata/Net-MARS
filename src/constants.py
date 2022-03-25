@@ -103,10 +103,16 @@ class ProtocolPickingPath(Enum):
     MIN_COST_BOT_CAP = 2
 
 
+class ProtocolMonitorPlacement(Enum):
+    STEP_BY_STEP = 0
+    BUDGET_W_REPLACEMENT = 1
+    ORACLE = 3
+
+
 # constants
 PATH_TO_GRAPH = "data/graphs/"
 
-REPAIR_COST = 1
+REPAIR_COST = 500
 EPSILON = 10 ** -10
 
 N_CORES = multiprocessing.cpu_count()

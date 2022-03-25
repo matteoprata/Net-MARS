@@ -9,7 +9,7 @@ class Configuration:
 
         self.mute_log = False
         self.algo_name = co.AlgoName.CEDARNEW.value
-        self.graph_dataset = co.GraphName.MINNESOTA  # UNINET
+        self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
 
         self.destruction_show_plot = False
@@ -36,7 +36,8 @@ class Configuration:
         self.rand_generator_path_choice = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-        self.monitors_budget = 22  # int(self.n_demand_clique + (self.n_demand_clique * (self.n_demand_clique-1) / 2) / 2)  # n + ( n*(n-1)/2 ) / 4
+        self.monitors_budget = 10
+        self.monitors_budget_residual = self.monitors_budget
         self.monitoring_messages_budget = np.inf
 
         self.n_backbone_pairs = 5
@@ -47,7 +48,10 @@ class Configuration:
 
         # self.is_adaptive_prior = True
         self.is_oracle_baseline = False  # baseline TOMOCEDAR
-        self.is_xindvar_destruction = True
+        self.is_xindvar_destruction = True   # the X axis destruction varies
 
         self.is_dynamic_prior = True
         self.UNK_prior = None
+
+        self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
+        self.is_exhaustive_paths = False
