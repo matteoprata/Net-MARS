@@ -45,6 +45,7 @@ def save_stats_as_df_ph1(stats, fname):
 
     print("saving stats > {}".format(fname))
     df.to_csv("data/experiments/{}".format(fname))
+    return df
 
 
 def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_position):

@@ -17,6 +17,8 @@ def find_paths_to_repair(id, G, demand_edges_to_repair, is_oracle=False):
             path, _, _ = mxv.protocol_repair_min_exp_cost(SG, n1, n2, is_oracle=is_oracle)
         elif id == co.ProtocolRepairingPath.MAX_BOT_CAP:  # CEDAR
             path, _, _ = mxv.protocol_repair_cedarlike(SG, n1, n2)
+        elif id == co.ProtocolRepairingPath.AVERAGE:
+            path, _, _ = mxv.protocol_repair_AVG_COST(SG, n1, n2, is_oracle=is_oracle)
         else:
             path = None
 

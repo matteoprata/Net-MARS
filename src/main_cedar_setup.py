@@ -40,8 +40,9 @@ def run(config):
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
 
-    # print(broken_nodes)
-    # print(broken_edges)
+    print(broken_nodes)
+    print(broken_edges)
+
     # time.sleep(10)
     # return
 
@@ -121,21 +122,25 @@ def run(config):
 
         # -------------- 1. Tomography --------------
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
-            monitoring = gain_knowledge_tomography(G,
-                                                   stats["packet_monitoring"],
-                                                   config.monitoring_messages_budget,
-                                                   elements_val_id,
-                                                   elements_id_val,
-                                                   config.UNK_prior,
-                                                   monitors_map,
-                                                   config.protocol_monitor_placement,
-                                                   config.is_exhaustive_paths)
+            monitoring = pruning_monitoring(G,
+                                            stats["packet_monitoring"],
+                                            config.monitoring_messages_budget,
+                                            elements_val_id,
+                                            elements_id_val,
+                                            config.UNK_prior,
+                                            monitors_map,
+                                            config.protocol_monitor_placement,
+                                            config.is_exhaustive_paths)
 
             if monitoring is None:
                 stats_list.append(stats)
                 return stats_list
 
-            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = monitoring
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths = monitoring
+
+            # TOMOGRAPHY HERE
+            tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
+
             routed_flow += sum(demand_edges_routed_flow)
             stats["flow"] = routed_flow
             stats["packet_monitoring"] += stats_packet_monitoring

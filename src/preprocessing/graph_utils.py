@@ -314,14 +314,14 @@ def repair_edge(G, n1, n2):
     return did_repair
 
 
-def discover_edge(G, n1, n2, is_working):
-    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = 1-is_working
-    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = 1-is_working
+def discover_edge(G, n1, n2, p_broken):
+    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+    assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
-def discover_node(G, n, is_working):
-    G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = 1-is_working
-    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = 1-is_working
+def discover_node(G, n, p_broken):
+    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+    assert(G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n][co.ElemAttr.STATE_TRUTH.value])
 
 
 def get_element_by_state_KT(G, graph_element, state, knowledge):
@@ -460,10 +460,12 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
     cost_broken_els_exp = 0
     attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
 
+    print(path_nodes)
     # expected cost of repairing the nodes
     for n1 in path_nodes:
         posterior_broken_node = G.nodes[n1][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_node
+        print(G.nodes[n1][co.ElemAttr.STATE_TRUTH.value], posterior_broken_node, n1, cost_broken_els_exp)
 
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
@@ -471,10 +473,9 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
         n1, n2 = make_existing_edge(G, n1, n2)
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge
+        print(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value], posterior_broken_edge, n1, n2, cost_broken_els_exp)
 
-    exp_cost = cost_broken_els_exp + co.EPSILON
-
-    exp_inutility = exp_cost / (cap + co.EPSILON)  # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
+    exp_inutility = cost_broken_els_exp / (cap + co.EPSILON)  # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)
     # print("hey", cost_broken_els + cost_broken_els_exp, cap, exp_cost)
     return exp_inutility

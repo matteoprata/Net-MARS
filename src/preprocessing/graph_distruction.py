@@ -113,7 +113,7 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
     # TODO: check randomness
     # the epicenter is a randomly picked node
     if not config.is_xindvar_destruction:
-        np.random.seed(0)
+        np.random.seed(config.fixed_unvarying_seed)
 
     epicenter = random.choice(graph.nodes)['id']
 

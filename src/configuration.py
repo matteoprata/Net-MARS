@@ -49,9 +49,12 @@ class Configuration:
         # self.is_adaptive_prior = True
         self.is_oracle_baseline = False  # baseline TOMOCEDAR
         self.is_xindvar_destruction = True   # the X axis destruction varies
+        self.fixed_unvarying_seed = 0
 
         self.is_dynamic_prior = True
         self.UNK_prior = None
 
         self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
         self.is_exhaustive_paths = False
+
+        self.force_recompute = False

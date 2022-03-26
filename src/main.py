@@ -85,7 +85,7 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
                                                                                                      config.picking_mode.value,
                                                                                                      config.protocol_monitor_placement.value)
 
-    if not os.path.exists("data/experiments/"+fname):
+    if config.force_recompute or not os.path.exists("data/experiments/"+fname):
         print()
         print("NOW running...\n\n", config_details, "\n")
 
@@ -98,7 +98,8 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
         enable_print()
 
         if stats is not None:
-            save_stats_as_df_ph1(stats, fname)
+            df = save_stats_as_df_ph1(stats, fname)
+            print(df)
     else:
         print()
         print("THIS already existed...\n", fname, "\n")
@@ -131,20 +132,23 @@ def parallel_exec():
     flowpp = [10.0]
 
     reps = [
-            # co.ProtocolRepairingPath.SHORTEST,
+            co.ProtocolRepairingPath.SHORTEST,
             co.ProtocolRepairingPath.MAX_BOT_CAP,
-            # co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+            co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+            co.ProtocolRepairingPath.AVERAGE,
             ]  # co.ProtocolRepairingPath.IP
 
-    pick = [# co.ProtocolPickingPath.RANDOM,
+    pick = [
+            # co.ProtocolPickingPath.RANDOM,
             co.ProtocolPickingPath.MIN_COST_BOT_CAP,
             # co.ProtocolPickingPath.MAX_BOT_CAP
+            co.ProtocolPickingPath.MAX_INTERSECT
             ]
 
     mplacement = [
-                   co.ProtocolMonitorPlacement.STEP_BY_STEP,
-                   # co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT,
-                   # co.ProtocolMonitorPlacement.ORACLE
+                   # co.ProtocolMonitorPlacement.STEP_BY_STEP,
+                   co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT,
+                   co.ProtocolMonitorPlacement.ORACLE
     ]
 
     processes = []
@@ -172,8 +176,8 @@ def plotting_data():
     dis_uni = [.05, .15, .3, .5, .7]
 
     # i rep, j pik, k mop
-    algos =  [("CEDARNEW", [i, j, k]) for i in range(2, 3) for j in range(2, 3) for k in [3]]
-    algos +=  [("CEDARNEW", [i, j, k]) for i in range(0, 4) for j in range(2, 3) for k in [1]]
+    algos =  [("CEDARNEW", [i, j, k]) for i in [2] for j in [2, 3] for k in [3]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 2, 4] for j in [2, 3] for k in [1]]
 
     # #
     # algos += [("CEDARNEW", [i, j, k]) for i in range(2, 3) for j in range(2, 3) for k in [3]]
@@ -185,7 +189,7 @@ def plotting_data():
 
     plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=0)
     plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=0)
-    #
+
     plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=0)
     plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=0)
     plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=0)
@@ -193,10 +197,14 @@ def plotting_data():
 
 if __name__ == '__main__':
 
-    # parallel_exec()
-    plotting_data()
-    # run_var_seed_dis(seed=543, dis=.5, budget=10, nnodes=8, flowpp=10,
-    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT,
+    parallel_exec()
+    # plotting_data()
+
+    # run_var_seed_dis(seed=95, dis=.2, budget=4, nnodes=4, flowpp=70,
+    #                  rep_mode=co.ProtocolRepairingPath.MAX_BOT_CAP,
+    #                  pick_mode=co.ProtocolPickingPath.MAX_INTERSECT,
+    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT
     #                  )
+    #
+    # import time
+    # time.sleep(10)

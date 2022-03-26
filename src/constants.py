@@ -95,12 +95,14 @@ class ProtocolRepairingPath(Enum):
     MAX_BOT_CAP = 1
     MIN_COST_BOT_CAP = 2
     IP = 3
+    AVERAGE = 4
 
 
 class ProtocolPickingPath(Enum):
     RANDOM = 0
     MAX_BOT_CAP = 1
     MIN_COST_BOT_CAP = 2
+    MAX_INTERSECT = 3
 
 
 class ProtocolMonitorPlacement(Enum):

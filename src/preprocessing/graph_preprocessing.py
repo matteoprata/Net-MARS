@@ -73,7 +73,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
     # ADD the backbones!
     max_comp = list(get_max_component(G))
 
-    np.random.seed(0)  # this does not vary
+    np.random.seed(config.fixed_unvarying_seed)  # this does not vary
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(config.n_backbone_pairs)]
     np.random.seed(config.seed)
 
@@ -157,7 +157,7 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     max_comp = list(get_max_component(G))
 
     if config.is_xindvar_destruction:
-        np.random.seed(0)  # destruction varies > vary only the epicenter
+        np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
 
     list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
 
@@ -204,7 +204,7 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
 
     # choose n_demand_nodes randomly in the graph
     if config.is_xindvar_destruction:
-        np.random.seed(0)  # do not vary the positions of the demands
+        np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
     list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True, p=max_comp_degs if is_biased else None)
 
