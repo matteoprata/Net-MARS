@@ -103,6 +103,7 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
     else:
         print()
         print("THIS already existed...\n", fname, "\n")
+    return
 
 
 def parallel_exec():
@@ -197,8 +198,8 @@ def plotting_data():
 
 if __name__ == '__main__':
 
-    parallel_exec()
-    # plotting_data()
+    # parallel_exec()
+    plotting_data()
 
     # run_var_seed_dis(seed=95, dis=.2, budget=4, nnodes=4, flowpp=70,
     #                  rep_mode=co.ProtocolRepairingPath.MAX_BOT_CAP,

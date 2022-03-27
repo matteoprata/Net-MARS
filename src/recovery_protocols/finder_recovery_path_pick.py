@@ -56,13 +56,13 @@ def __pick_max_intersection(G, paths, repair_mode, is_oracle):
     for key, value in container_items:
         n_intersections_paths.setdefault(value, []).append(key)
 
-    intersected_paths_ids = list(n_intersections_paths.items())[0][1]
+    intersected_paths_ids = list(n_intersections_paths.items())[0][1]  # list of ids of the paths to possibly repair
     intersected_paths = [paths[i] for i in intersected_paths_ids]
 
-    if len(intersected_paths) > 1:
+    if len(intersected_paths_ids) > 1:
         path_to_fix = __pick_tomocedar_repair_path(G, intersected_paths, repair_mode, is_oracle)
     else:
-        pid = intersected_paths[0]
+        pid = intersected_paths_ids[0]
         path_to_fix = paths[pid]
 
     return path_to_fix
