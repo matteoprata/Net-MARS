@@ -6,46 +6,7 @@ from collections import defaultdict
 # repairs iter  flow_cum  flow_perc  n_repairs  n_monitors  n_monitor_msg
 import random
 
-
-def save_stats_as_df_ph1(stats, fname):
-    """ saving number of repairs and flow routed """
-
-    repairs, iter, flow_cum, flow_perc = [], [], [], []
-    n_repairs = 0
-    for i, dic in enumerate(stats):
-        vals = dic["node"] + dic["edge"]
-        n_vals = max(len(vals), 1)
-        repairs += vals if len(vals) > 0 else [None]
-        iter += [dic["iter"]]*n_vals
-        flow_perc += [stats[i-1]["flow"]]*n_vals if i > 0 else [0]*n_vals
-        n_repairs += len(vals)
-
-    flow_perc[-1] = stats[-1]["flow"]
-
-    df = pd.DataFrame()
-    df["repairs"] = repairs
-    df["iter"] = iter
-    df["flow_cum"] = flow_perc
-    df["flow_perc"] = flow_perc
-
-    # position 0 we set the number of repairs
-    none_vec = [None]*len(flow_perc)
-
-    n_repairs_vector = none_vec[:]
-    n_repairs_vector[0] = n_repairs
-    df["n_repairs"] = n_repairs_vector
-
-    n_monitors_vector = none_vec[:]
-    n_monitors_vector[0] = len(stats[-1]["monitors"])
-    df["n_monitors"] = n_monitors_vector
-
-    n_monitor_msg_messages = none_vec[:]
-    n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
-    df["n_monitor_msg"] = n_monitor_msg_messages
-
-    print("saving stats > {}".format(fname))
-    df.to_csv("data/experiments/{}".format(fname))
-    return df
+from src import main as ma
 
 
 def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_position):
@@ -261,3 +222,33 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     plt.clf()
 
 
+def plotting_data():
+    config = ma.setup_configuration()
+    seeds = [90, 400, 50, 798, 678, 543, 979] + [90, 400, 50, 798, 678, 543, 979, 1, 66, 778, 78, 248, 8550, 3480, 3842, 9, 44, 19, 297]
+    seeds = list(set(seeds))
+    dis_uni = [.05, .15, .3, .5, .7]
+
+    # i rep, j pik, k mop
+    algos =  [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 2, 9, 10] for j in [2] for k in [1]]
+
+    # algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 4, 6] for j in [2, 3] for k in [1]]
+
+    # #
+    # algos += [("CEDARNEW", [i, j, k]) for i in range(2, 3) for j in range(2, 3) for k in [3]]
+
+    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 2))]
+    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 1))]
+
+    source = "data/experiments/"
+
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=0)
+    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=0)
+
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=0)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=0)
+    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=0)
+
+
+if __name__ == '__main__':
+    plotting_data()

@@ -4,14 +4,13 @@ import itertools
 import argparse
 from multiprocessing import Pool
 import os
+import pandas as pd
 
 import signal
 import src.constants as co
 import src.configuration as configuration
 import src.main_cedar_setup as main_cedar_setup
 from src.utilities.util import set_seeds, block_print, enable_print
-
-from src.plotting.stats_plotting import save_stats_as_df_ph1, plot_integral, plot_monitors_stuff
 
 original_config = configuration.Configuration()
 
@@ -24,6 +23,46 @@ parser.add_argument('-gn', '--graph_name', type=str, default=original_config.gra
 
 # -----> END of variable parameters
 
+
+def save_stats_as_df_ph1(stats, fname):
+    """ saving number of repairs and flow routed """
+
+    repairs, iter, flow_cum, flow_perc = [], [], [], []
+    n_repairs = 0
+    for i, dic in enumerate(stats):
+        vals = dic["node"] + dic["edge"]
+        n_vals = max(len(vals), 1)
+        repairs += vals if len(vals) > 0 else [None]
+        iter += [dic["iter"]]*n_vals
+        flow_perc += [stats[i-1]["flow"]]*n_vals if i > 0 else [0]*n_vals
+        n_repairs += len(vals)
+
+    flow_perc[-1] = stats[-1]["flow"]
+
+    df = pd.DataFrame()
+    df["repairs"] = repairs
+    df["iter"] = iter
+    df["flow_cum"] = flow_perc
+    df["flow_perc"] = flow_perc
+
+    # position 0 we set the number of repairs
+    none_vec = [None]*len(flow_perc)
+
+    n_repairs_vector = none_vec[:]
+    n_repairs_vector[0] = n_repairs
+    df["n_repairs"] = n_repairs_vector
+
+    n_monitors_vector = none_vec[:]
+    n_monitors_vector[0] = len(stats[-1]["monitors"])
+    df["n_monitors"] = n_monitors_vector
+
+    n_monitor_msg_messages = none_vec[:]
+    n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
+    df["n_monitor_msg"] = n_monitor_msg_messages
+
+    print("saving stats > {}".format(fname))
+    df.to_csv("data/experiments/{}".format(fname))
+    return df
 
 def setup_configuration():
     """ Sets up the configuration by assigning dynamic values to variables."""
@@ -125,7 +164,8 @@ def parallel_exec():
     # seeds = [999, 798, 678, 543, 11, 3, 5]
     # seeds = [66, 1000, 33, 34, 56, 979, 349]  # regina elena
     # seeds = [77, 78, 79, 90, 400, 50, 55, 999, 798, 678, 543, 979, 1000, 5221]  # range(30, 39)
-    seeds = [90, 400, 50, 999, 798, 678, 543, 979]
+    seeds = [90, 400, 50, 798, 678, 543, 979, 1, 66, 778, 78, 248, 8550, 3480, 3842, 9, 44, 19, 297]
+    seeds = list(set(seeds))
 
     dis_uni = [.05, .15, .3, .5, .7]
     budget_n_monitor = [10]
@@ -136,7 +176,7 @@ def parallel_exec():
             co.ProtocolRepairingPath.SHORTEST,
             co.ProtocolRepairingPath.MAX_BOT_CAP,
             co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-            co.ProtocolRepairingPath.AVERAGE,
+            # co.ProtocolRepairingPath.AVERAGE,
             ]  # co.ProtocolRepairingPath.IP
 
     pick = [
@@ -149,11 +189,14 @@ def parallel_exec():
     mplacement = [
                    # co.ProtocolMonitorPlacement.STEP_BY_STEP,
                    co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT,
-                   co.ProtocolMonitorPlacement.ORACLE
+                   # co.ProtocolMonitorPlacement.ORACLE
     ]
 
     processes = []
     for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp, reps, pick, mplacement, [True]):
+        processes.append(execution)
+
+    for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp, [reps[2]], [pick[0]], [mplacement[0]], [True]):
         processes.append(execution)
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
@@ -171,41 +214,11 @@ def initializer():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def plotting_data():
-    config = setup_configuration()
-    seeds = [90, 400, 50, 999, 798, 678, 543, 979]
-    dis_uni = [.05, .15, .3, .5, .7]
-
-    # i rep, j pik, k mop
-    algos =  [("CEDARNEW", [i, j, k]) for i in [2] for j in [2, 3] for k in [3]]
-    algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 2, 4] for j in [2, 3] for k in [1]]
-
-    # #
-    # algos += [("CEDARNEW", [i, j, k]) for i in range(2, 3) for j in range(2, 3) for k in [3]]
-
-    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 2))]
-    # algos += [("CEDARNEW_BUD_20", "{}I{}".format(2, 1))]
-
-    source = "data/experiments/"
-
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=False, x_position=0)
-    plot_integral(source, config, seeds, dis_uni, algos, is_total=True, x_position=0)
-
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitor_msg", x_position=0)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_monitors", x_position=0)
-    plot_monitors_stuff(source, config, seeds, dis_uni, algos, typep="n_repairs", x_position=0)
-
-
 if __name__ == '__main__':
-
-    # parallel_exec()
-    plotting_data()
+    parallel_exec()
 
     # run_var_seed_dis(seed=95, dis=.2, budget=4, nnodes=4, flowpp=70,
-    #                  rep_mode=co.ProtocolRepairingPath.MAX_BOT_CAP,
+    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
     #                  pick_mode=co.ProtocolPickingPath.MAX_INTERSECT,
     #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT
     #                  )
-    #
-    # import time
-    # time.sleep(10)

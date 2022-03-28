@@ -465,20 +465,20 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
     for n1 in path_nodes:
         posterior_broken_node = G.nodes[n1][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_node
-        print(G.nodes[n1][co.ElemAttr.STATE_TRUTH.value], posterior_broken_node, n1, cost_broken_els_exp)
+        # print(G.nodes[n1][co.ElemAttr.STATE_TRUTH.value], posterior_broken_node, n1, cost_broken_els_exp)
 
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
         n1, n2 = make_existing_edge(G, n1, n2)
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
-        cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge
-        print(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value], posterior_broken_edge, n1, n2, cost_broken_els_exp)
+        cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge / cap
+        # print(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value], posterior_broken_edge, n1, n2, cost_broken_els_exp)
 
-    exp_inutility = cost_broken_els_exp / (cap + co.EPSILON)  # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
+    # exp_inutility = cost_broken_els_exp   # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)
     # print("hey", cost_broken_els + cost_broken_els_exp, cap, exp_cost)
-    return exp_inutility
+    return cost_broken_els_exp
 
 
 def probabilistic_edge_weights(SG, G):

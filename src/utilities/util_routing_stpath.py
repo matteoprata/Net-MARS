@@ -55,6 +55,9 @@ def protocol_routing_IP(SG, src, target):
             cap = SG.edges[n1_st, n2_st, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
             res_cap = SG.edges[n1_st, n2_st, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
+            if res_cap == 0:
+                continue
+
             is_n1_broken = bool(SG.nodes[n1_st][co.ElemAttr.STATE_TRUTH.value])
             is_n2_broken = bool(SG.nodes[n2_st][co.ElemAttr.STATE_TRUTH.value])
             is_n1n2_broken = bool(SG.edges[n1_st, n2_st, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value])
@@ -68,7 +71,7 @@ def protocol_routing_IP(SG, src, target):
             CA = min(current_src_info[1], cap)
             RC = min(current_src_info[2], res_cap)
             LA = current_src_info[3] + 1
-            m = ((1/CA + 1/(CA * RC) + LA) + BR * len(SG.edges)) if RC > 0 else np.inf
+            m = (1/CA + 1/(CA * RC) + LA) + BR * len(SG.edges)
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
@@ -146,7 +149,6 @@ def protocol_repair_AVG_COST(SG, src, target, is_oracle=False):
     return a, metric, None
 
 
-
 def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
     parent = {n: None for n in SG.nodes}
     node_metric = {n: None for n in SG.nodes}
@@ -156,10 +158,13 @@ def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
 
     # metric, cap, res_cap, delay, node_id | min su metric, min is in position 0
     container = dict()
-    container[src] = (0, None, np.inf, None)
+
+    initial_m_cost = co.REPAIR_COST * SG.nodes[src][co.ElemAttr.POSTERIOR_BROKEN.value]
+
+    container[src] = (initial_m_cost, None, np.inf, 0, initial_m_cost)
     for nid in SG.nodes:
         if nid != src:
-            container[nid] = (np.inf, None, -np.inf, None)
+            container[nid] = (np.inf, None, -np.inf, -np.inf, -np.inf)
 
     while len(container) > 0:
         temp = list(container.items())[0]
@@ -177,27 +182,34 @@ def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
+            if res_cap == 0:
+                continue  # 0/eps cannot be 0! or loops would happen! if RC == 0, the path cannot be chosen
+
             attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
-            prob_n1 = SG.nodes[n1][attribute]
             prob_n2 = SG.nodes[n2][attribute]
             prob_n1n2 = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            RC = min(current_src_info[2], res_cap)  # max(min(current_src_info[2], res_cap) , current_neigh_info[2])   # residual
-
-            cost_prev_but_max_rc = 0 if current_src_info[2] == np.inf else (current_src_info[0] * current_src_info[2])  # cost of before without counting the RC | PASSATO
-            cost_now_but_max_rc = co.REPAIR_COST * (prob_n2 + prob_n1n2)  # NEW! # cost of now without the RC                 # PRESENTE
+            # RC = max(current_neigh_info[2], min(current_src_info[2], res_cap))
+            # cost_prev_but_max_rc = 0 if current_src_info[2] == np.inf else (current_src_info[0] * current_src_info[2])  # cost of before without counting the RC | PASSATO
+            # cost_now_but_max_rc = co.REPAIR_COST * (prob_n2 + prob_n1n2)  # NEW! # cost of now without the RC                 # PRESENTE
             # cost_now_but_max_rc = co.REPAIR_COST * ((prob_n1 + prob_n2) / 2 + prob_n1n2) + 1
+            # AV = (current_src_info[4] * current_src_info[3] + res_cap) / (current_src_info[3] + 1)  # average capacity so far
+            # m = (cost_prev_but_max_rc + cost_now_but_max_rc) / (RC + co.EPSILON)
 
-            m = (cost_prev_but_max_rc + cost_now_but_max_rc) / (RC + co.EPSILON)
-            m = m if RC > 0 else np.inf  # 0/eps cannot be 0! or loops would happen! if RC == 0, the path cannot be chosen
+            RC = min(current_src_info[2], res_cap)
+
+            m = (current_src_info[0] - current_src_info[4]) * (current_src_info[2] if current_src_info[2] != np.inf else 1)
+            m = m + co.REPAIR_COST * prob_n1n2
+            m = m / RC
+            cost_nodes_sofar = current_src_info[4] + co.REPAIR_COST * prob_n2
+            m = m + cost_nodes_sofar
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
-                # print("ho assegnato a", neigh, "padre", current_src)
-                container[neigh] = (m, None, RC, None)
+                container[neigh] = (m, None, RC, None, cost_nodes_sofar)
                 parent[neigh] = current_src
                 node_metric[neigh] = m
                 node_capacity[neigh] = RC
@@ -241,16 +253,18 @@ def protocol_stpath_capacity(SG, src, target):
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
+            if res_cap == 0:
+                continue
+
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            RC = min(current_src_info[1], res_cap)
-            m = current_src_info[0] + 1 + (np.inf if RC == 0 else 0)
+            m = current_src_info[0] + 1
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
                 # print("ho assegnato a", neigh, "padre", current_src)
-                container[neigh] = (m, RC)
+                container[neigh] = (m, None)
                 parent[neigh] = current_src
                 container_items = sorted(container.items(), key=lambda x: x[1][0])  # [(k0, v0), (,)]
                 container = {i[0]: i[1] for i in container_items}  # {k0:v0, k1:v1, ...}
@@ -289,6 +303,9 @@ def protocol_repair_cedarlike(SG, src, target):
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
+            if res_cap == 0:
+                continue
+
             attribute = co.ElemAttr.POSTERIOR_BROKEN.value
             # CHANGES THIS
             # prob_n1 = 0 if SG.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == 0 else 1  # sconosciuto o rotto
@@ -298,16 +315,14 @@ def protocol_repair_cedarlike(SG, src, target):
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            RC = min(current_src_info[2], res_cap)
-            m = current_src_info[0] + (1-prob_n1n2) / (res_cap + co.EPSILON) + co.REPAIR_COST * (prob_n1n2 / (res_cap + co.EPSILON) + prob_n2)
+            m = current_src_info[0] + (1-prob_n1n2) / res_cap + co.REPAIR_COST * (prob_n1n2 / res_cap + prob_n2)
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
                 # print("ho assegnato a", neigh, "padre", current_src)
-                container[neigh] = (m, None, RC, None)
+                container[neigh] = (m, None, None, None)
                 parent[neigh] = current_src
                 node_metric[neigh] = m
-                node_capacity[neigh] = RC
 
                 container_items = sorted(container.items(), key=lambda x: x[1][0])  # [(k0, v0), (,)]
                 container = {i[0]: i[1] for i in container_items}  # {k0:v0, k1:v1, ...}

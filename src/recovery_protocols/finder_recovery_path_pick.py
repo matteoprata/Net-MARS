@@ -7,6 +7,7 @@ import random
 
 
 def find_path_picker(id, G, paths, repair_mode, is_oracle=False):
+
     if len(paths) == 0:
         print("No paths to recover.")
         return
@@ -27,7 +28,7 @@ def find_path_picker(id, G, paths, repair_mode, is_oracle=False):
 def __pick_max_intersection(G, paths, repair_mode, is_oracle):
     """ Picks th epath that has more elements in common with the other paths. """
 
-    path_elements = dict()
+    path_elements = dict()  # path id: [n1, n2, n3, (n1,n3)]
     print(paths)
     for pid, pp in enumerate(paths):
         elements = set()
@@ -38,17 +39,17 @@ def __pick_max_intersection(G, paths, repair_mode, is_oracle):
             elements.add((n1, n2))
         path_elements[pid] = elements
 
+    # [n1, n2, n3], [n1, n2, n5], [n1, n2, n5, n6]
+    # PATH[i] intersect (union path[j] for all j)
     commons_path_elements = {i: 0 for i in range(len(path_elements))}  # path id : his max intersection
     for i in path_elements:
+        elements_p = set()
         for j in path_elements:
-            if i > j:
-                n_commons_path_elements = len(path_elements[i].intersection(path_elements[j]))
-                if n_commons_path_elements > commons_path_elements[i]:
-                    commons_path_elements[i] = n_commons_path_elements
-                if n_commons_path_elements > commons_path_elements[j]:
-                    commons_path_elements[j] = n_commons_path_elements
+            if i != j:
+                elements_p |= path_elements[j]
+        commons_path_elements[i] = len(path_elements[i].intersection(elements_p))
 
-    container_items = sorted(commons_path_elements.items(), key=lambda x: x[1], reverse=True)
+    container_items = sorted(commons_path_elements.items(), key=lambda x: x[1], reverse=True)  # (p, len)
 
     # TIE BREAKING: repair the least expected cost
     # group dict by key

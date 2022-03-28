@@ -55,6 +55,6 @@ class Configuration:
         self.UNK_prior = None
 
         self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
-        self.is_exhaustive_paths = False
+        self.is_exhaustive_paths = True
 
         self.force_recompute = False
