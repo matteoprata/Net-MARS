@@ -4,6 +4,7 @@ import numpy as np
 import src.constants as co
 import networkx as nx
 import src.preprocessing.graph_utils as grau
+import src.utilities.util as util
 
 
 # Function to print required path
@@ -149,7 +150,7 @@ def protocol_repair_AVG_COST(SG, src, target, is_oracle=False):
     return a, metric, None
 
 
-def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
+def protocol_repair_min_exp_cost(SG, src, target, residual_demand, max_edge_cap, is_oracle):
     parent = {n: None for n in SG.nodes}
     node_metric = {n: None for n in SG.nodes}
     node_capacity = {n: None for n in SG.nodes}
@@ -181,6 +182,7 @@ def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
 
             n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+            res_cap = util.min_max_normalizer(res_cap, 0, max_edge_cap, 0, 1)
 
             if res_cap == 0:
                 continue  # 0/eps cannot be 0! or loops would happen! if RC == 0, the path cannot be chosen
@@ -192,18 +194,10 @@ def protocol_repair_min_exp_cost(SG, src, target, is_oracle=False):
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            # RC = max(current_neigh_info[2], min(current_src_info[2], res_cap))
-            # cost_prev_but_max_rc = 0 if current_src_info[2] == np.inf else (current_src_info[0] * current_src_info[2])  # cost of before without counting the RC | PASSATO
-            # cost_now_but_max_rc = co.REPAIR_COST * (prob_n2 + prob_n1n2)  # NEW! # cost of now without the RC                 # PRESENTE
-            # cost_now_but_max_rc = co.REPAIR_COST * ((prob_n1 + prob_n2) / 2 + prob_n1n2) + 1
-            # AV = (current_src_info[4] * current_src_info[3] + res_cap) / (current_src_info[3] + 1)  # average capacity so far
-            # m = (cost_prev_but_max_rc + cost_now_but_max_rc) / (RC + co.EPSILON)
+            RC = min(min(current_src_info[2], res_cap), residual_demand)
 
-            RC = min(current_src_info[2], res_cap)
-
-            m = (current_src_info[0] - current_src_info[4]) * (current_src_info[2] if current_src_info[2] != np.inf else 1)
-            m = m + co.REPAIR_COST * prob_n1n2
-            m = m / RC
+            m = (current_src_info[0] - current_src_info[4]) * (current_src_info[2] if current_src_info[2] != np.inf else 0)
+            m = (m + co.REPAIR_COST * prob_n1n2) / RC
             cost_nodes_sofar = current_src_info[4] + co.REPAIR_COST * prob_n2
             m = m + cost_nodes_sofar
 

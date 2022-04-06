@@ -106,11 +106,10 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     return distribution, broken_nodes, broken_edges
 
 
-def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=0, sig=.5, distance_factor=1):
+def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.15, sig=.4, distance_factor=1):
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
-    # TODO: check randomness
     # the epicenter is a randomly picked node
     if not config.is_xindvar_destruction:
         np.random.seed(config.fixed_unvarying_seed)
@@ -151,7 +150,7 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
     elements_list = list(graph.nodes) + list(graph.edges)
     elements_distances = node_distances + edge_distances
     n_elements = len(elements_list)
-    max_distance = max(elements_distances) * (1+ distance_factor)
+    max_distance = max(elements_distances) * (1 + distance_factor)
 
     bins = [i * (max_distance / n_bins) for i in range(1, n_bins+1)]
     inds = np.digitize(elements_distances, bins)  # say to what bin each distance belongs
@@ -196,8 +195,7 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
             broken += random.sample(bins_dict[slice], int(np.ceil(n_expected_broken_slice)))
 
     perc_broken_sofar = (len(broken) / n_elements)
-    assert(util.is_distance_tolerated(perc_broken_sofar, destruction_quantity, .05),
-           "Percentage of disruption is insufficient.")
+    assert util.is_distance_tolerated(perc_broken_sofar, destruction_quantity, .05), "Percentage of disruption is insufficient."
 
     broken_nodes, broken_edges = [], []
     for el in broken:

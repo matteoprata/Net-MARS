@@ -23,6 +23,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     plot_name = {"n_monitors": "Number monitors", "n_monitor_msg": "Number monitoring messages", "n_repairs": "Number repairs"}
     path_prefix = source + "{}"
     Xlabels = {0:"Probability Broken", 1:"Number Demand Nodes", 2:"Demand Flow"}
+    dc = config.n_demand_clique if config.is_demand_clique else config.n_demand_pairs
 
     slices = []
     for al in algos:
@@ -36,7 +37,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
-                        config.n_demand_pairs,
+                        dc,
                         int(config.demand_capacity),
                         config.supply_capacity,
                         algo,
@@ -56,7 +57,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                     # varying flow pp
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
                                                                                                config.graph_dataset.name,
-                                                                                               8,
+                                                                                               dc,
                                                                                                pbro,
                                                                                                config.supply_capacity,
                                                                                                al, 0.3)
@@ -107,6 +108,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
     """
     path_prefix = source + "{}"  # "data/experiments/{}"
     Xlabels = {0:"Probability Broken", 1:"Number Demand Nodes", 2:"Demand Flow"}
+    dc = config.n_demand_clique if config.is_demand_clique else config.n_demand_pairs
 
     algos_values = [[] for _ in range(len(algos))]
     for x in X_var:
@@ -119,7 +121,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
                 if x_position == 0:
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(ss,
                                                                                                config.graph_dataset.name,
-                                                                                               config.n_demand_pairs,
+                                                                                               dc,
                                                                                                int(config.demand_capacity),
                                                                                                config.supply_capacity,
                                                                                                algo,
@@ -137,7 +139,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
                 elif x_position == 2:
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-pbro|{}.csv".format(ss,
                                                                                                 config.graph_dataset.name,
-                                                                                                8,
+                                                                                                dc,
                                                                                                 x,
                                                                                                 config.supply_capacity,
                                                                                                 algo, 0.3)
@@ -224,15 +226,22 @@ def plot_integral(source, config, seeds_values, X_var, algos, is_total, x_positi
 
 def plotting_data():
     config = ma.setup_configuration()
-    seeds = [90, 400, 50, 798, 678, 543, 979] + [90, 400, 50, 798, 678, 543, 979, 1, 66, 778, 78, 248, 8550, 3480, 3842, 9, 44, 19, 297]
+    seeds = [90, 400, 50, 798, 678]
     seeds = list(set(seeds))
-    dis_uni = [.05, .15, .3, .5, .7]
+    dis_uni = [.1, .2, .3, .4, .5, .6]
 
     # i rep, j pik, k mop
     algos =  [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
-    algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 2, 9, 10] for j in [2] for k in [1]]
 
-    # algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 4, 6] for j in [2, 3] for k in [1]]
+    # algos += [("CEDARNEW", [i, j, k]) for i in [10] for j in [2] for k in [3]]
+    # algos += [("CEDARNEW", [i, j, k]) for i in [10] for j in [2] for k in [1]]
+    #
+    # algos += [("CEDARNEW", [i, j, k]) for i in [0] for j in [0] for k in [1]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [0] for j in [4] for k in [1]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [1] for j in [5] for k in [1]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [1]]
+
+    # algos += [("CEDARNEW", [i, j, k]) for i in [0, 1, 2] for j in [2] for k in [1]]
 
     # #
     # algos += [("CEDARNEW", [i, j, k]) for i in range(2, 3) for j in range(2, 3) for k in [3]]

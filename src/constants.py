@@ -104,6 +104,9 @@ class ProtocolPickingPath(Enum):
     MIN_COST_BOT_CAP = 2
     MAX_INTERSECT = 3
 
+    SHORTEST = 4
+    CEDAR_LIKE_MIN = 5
+
 
 class ProtocolMonitorPlacement(Enum):
     STEP_BY_STEP = 0

@@ -1,6 +1,7 @@
 
 from src import constants as co
 from src.preprocessing import graph_utils as gu
+from src.recovery_protocols import finder_recovery_path as re
 
 import numpy as np
 import random
@@ -23,6 +24,12 @@ def find_path_picker(id, G, paths, repair_mode, is_oracle=False):
 
     elif id == co.ProtocolPickingPath.MAX_INTERSECT:
         return __pick_max_intersection(G, paths, repair_mode, is_oracle)
+
+    elif id == co.ProtocolPickingPath.SHORTEST:
+        return __pick_shortest(paths)
+
+    elif id == co.ProtocolPickingPath.CEDAR_LIKE_MIN:
+        return __pick_cedar_like_min(G, paths)
 
 
 def __pick_max_intersection(G, paths, repair_mode, is_oracle):
@@ -119,4 +126,32 @@ def __pick_random_repair_path(G, paths):
         # 5. Repair edges and nodes
         path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
         print("> Repairing path", path_to_fix)
+        return path_to_fix
+
+
+def __pick_shortest(paths):
+    """ The path with few hops. """
+    if len(paths) > 0:
+        pp_id = np.argmin([len(p) for p in paths])
+        return paths[pp_id]
+
+
+def __pick_cedar_like_min(G, paths):
+    if len(paths) > 0:
+        # 3. Map the path to its bottleneck capacity
+        paths_exp_cost = []
+
+        for path_nodes in paths:  # TODO: randomize
+            # min_cap = get_path_cost(G, path_nodes)
+            exp_cost = gu.get_path_cost_cedarlike(G, path_nodes)  # MINIMIZE expected cost of repair
+            paths_exp_cost.append(exp_cost)
+
+        # 4. Get the path that maximizes the minimum bottleneck capacity
+        path_id_to_fix = np.argmin(paths_exp_cost)
+        print("> Selected path to recover has capacity", gu.get_path_residual_capacity(G, paths[path_id_to_fix]))
+
+        # 5. Repair edges and nodes
+        path_to_fix = paths[path_id_to_fix]  # 1, 2, 3
+        print("> Repairing path", path_to_fix)
+        print("cost >", paths_exp_cost[path_id_to_fix])
         return path_to_fix

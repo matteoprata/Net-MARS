@@ -40,16 +40,17 @@ def run(config):
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
 
-    print(broken_nodes)
-    print(broken_edges)
-
-    # time.sleep(10)
+    # perc = (len(broken_nodes) + len(broken_edges)) / (len(G.nodes) + len(get_supply_edges(G)))
+    # tolerance = 0.01
+    # util.enable_print()
+    # print(config.destruction_quantity, perc)
+    # assert abs(config.destruction_quantity - perc) < tolerance  # WARNING! Less disruption than expected
     # return
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
         print("This instance is not solvable. Check the number of demand edges, theirs and supply links capacity.\n\n\n")
-        return None
+        return
 
     # repair demand edges
     demand_node = get_demand_nodes(G)
@@ -79,10 +80,6 @@ def run(config):
         monitors_map[n1].append((n1, n2))
         monitors_map[n2].append((n1, n2))
 
-    pr_on_s3, pr_on_s4 = 0, 0
-    # START
-    # TODO: azzoppare cedar con routing nostro
-    # TODO: is routable according to routing algorithm! Not the system of equations
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
         # go on if there are demand edges to satisfy, and still is_feasible
 
@@ -108,10 +105,14 @@ def run(config):
         # -------------- 0. Monitor placement --------------
 
         if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT:
-            monitors_map = mon.removing_monitor(G, monitors_map, config)
-            monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, config)
-            monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)
-            # stats["node"] += monitors_repaired
+
+            if config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or \
+                    config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP:  # others do not need monitors
+
+                monitors_map = mon.removing_monitor(G, monitors_map, config)
+                monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, config)
+                monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)
+                # stats["node"] += monitors_repaired
 
         elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP:
             monitors = mon.original_monitoring_add(G, config)
@@ -120,17 +121,13 @@ def run(config):
 
         # no monitor for ORACLE mode
 
-        # -------------- 1. Tomography --------------
-        if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:
+        # -------------- 1. Tomography, Pruning, Probability --------------
+        if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:  # TODO: adjust if
             monitoring = pruning_monitoring(G,
                                             stats["packet_monitoring"],
                                             config.monitoring_messages_budget,
-                                            elements_val_id,
-                                            elements_id_val,
-                                            config.UNK_prior,
                                             monitors_map,
-                                            config.protocol_monitor_placement,
-                                            config.is_exhaustive_paths)
+                                            config)
 
             if monitoring is None:
                 stats_list.append(stats)
@@ -138,7 +135,7 @@ def run(config):
 
             stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths = monitoring
 
-            # TOMOGRAPHY HERE
+            # >>>> PROBABILITY HERE
             tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
 
             routed_flow += sum(demand_edges_routed_flow)
@@ -150,7 +147,7 @@ def run(config):
         print("> Residual demand edges", len(demand_edges), demand_edges)
 
         # -------------- 2. Repairing --------------
-        paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, is_oracle=config.is_oracle_baseline)
+        paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
         path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
         fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
 

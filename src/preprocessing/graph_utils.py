@@ -28,6 +28,14 @@ def get_supply_edges(G):
     return [e for e in G.edges if e[2] == co.EdgeType.SUPPLY.value]
 
 
+def get_supply_graph_diameter(SG):
+    return nx.diameter(SG)
+
+
+def get_supply_max_capacity(config):
+    return config.supply_capacity[0] * (1 + config.percentage_flow_backbone)
+
+
 def get_demand_nodes(G, is_residual=False):
     demand_nodes = set()
     for n1, n2, _ in get_demand_edges(G):
@@ -267,6 +275,10 @@ def get_incident_edges_of_node(node, edges):
     return to_node, from_node
 
 
+def is_demand_edge_exist(G, n1, n2):
+    return (n1, n2, co.EdgeType.DEMAND.value) in G.edges
+
+
 def make_existing_edge(G, n1, n2):
     """ Returns the oriented graph, for undirected graphs """
     for e1, e2, _ in G.edges:
@@ -283,11 +295,13 @@ def do_fix_path(G, path_to_fix):
 
     if path_to_fix is not None:
 
+        # NODES
         for n1 in path_to_fix:
             did_repair = repair_node(G, n1)
             if did_repair:
                 fixed_nodes.append(n1)
 
+        # EDGES
         for i in range(len(path_to_fix) - 1):
             n1, n2 = path_to_fix[i], path_to_fix[i + 1]
             n1, n2 = make_existing_edge(G, n1, n2)
@@ -315,14 +329,27 @@ def repair_edge(G, n1, n2):
 
 
 def discover_edge(G, n1, n2, p_broken):
+    """  Sets the posterior probability according to the actual state of the element. """
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
     assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
 def discover_node(G, n, p_broken):
+    """  Sets the posterior probability according to the actual state of the element. """
     G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
     assert(G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n][co.ElemAttr.STATE_TRUTH.value])
 
+
+def discover_path(G, path, p_broken):
+    """  Sets the posterior probability according to the actual state of the path. """
+    for i in range(len(path)-1):
+        n1, n2 = make_existing_edge(G, path[i], path[i+1])
+        G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+        G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+        assert (G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n1][co.ElemAttr.STATE_TRUTH.value])
+        assert (G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
+        assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 def get_element_by_state_KT(G, graph_element, state, knowledge):
     """ K: discovered, T: truth """
@@ -371,6 +398,10 @@ def get_path_residual_capacity(G, path_nodes):
         capacities.append(cap)
     min_cap = min(capacities)
     return min_cap
+
+
+def get_residual_demand(G):
+    return sum([d for _, _, d in get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)])
 
 
 def demand_pruning(G, path, quantity):
@@ -457,10 +488,11 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
     if cap == 0:
         return np.inf
 
+    cap = min(cap, get_residual_demand(G))
+
     cost_broken_els_exp = 0
     attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
 
-    print(path_nodes)
     # expected cost of repairing the nodes
     for n1 in path_nodes:
         posterior_broken_node = G.nodes[n1][attribute]
@@ -478,6 +510,31 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
     # exp_inutility = cost_broken_els_exp   # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)
     # print("hey", cost_broken_els + cost_broken_els_exp, cap, exp_cost)
+    return cost_broken_els_exp
+
+
+def get_path_cost_cedarlike(G, path_nodes):
+    cap = get_path_residual_capacity(G, path_nodes)
+
+    if cap == 0:
+        return np.inf
+
+    cost_broken_els_exp = 0
+
+    print(path_nodes)
+    # expected cost of repairing the nodes
+    for n1 in path_nodes:
+        is_unk_bro = int(G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] > 0)
+        cost_broken_els_exp += co.REPAIR_COST * is_unk_bro
+        # print(G.nodes[n1][co.ElemAttr.STATE_TRUTH.value], posterior_broken_node, n1, cost_broken_els_exp)
+
+    # expected cost of repairing the edges
+    for i in range(len(path_nodes) - 1):
+        n1, n2 = path_nodes[i], path_nodes[i + 1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+        is_unk_bro = int(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0)
+        cost_broken_els_exp += co.REPAIR_COST * is_unk_bro / cap + (1-is_unk_bro) / cap
+
     return cost_broken_els_exp
 
 

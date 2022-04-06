@@ -8,6 +8,8 @@ np.set_printoptions(threshold=sys.maxsize)
 
 import tqdm
 import src.utilities.util_routing_stpath as mxv
+import src.preprocessing.graph_utils as gu
+
 import scipy.special as sci
 import src.utilities.util as util
 from itertools import combinations
@@ -19,7 +21,8 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
 
     if broken_paths is None:
         broken_paths = []
-        for path_nodes in paths:
+        mom_broken, mom_working = [], []
+        for path_nodes in paths:  # [[1,2,3,4],
             # adds a path to broken_paths if a node or an edge of the path is broken, i.e. the path is broken
             is_path_broken = False
 
@@ -29,38 +32,39 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
                 n1, n2 = make_existing_edge(G, n1, n2)
                 is_path_broken = n1 in broken_nodes_T or n2 in broken_nodes_T or (n1, n2, co.EdgeType.SUPPLY.value) in broken_edges_T
                 if is_path_broken:
+                    mom_broken.append(path_nodes)
                     break
 
-            # if the path was working, then set all as discovered working
             if not is_path_broken:
-                for i in range(len(path_nodes) - 1):
-                    n1, n2 = path_nodes[i], path_nodes[i + 1]
-                    n1, n2 = make_existing_edge(G, n1, n2)
-                    discover_node(G, n1, co.NodeState.WORKING.value)  # it is indeed working
-                    discover_node(G, n2, co.NodeState.WORKING.value)
-                    discover_edge(G, n1, n2, co.NodeState.WORKING.value)
-            else:
-                # if the path is not working and there is only one unknown or broken element, set it as discovered broken
-                broken_unk_path_node = [n for n in path_nodes if G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] > 0]  # uncertainty or broken
-                broken_unk_path_edge = []
-                for i in range(len(path_nodes) - 1):
-                    n1, n2 = path_nodes[i], path_nodes[i + 1]
-                    n1, n2 = make_existing_edge(G, n1, n2)
-                    if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                        broken_unk_path_edge.append((n1, n2))
+                mom_working.append(path_nodes)
 
-                if len(broken_unk_path_node) + len(broken_unk_path_edge) == 1:  # single element is broken or unknown
-                    if len(broken_unk_path_node) == 1:
-                        bun = broken_unk_path_node[0]
-                        discover_node(G, bun, co.NodeState.BROKEN.value)
-                    else:
-                        bue = broken_unk_path_edge[0]
-                        n1, n2 = make_existing_edge(G, bue[0], bue[1])
-                        discover_edge(G, n1, n2, co.NodeState.BROKEN.value)  # bool
+        for p in mom_working:
+            discover_path(G, p, co.NodeState.WORKING.value)
 
-                path_els =  [elements_val_id[n] for n in path_nodes]
-                path_els += [elements_val_id[make_existing_edge(G, path_nodes[i], path_nodes[i + 1])] for i in range(len(path_nodes) - 1)]
-                broken_paths.append(path_els)
+        for p in mom_broken:
+            # NODES
+            broken_unk_path_node = [n for n in p if G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] > 0]  # uncertainty or broken
+
+            # EDGES
+            broken_unk_path_edge = []
+            for i in range(len(p) - 1):
+                n1, n2 = p[i], p[i + 1]
+                n1, n2 = make_existing_edge(G, n1, n2)
+                if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+                    broken_unk_path_edge.append((n1, n2))
+
+            if len(broken_unk_path_node) + len(broken_unk_path_edge) == 1:  # single element is broken or unknown
+                if len(broken_unk_path_node) == 1:
+                    bun = broken_unk_path_node[0]
+                    discover_node(G, bun, co.NodeState.BROKEN.value)
+                else:
+                    bue = broken_unk_path_edge[0]
+                    n1, n2 = make_existing_edge(G, bue[0], bue[1])
+                    discover_edge(G, n1, n2, co.NodeState.BROKEN.value)  # bool
+
+            path_els =  [elements_val_id[n] for n in p]
+            path_els += [elements_val_id[make_existing_edge(G, p[i], p[i + 1])] for i in range(len(p) - 1)]
+            broken_paths.append(path_els)  # [[n1, e1], []]
 
     paths_out = broken_paths[:]
     remove_ids = []
@@ -182,7 +186,7 @@ def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_pa
     return prob_n_broken
 
 
-def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_message, elements_val_id, elements_id_val, UNK_prior, monitors_map, protocol_monitor_placement, is_exhaustive_paths):
+def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_message, monitors_map, config):
     """ PRUNING CORE """
     demand_edges_to_repair = []
     demand_edges_routed_flow = []
@@ -207,7 +211,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
     handled_pairs, to_handle_pairs = set(), set()
     for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
         p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
-        if p1 in demand_nodes and p2 in demand_nodes:
+        if is_demand_edge_exist(G, p1, p2):
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
                 to_handle_pairs.add((p1, p2))  # edges demand not satisfied
@@ -232,43 +236,46 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                 break
 
             # PRUNING
-            if protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT and not is_exhaustive_paths:
-                # ADDED LATER
-                is_n1_only_monitor = n1_mon not in demand_nodes
-                is_n2_only_monitor = n2_mon not in demand_nodes
+            if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT:
+                if (config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or
+                        config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP) and not config.is_exhaustive_paths:
 
-                # monitor | monitor > map[m1] \intersect map[m2] non è vuoto
-                # monitor | dem     > il monitor deve servire questa domanda (dem, monitor) \in map[m]
-                # dem     | monitor > il monitor deve servire questa domanda (dem, monitor) \in map[m]
-                # dem     | dem     > tutti casi ok
+                    # ADDED LATER
+                    is_n1_only_monitor = n1_mon not in demand_nodes
+                    is_n2_only_monitor = n2_mon not in demand_nodes
 
-                func_flat = lambda li: set(list(zip(*li))[0] + list(zip(*li))[1])
+                    # monitor | monitor > map[m1] \intersect map[m2] non è vuoto
+                    # monitor | dem     > il monitor deve servire questa domanda (dem, monitor) \in map[m]
+                    # dem     | monitor > il monitor deve servire questa domanda (dem, monitor) \in map[m]
+                    # dem     | dem     > tutti casi ok
 
-                to_handle = False
-                if is_n1_only_monitor and is_n2_only_monitor:  # both monitors must serve at least 1 demand edge in common
-                    if len(set(monitors_map[n1_mon]).intersection(monitors_map[n2_mon])) != 0:
+                    func_flat = lambda li: set(list(zip(*li))[0] + list(zip(*li))[1])
+
+                    to_handle = False
+                    if is_n1_only_monitor and is_n2_only_monitor:  # both monitors must serve at least 1 demand edge in common
+                        if len(set(monitors_map[n1_mon]).intersection(monitors_map[n2_mon])) != 0:
+                            to_handle = True
+
+                    elif is_n1_only_monitor and not is_n2_only_monitor:
+                        if n2_mon in func_flat(monitors_map[n1_mon]):  # n2_mon is demand endpoint, the other is a monitor
+                            to_handle = True
+
+                    elif not is_n1_only_monitor and is_n2_only_monitor:
+                        if n1_mon in func_flat(monitors_map[n2_mon]):  # n1_mon is demand endpoint
+                            to_handle = True
+
+                    elif not is_n1_only_monitor and not is_n2_only_monitor:  # both demand endpoints
                         to_handle = True
 
-                elif is_n1_only_monitor and not is_n2_only_monitor:
-                    if n2_mon in func_flat(monitors_map[n1_mon]):  # n2_mon is demand endpoint, the other is a monitor
-                        to_handle = True
-
-                elif not is_n1_only_monitor and is_n2_only_monitor:
-                    if n1_mon in func_flat(monitors_map[n2_mon]):  # n1_mon is demand endpoint
-                        to_handle = True
-
-                elif not is_n1_only_monitor and not is_n2_only_monitor:  # both demand endpoints
-                    to_handle = True
-
-                if not to_handle:
-                    handled_pairs.add((n1_mon, n2_mon))
-                    continue
+                    if not to_handle:
+                        handled_pairs.add((n1_mon, n2_mon))
+                        continue
 
             # if no capacitive path exists, abort, this should not happen
             st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
             stats_packet_monitoring += 1
 
-            if st_path_out is None:
+            if st_path_out is None:   # NO CAPACITY
                 handled_pairs.add((n1_mon, n2_mon))
                 demand_nodes = get_demand_nodes(G)
                 is_demand_path = n1_mon in demand_nodes and n2_mon in demand_nodes
@@ -283,11 +290,17 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
             # assert prc == rc
             # print(metric, prc, rc, path)
 
-            pappo, _, _ = util.safe_exec(mxv.protocol_repair_min_exp_cost, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
-            monitoring_paths.append(pappo)
+            if config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or \
+                    config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP:
+
+                # only this protocol requires monitoring
+                residual_demand = gu.get_residual_demand(G)
+                pappo, _, _ = util.safe_exec(mxv.protocol_repair_min_exp_cost, (SG, n1_mon, n2_mon, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline))  # n1, n2 is not handleable
+                monitoring_paths.append(pappo)  # <<<<< probability
+                monitoring_paths.append(path)   # <<<<< probability
 
             if metric < len(SG.edges):  # works AND has capacity
-                if n1_mon in demand_nodes and n2_mon in demand_nodes:  # demand edge
+                if is_demand_edge_exist(G, n1_mon, n2_mon):
                     if is_bubble(G, path):   # consider removing on paper
                         bubbles.append(path)
                         print("Urrà, found a bubble!", n1_mon, n2_mon)
@@ -297,10 +310,10 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                         priority_paths[tuple(path)] = priority
                     continue
 
-            # path was broken
-            elif n1_mon in demand_nodes and n2_mon in demand_nodes:
-                demand_edges_to_repair.append((n1_mon, n2_mon))
-                # print("path is broken", n_to_repair_paths)
+            else:  # path was broken AND has capacity
+                if is_demand_edge_exist(G, n1_mon, n2_mon):
+                    demand_edges_to_repair.append((n1_mon, n2_mon))
+                    # print("path is broken", n_to_repair_paths)
 
             handled_pairs.add((n1_mon, n2_mon))
 
@@ -341,9 +354,9 @@ def tomography_over_paths(G, elements_val_id, elements_id_val, UNK_prior, monito
     # n_edges, n_nodes = len(SG.edges), len(SG.nodes)
     # tot_els = n_edges + n_nodes
 
-    # broken_paths
+    # broken_paths  [[n1, n2, ..., e1, e2], []]  path rotti, ma con tutti gli elementi
     bp = broken_paths_without_n(G, monitoring_paths, None, broken_edges_T, broken_nodes_T, elements_val_id, elements_id_val, element=None)
-    elements_in_paths = set().union(*bp)
+    elements_in_paths = set().union(*bp)   # tutti elementi dei path rotti
     # bp_padded = np.zeros(shape=(len(bp), tot_els), dtype=int)
     # for i, p in enumerate(bp):
     #     bp_padded[i, :len(p)] = p

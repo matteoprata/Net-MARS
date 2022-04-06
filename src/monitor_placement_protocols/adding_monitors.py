@@ -11,18 +11,20 @@ def original_monitoring_add(G, config):
     monitors = set()
     if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
         # monitors = monitor_placement_centrality(G, res_demand_edges)
-        monitors = __monitor_placement_ours(G, res_demand_edges)
+        monitors = __monitor_placement_ours(G, res_demand_edges, config)
     return monitors
 
 
-def __monitor_placement_ours(G, demand_edges):
+def __monitor_placement_ours(G, demand_edges, config):
     # print("Updating centrality")
     bc = None
     bc_centrality = -np.inf
 
     paths = []
     for n1, n2, _ in demand_edges:
-        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2)
+        residual_demand = gu.get_residual_demand(G)
+        assert False  # OLD CODE
+        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, config.is_oracle_baseline)
         paths.append(path)
 
     if len(paths) > 0:
@@ -58,7 +60,8 @@ def new_monitoring_add(G, config):
 
     paths = []
     for n1, n2, _ in demand_edges:
-        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2)
+        residual_demand = gu.get_residual_demand(G)
+        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline)
         paths.append(path)
 
     if len(paths) > 0 and config.monitors_budget_residual > 0:

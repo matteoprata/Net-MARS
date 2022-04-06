@@ -16,32 +16,33 @@ class Configuration:
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
-        self.destruction_quantity = .2
+        self.destruction_quantity = None
 
         self.destruction_width = .05
         self.destruction_precision = 1000  # density of the [1,0] grid
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (150, 200)  # (50, 71)
+        self.supply_capacity = (20, 200)  # (50, 71)
 
         # Clique world
-        self.is_demand_clique = True
+        self.is_demand_clique = False
         self.n_demand_clique = 8
 
         # Edges world
-        self.n_demand_pairs = 8
+        self.n_demand_pairs = 4
+        self.n_demand_pairs = (self.n_demand_clique * (self.n_demand_clique-1) / 2) if self.is_demand_clique else self.n_demand_pairs
 
         self.rand_generator_capacities = None
         self.rand_generator_path_choice = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-        self.monitors_budget = 10
+        self.monitors_budget = 11
         self.monitors_budget_residual = self.monitors_budget
         self.monitoring_messages_budget = np.inf
 
         self.n_backbone_pairs = 5
-        self.percentage_flow_backbone = .5  # increase in flow quantity
+        self.percentage_flow_backbone = 1  # increase in flow quantity
 
         self.repairing_mode = None  # co.ProtocolRepairingPath.MIN_COST_BOT_CAP
         self.picking_mode = None  # co.ProtocolPickingPath.MIN_COST_BOT_CAP
@@ -57,4 +58,7 @@ class Configuration:
         self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
         self.is_exhaustive_paths = True
 
-        self.force_recompute = False
+        self.force_recompute = True
+
+
+        self.log_execution_details = True

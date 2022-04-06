@@ -1,4 +1,5 @@
 
+import random
 import numpy as np
 import networkx as nx
 import os
@@ -159,7 +160,25 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     if config.is_xindvar_destruction:
         np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
 
-    list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
+    # # CEREFUL n^2 complexity
+    # nodes_dis = dict()
+    # for ns in max_comp:
+    #     for nt in max_comp:
+    #         x1, y1 = G.nodes[ns][co.ElemAttr.LONGITUDE.value], G.nodes[ns][co.ElemAttr.LATITUDE.value]
+    #         x2, y2 = G.nodes[nt][co.ElemAttr.LONGITUDE.value], G.nodes[nt][co.ElemAttr.LATITUDE.value]
+    #         dist = np.linalg.norm(np.asarray([x1, y1]) - np.asarray([x2, y2]))
+    #         nodes_dis[(ns, nt)] = dist
+    #
+    # list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2, dis)]
+    # list_pairs = []
+    # for i in range(n_demand_pairs):
+    #     list_pairs.append((list_pairs_dist[i][0], list_pairs_dist[i][1]))
+    #
+    # list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
+
+    assert config.is_xindvar_destruction and config.n_demand_pairs <= 8 # otherwise, pick them at random!
+    list_pairs = [(60, 411), (360, 522), (186, 78), (27, 221), (79, 474), (397, 525), (83, 564), (373, 281)]
+    list_pairs = list_pairs[:n_demand_pairs]
 
     if config.is_xindvar_destruction:
         np.random.seed(config.seed)
