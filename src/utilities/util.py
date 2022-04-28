@@ -26,8 +26,10 @@ def min_max_normalizer(value, startLB, startUB, endLB=0, endUB=1):
     # Figure out how 'wide' each range is
     value = np.asarray(value)
     if not (value <= startUB).all() and (value >= startLB).all():
-        print("ERROR", value, startLB, startUB)
+
+        print("ERROR violated normalization bounds", value, startLB, startUB)
         exit()
+
     leftSpan = startUB - startLB
     rightSpan = endUB - endLB
     # Convert the left range into a 0-1 range (float)
@@ -59,7 +61,7 @@ def safe_exec(func, pars):
         return None
 
 
-def block_print():
+def disable_print():
     sys.stdout = open(os.devnull, 'w')
 
 

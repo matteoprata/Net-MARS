@@ -5,12 +5,12 @@ import argparse
 from multiprocessing import Pool
 import os
 import pandas as pd
-
+import traceback
 import signal
 import src.constants as co
 import src.configuration as configuration
 import src.main_cedar_setup as main_cedar_setup
-from src.utilities.util import set_seeds, block_print, enable_print
+from src.utilities.util import set_seeds, disable_print, enable_print
 
 original_config = configuration.Configuration()
 
@@ -23,30 +23,33 @@ parser.add_argument('-gn', '--graph_name', type=str, default=original_config.gra
 
 # -----> END of variable parameters
 
+config = None
+
 
 def save_stats_as_df_ph1(stats, fname):
     """ saving number of repairs and flow routed """
+    for i in stats:
+        print(i)
 
-    repairs, iter, flow_cum, flow_perc = [], [], [], []
+    repairs, iter, flow_cum = [], [], []
     n_repairs = 0
     for i, dic in enumerate(stats):
         vals = dic["node"] + dic["edge"]
         n_vals = max(len(vals), 1)
         repairs += vals if len(vals) > 0 else [None]
-        iter += [dic["iter"]]*n_vals
-        flow_perc += [stats[i-1]["flow"]]*n_vals if i > 0 else [0]*n_vals
+        iter += [dic["iter"]] * n_vals
+        flow_cum += [stats[i]["flow"]] * n_vals
         n_repairs += len(vals)
 
-    flow_perc[-1] = stats[-1]["flow"]
+    # flow_cum[-1] = stats[-1]["flow"]
 
     df = pd.DataFrame()
     df["repairs"] = repairs
     df["iter"] = iter
-    df["flow_cum"] = flow_perc
-    df["flow_perc"] = flow_perc
+    df["flow_cum"] = flow_cum
 
     # position 0 we set the number of repairs
-    none_vec = [None]*len(flow_perc)
+    none_vec = [None]*len(flow_cum)
 
     n_repairs_vector = none_vec[:]
     n_repairs_vector[0] = n_repairs
@@ -87,9 +90,37 @@ def print_configuration(config):
     return str_values
 
 
-def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, is_parallel=False):
+def safe_run(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, is_parallel):
+    try:
+        return run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, is_parallel)
+    except Exception:
+        enable_print()
+        print(traceback.format_exc())
+        print("due to", fname_formation())
+        disable_print()
+
+
+def fname_formation():
+    global config
+    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(config.seed,
+                                                                                                     config.graph_dataset.name,
+                                                                                                     config.n_demand_pairs,
+                                                                                                     int(config.demand_capacity),
+                                                                                                     config.supply_capacity,
+                                                                                                     config.algo_name,
+                                                                                                     config.monitors_budget,
+                                                                                                     config.destruction_quantity,
+                                                                                                     config.repairing_mode.value,
+                                                                                                     config.picking_mode.value,
+                                                                                                     config.protocol_monitor_placement.value)
+    return fname
+
+
+def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, is_parallel=False):
+    global config
     config = setup_configuration()
 
+    config.experiment_ind_var = indvar
     config.mute_log = is_parallel
     config.seed = seed
     config.destruction_quantity = dis
@@ -100,9 +131,15 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
 
     config.rand_generator_capacities = np.random.RandomState(config.seed)
     config.rand_generator_path_choice = np.random.RandomState(config.seed)
-    config.monitors_budget = budget
-    config.monitors_budget_residual = budget
-    config.n_demand_pairs = nnodes
+
+    config.monitors_budget = budget  # this will be set to the max between budget and number of nodes
+    config.monitors_budget_residual = config.monitors_budget
+
+    if config.is_demand_clique:
+        config.n_demand_clique = nnodes
+    else:
+        config.n_demand_pairs = nnodes
+
     config.demand_capacity = flowpp
     config.repairing_mode = rep_mode
     config.picking_mode = pick_mode
@@ -111,31 +148,19 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
     if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.ORACLE:
         config.is_oracle_baseline = True
 
-
     config_details = print_configuration(config)
 
-    dc = config.n_demand_clique if config.is_demand_clique else config.n_demand_pairs
-    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(config.seed,
-                                                                                                     config.graph_dataset.name,
-                                                                                                     dc,
-                                                                                                     int(config.demand_capacity),
-                                                                                                     config.supply_capacity,
-                                                                                                     config.algo_name,
-                                                                                                     config.monitors_budget,
-                                                                                                     config.destruction_quantity,
-                                                                                                     config.repairing_mode.value,
-                                                                                                     config.picking_mode.value,
-                                                                                                     config.protocol_monitor_placement.value)
+    fname = fname_formation()
 
     if config.force_recompute or not os.path.exists("data/experiments/" + fname):
-        if config.log_execution_details:
-            print()
-            print("NOW running...\n\n", config_details, "\n")
+        print()
+        print("NOW running...\n\n", config_details, "\n")
+        print("exec name > ", fname)
 
         set_seeds(config.seed)
 
         if config.mute_log:
-            block_print()
+            disable_print()
 
         stats = main_cedar_setup.run(config)
         enable_print()
@@ -146,6 +171,7 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
     else:
         print()
         print("THIS already existed...\n", fname, "\n")
+
     return
 
 
@@ -170,83 +196,57 @@ def parallel_exec():
     # seeds = [77, 78, 79, 90, 400, 50, 55, 999, 798, 678, 543, 979, 1000, 5221]  # range(30, 39)
     # seeds = [90, 400, 50, 798, 678, 543, 979, 1, 66, 778, 78, 248, 8550, 3480, 3842, 9, 44, 19, 297]
 
-    seeds = [90, 400, 50, 798, 678]  # , 678, 543, 979, 1, 66, 778, 78, 248, 297]
-    seeds = list(set(seeds))
+    seeds = list(range(40, 60))
+    budget_n_monitor = [25]
 
-    dis_uni = [.1, .2, .3, .4, .5, .6]
-    budget_n_monitor = [15]
-    npairs = [4]
-    flowpp = [10.0]
+    ind_var = {0: [co.IndependentVariable.PROB_BROKEN],
+               1: [co.IndependentVariable.N_DEMAND_EDGES],
+               2: [co.IndependentVariable.FLOW_DEMAND]}
 
-    reps = [
-            co.ProtocolRepairingPath.SHORTEST,
-            co.ProtocolRepairingPath.MAX_BOT_CAP,
-            # co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-            # co.ProtocolRepairingPath.AVERAGE,
-            ]  # co.ProtocolRepairingPath.IP
+    dis_uni = {0: [.1, .2, .3, .4, .5, .6],
+               1: [.6],
+               2: [.6]}
 
-    pick = [
-            # co.ProtocolPickingPath.RANDOM,
-            co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-            # co.ProtocolPickingPath.MAX_BOT_CAP
-            # co.ProtocolPickingPath.MAX_INTERSECT
-            ]
+    npairs = {0: [5],
+              1: [2, 3, 4, 5, 6, 7],
+              2: [5]}
 
-    mplacement = [
-                   # co.ProtocolMonitorPlacement.STEP_BY_STEP,
-                   co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT,
-                   # co.ProtocolMonitorPlacement.ORACLE
-    ]
+    flowpp = {0: [15],
+              1: [15],
+              2: [2, 5, 10, 15, 20]}
+
+
 
     processes = []
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp, reps, pick, mplacement, [True]):
-    #     processes.append(execution)
+    for k in range(len(dis_uni)):
+        for execution in itertools.product(seeds, dis_uni[k], budget_n_monitor, npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_PRO],
+                                           [co.ProtocolPickingPath.SHORTEST],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k], [True]):
+            processes.append(execution)
 
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.MIN_COST_BOT_CAP],
-    #                                    [co.ProtocolPickingPath.MIN_COST_BOT_CAP],
-    #                                    [co.ProtocolMonitorPlacement.ORACLE], [True]):
-    #     processes.append(execution)
-    #
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.SHORTEST],
-    #                                    [co.ProtocolPickingPath.SHORTEST],
-    #                                    [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-    #     processes.append(execution)
-    #
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.MAX_BOT_CAP],
-    #                                    [co.ProtocolPickingPath.CEDAR_LIKE_MIN],
-    #                                    [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-    #     processes.append(execution)
+        for execution in itertools.product(seeds, dis_uni[k], budget_n_monitor, npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
+                                           [co.ProtocolPickingPath.RANDOM],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k], [True]):
+            processes.append(execution)
 
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.SHORTEST],
-    #                                    [co.ProtocolPickingPath.RANDOM],
-    #                                    [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-    #     processes.append(execution)
-    #
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.SHORTEST],
-    #                                    [co.ProtocolPickingPath.SHORTEST],
-    #                                    [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-    #     processes.append(execution)
-    #
-    # for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-    #                                    [co.ProtocolRepairingPath.MAX_BOT_CAP],
-    #                                    [co.ProtocolPickingPath.CEDAR_LIKE_MIN],
-    #                                    [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-    #     processes.append(execution)
+        # for execution in itertools.product(seeds, dis_uni[k], budget_n_monitor, npairs[k], flowpp[k],
+        #                                    [co.ProtocolRepairingPath.MAX_BOT_CAP],
+        #                                    [co.ProtocolPickingPath.CEDAR_LIKE_MIN],
+        #                                    [co.ProtocolMonitorPlacement.NONE], [True]):
+        #     processes.append(execution)
 
-    for execution in itertools.product(seeds, dis_uni, budget_n_monitor, npairs, flowpp,
-                                       [co.ProtocolRepairingPath.MIN_COST_BOT_CAP],
-                                       [co.ProtocolPickingPath.MIN_COST_BOT_CAP],
-                                       [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT], [True]):
-        processes.append(execution)
+        for execution in itertools.product(seeds, dis_uni[k], budget_n_monitor, npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.MIN_COST_BOT_CAP],
+                                           [co.ProtocolPickingPath.MIN_COST_BOT_CAP],
+                                           [co.ProtocolMonitorPlacement.ORACLE,
+                                            co.ProtocolMonitorPlacement.BUDGET], ind_var[k], [True]):
+            processes.append(execution)
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
         try:
-            pool.starmap(run_var_seed_dis, processes)
+            pool.starmap(safe_run, processes)
         except KeyboardInterrupt:
             pool.terminate()
             pool.join()
@@ -261,9 +261,11 @@ def initializer():
 
 if __name__ == '__main__':
     parallel_exec()
-
-    # run_var_seed_dis(seed=95, dis=.6, budget=15, nnodes=5, flowpp=10,
-    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT
+    #
+    # run_var_seed_dis(seed=444, dis=.3, budget=50, nnodes=8, flowpp=2,
+    #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
+    #                  pick_mode=co.ProtocolPickingPath.RANDOM,
+    #                  indvar=co.IndependentVariable.FLOW_DEMAND,
+    #                  monitor_placement=co.ProtocolMonitorPlacement.NONE
     #                  )
+

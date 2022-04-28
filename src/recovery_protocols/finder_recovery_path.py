@@ -9,7 +9,7 @@ def find_paths_to_repair(id, G, demand_edges_to_repair, max_sup_cap, is_oracle=F
     for n1, n2 in demand_edges_to_repair:
         SG = gu.get_supply_graph(G)
 
-        if id == co.ProtocolRepairingPath.SHORTEST:
+        if id == co.ProtocolRepairingPath.SHORTEST_PRO:
             path = mxv.protocol_stpath_capacity(SG, n1, n2)
         elif id == co.ProtocolRepairingPath.IP:
             path, _, _ = mxv.protocol_routing_IP(SG, n1, n2)
@@ -20,6 +20,8 @@ def find_paths_to_repair(id, G, demand_edges_to_repair, max_sup_cap, is_oracle=F
             path, _, _ = mxv.protocol_repair_cedarlike(SG, n1, n2)
         elif id == co.ProtocolRepairingPath.AVERAGE:
             path, _, _ = mxv.protocol_repair_AVG_COST(SG, n1, n2, is_oracle=is_oracle)
+        elif id == co.ProtocolRepairingPath.SHORTEST_MINUS:
+            path = mxv.protocol_stpath(SG, n1, n2)
         else:
             path = None
 

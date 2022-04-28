@@ -267,6 +267,52 @@ def protocol_stpath_capacity(SG, src, target):
     return a
 
 
+def protocol_stpath(SG, src, target):
+    """ Simple shortest path, but avoids 0 capacity paths."""
+
+    parent = {n: None for n in SG.nodes}
+    parent[src] = src
+
+    # metric, cap, res_cap, delay, node_id | min su metric, min is in position 0
+    container = dict()
+    container[src] = (0, np.inf)
+
+    for nid in SG.nodes:
+        if nid != src:
+            container[nid] = (np.inf, np.inf)
+
+    while len(container) > 0:
+        temp = list(container.items())[0]
+        current_src = temp[0]  # node id
+        current_src_info = temp[1]  # node info
+        del container[current_src]
+
+        if current_src_info[0] == np.inf:
+            break
+
+        for neigh in SG.neighbors(current_src):
+            if neigh not in container.keys():  # avoids loops, no going back, it was already met
+                continue
+
+            # no check 0 capacit nodes
+
+            current_neigh_info = tuple()
+            current_neigh_info += container[neigh]
+
+            m = current_src_info[0] + 1
+
+            # Relaxation of edge and adding into Priority Queue
+            if m < current_neigh_info[0]:
+                # print("ho assegnato a", neigh, "padre", current_src)
+                container[neigh] = (m, None)
+                parent[neigh] = current_src
+                container_items = sorted(container.items(), key=lambda x: x[1][0])  # [(k0, v0), (,)]
+                container = {i[0]: i[1] for i in container_items}  # {k0:v0, k1:v1, ...}
+
+    a = printpath(src, parent, target, target, [])
+    return a
+
+
 def protocol_repair_cedarlike(SG, src, target):
     parent = {n: None for n in SG.nodes}
     node_metric = {n: None for n in SG.nodes}

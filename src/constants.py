@@ -91,11 +91,12 @@ class AlgoName(Enum):
 
 
 class ProtocolRepairingPath(Enum):
-    SHORTEST = 0
+    SHORTEST_PRO = 0
     MAX_BOT_CAP = 1
     MIN_COST_BOT_CAP = 2
     IP = 3
     AVERAGE = 4
+    SHORTEST_MINUS = 5
 
 
 class ProtocolPickingPath(Enum):
@@ -111,7 +112,15 @@ class ProtocolPickingPath(Enum):
 class ProtocolMonitorPlacement(Enum):
     STEP_BY_STEP = 0
     BUDGET_W_REPLACEMENT = 1
+    BUDGET = 4
     ORACLE = 3
+    NONE = 5
+
+
+class IndependentVariable(Enum):
+    PROB_BROKEN = 0, "Percentage Broken Elements"
+    N_DEMAND_EDGES = 1, "Number Demand Edges"
+    FLOW_DEMAND = 2, "Flow Demand Pair"
 
 
 # constants

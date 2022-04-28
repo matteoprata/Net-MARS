@@ -136,7 +136,13 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, paths, b
     # print()
     # P  > 0 // < 1 // 1.5
 
-    T2 = P + heavyside(np.floor(P) - 1) * (1 - eps / P - P)
+    if element_type == co.GraphElement.EDGE:
+        n1, n2 = element
+        prior = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.PRIOR_BROKEN.value]
+    else:
+        prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
+
+    T2 = 1 - 1/((P+1)**(prior*10))
     T1 = np.ceil(sum([np.floor(1/len(p)) for p in new_bp_with_n]) / len(new_bp_with_n))
     C = max(T1, T2)
 
@@ -215,7 +221,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
                 to_handle_pairs.add((p1, p2))  # edges demand not satisfied
-        else:
+        elif config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
             to_handle_pairs.add((p1, p2))  # edges monitoring
 
     halt_monitoring = False
@@ -324,7 +330,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
 
         elif len(priority_paths) > 0:
             priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1], reverse=True)  # path, priority
-            path_to_prune = list(priority_paths_items[0][0])
+            path_to_prune = list(priority_paths_items[0][0])  # MAX
 
         if path_to_prune is not None:
             assert get_path_residual_capacity(G, path_to_prune) > 0

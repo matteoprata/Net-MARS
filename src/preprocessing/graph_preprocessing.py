@@ -12,7 +12,7 @@ import src.preprocessing.graph_utils as grau
 import src.constants as co
 import src.utilities.util as util
 from collections import defaultdict
-
+from matplotlib import pyplot as plt
 
 # 1 -- init graph G
 def init_graph(path_to_graph, graph_name, supply_capacity, config):
@@ -157,31 +157,38 @@ def print_graph_info(G):
 def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     max_comp = list(get_max_component(G))
 
-    if config.is_xindvar_destruction:
-        np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
+    # if we are varying the destruction probability the demand edges need to stay same
+    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
 
     # # CEREFUL n^2 complexity
-    # nodes_dis = dict()
-    # for ns in max_comp:
-    #     for nt in max_comp:
-    #         x1, y1 = G.nodes[ns][co.ElemAttr.LONGITUDE.value], G.nodes[ns][co.ElemAttr.LATITUDE.value]
-    #         x2, y2 = G.nodes[nt][co.ElemAttr.LONGITUDE.value], G.nodes[nt][co.ElemAttr.LATITUDE.value]
-    #         dist = np.linalg.norm(np.asarray([x1, y1]) - np.asarray([x2, y2]))
-    #         nodes_dis[(ns, nt)] = dist
-    #
-    # list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2, dis)]
-    # list_pairs = []
-    # for i in range(n_demand_pairs):
-    #     list_pairs.append((list_pairs_dist[i][0], list_pairs_dist[i][1]))
-    #
-    # list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(n_demand_pairs)]
+    nodes_dis = dict()
+    for ns in max_comp:
+        for nt in max_comp:
+            x1, y1 = G.nodes[ns][co.ElemAttr.LONGITUDE.value], G.nodes[ns][co.ElemAttr.LATITUDE.value]
+            x2, y2 = G.nodes[nt][co.ElemAttr.LONGITUDE.value], G.nodes[nt][co.ElemAttr.LATITUDE.value]
+            dist = np.linalg.norm(np.asarray([x1, y1]) - np.asarray([x2, y2]))
+            nodes_dis[(ns, nt)] = dist
 
-    assert config.is_xindvar_destruction and config.n_demand_pairs <= 8 # otherwise, pick them at random!
-    list_pairs = [(60, 411), (360, 522), (186, 78), (27, 221), (79, 474), (397, 525), (83, 564), (373, 281)]
-    list_pairs = list_pairs[:n_demand_pairs]
+    list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2, dis)]
+    THRESHOLD_DIST = .6  # on MINNESOTA it works
 
-    if config.is_xindvar_destruction:
-        np.random.seed(config.seed)
+    distances = np.array([B[1] for B in list_pairs_dist])
+    pairs = np.array([B[0] for B in list_pairs_dist])
+
+    mask_ok_distance = distances >= THRESHOLD_DIST
+    pairs_to_sample = pairs[mask_ok_distance]
+    np.random.shuffle(pairs_to_sample)
+
+    list_pairs = pairs_to_sample[:n_demand_pairs, :]
+
+    # assert config.is_xindvar_destruction and config.n_demand_pairs <= 8 # otherwise, pick them at random!
+    # list_pairs = [(60, 411), (360, 522), (186, 78), (27, 221), (79, 474), (397, 525), (83, 564), (373, 281)]
+    # list_pairs = list_pairs[:n_demand_pairs]
+
+    # set the old seed back again
+    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.seed)
 
     demand_edges = set()
     demand_nodes = set()
@@ -222,13 +229,13 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     is_biased = False
 
     # choose n_demand_nodes randomly in the graph
-    if config.is_xindvar_destruction:
-        np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
+    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
     list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True, p=max_comp_degs if is_biased else None)
 
-    if config.is_xindvar_destruction:
-        np.random.seed(config.seed)
+    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.seed)
 
     # print("\nDegrees")
     demand_edges = set()

@@ -106,24 +106,18 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     return distribution, broken_nodes, broken_edges
 
 
-def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.15, sig=.4, distance_factor=1):
+def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.15, sig=.5, distance_factor=1):
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
     # the epicenter is a randomly picked node
-    if not config.is_xindvar_destruction:
-        np.random.seed(config.fixed_unvarying_seed)
+    # if config.experiment_ind_var != co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.fixed_unvarying_seed)
 
-    epicenter = random.choice(graph.nodes)['id']
+    epicenter = np.array([np.random.randint(0, x_density, 1), np.random.randint(0, y_density, 1)])  # coords of the epicenter
 
-    if not config.is_xindvar_destruction:
-        np.random.seed(config.seed)
-
-    graph.nodes[epicenter][co.ElemAttr.IS_EPICENTER.value] = 1
-
-    x, y = graph.nodes[epicenter][co.ElemAttr.LONGITUDE.value], graph.nodes[epicenter][co.ElemAttr.LATITUDE.value]
-    epiy, epix = graph_coo_to_grid(x, y, density, x_density, y_density)
-    epicenter = np.array([epix, epiy])
+    # if config.experiment_ind_var != co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.seed)
 
     # list the distance of every node to the epicenter
     node_distances = []

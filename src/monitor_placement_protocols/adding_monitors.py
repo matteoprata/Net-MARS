@@ -23,8 +23,7 @@ def __monitor_placement_ours(G, demand_edges, config):
     paths = []
     for n1, n2, _ in demand_edges:
         residual_demand = gu.get_residual_demand(G)
-        assert False  # OLD CODE
-        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, config.is_oracle_baseline)
+        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline)
         paths.append(path)
 
     if len(paths) > 0:

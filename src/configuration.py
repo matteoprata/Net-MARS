@@ -23,22 +23,22 @@ class Configuration:
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (20, 200)  # (50, 71)
+        self.supply_capacity = (30, None)
 
-        # Clique world
+        # clique world
         self.is_demand_clique = False
-        self.n_demand_clique = 8
+        self.n_demand_clique = 5
 
         # Edges world
-        self.n_demand_pairs = 4
-        self.n_demand_pairs = (self.n_demand_clique * (self.n_demand_clique-1) / 2) if self.is_demand_clique else self.n_demand_pairs
+        self.n_demand_pairs = 6
+        self.n_demand_pairs = int(self.n_demand_clique * (self.n_demand_clique-1) / 2) if self.is_demand_clique else self.n_demand_pairs
 
         self.rand_generator_capacities = None
         self.rand_generator_path_choice = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-        self.monitors_budget = 11
-        self.monitors_budget_residual = self.monitors_budget
+        self.monitors_budget = 25
+        self.monitors_budget_residual = None
         self.monitoring_messages_budget = np.inf
 
         self.n_backbone_pairs = 5
@@ -49,8 +49,8 @@ class Configuration:
 
         # self.is_adaptive_prior = True
         self.is_oracle_baseline = False  # baseline TOMOCEDAR
-        self.is_xindvar_destruction = True   # the X axis destruction varies
         self.fixed_unvarying_seed = 0
+        self.experiment_ind_var = None
 
         self.is_dynamic_prior = True
         self.UNK_prior = None
@@ -59,6 +59,5 @@ class Configuration:
         self.is_exhaustive_paths = True
 
         self.force_recompute = True
-
-
         self.log_execution_details = True
+
