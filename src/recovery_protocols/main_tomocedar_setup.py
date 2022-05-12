@@ -32,20 +32,18 @@ def run(config):
     else:
         add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
 
-    # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-uni-pbro|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
-    #                                                                           config.demand_capacity, config.destruction_quantity)
+    # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
+    #                                                                                    config.demand_capacity, config.destruction_quantity,
+    #                                                                                    config.supply_capacity[0])
     # util.save_porting_dictionary(G, path)
+    # util.enable_print()
+    #
+    # feasible = is_feasible(G, is_fake_fixed=True)
+    # print("OK" if feasible else "WARNING! No feasible", path)
     # return
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
-
-    # perc = (len(broken_nodes) + len(broken_edges)) / (len(G.nodes) + len(get_supply_edges(G)))
-    # tolerance = 0.01
-    # util.enable_print()
-    # print(config.destruction_quantity, perc)
-    # assert abs(config.destruction_quantity - perc) < tolerance  # WARNING! Less disruption than expected
-    # return
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
@@ -55,7 +53,7 @@ def run(config):
     # repair demand edges
     demand_node = get_demand_nodes(G)
     for dn in demand_node:
-        repair_node(G, dn)
+        do_repair_node(G, dn)
         # INITIAL NODES repairs are not counted in the stats
 
     iter = 0
@@ -65,8 +63,8 @@ def run(config):
     packet_monitor = 0
     monitors_stats = set()
 
-    if config.monitoring_type == co.PriorKnowledge.FULL:
-        gain_knowledge_all(G)
+    # if config.monitoring_type == co.PriorKnowledge.FULL:
+    #     gain_knowledge_all(G)
 
     assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
         "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
@@ -135,6 +133,8 @@ def run(config):
 
         # -------------- 1. Tomography, Pruning, Probability --------------
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:  # TODO: adjust if
+
+            # >>>> PRUNING HERE
             monitoring = pruning_monitoring(G,
                                             stats["packet_monitoring"],
                                             config.monitoring_messages_budget,
@@ -151,26 +151,34 @@ def run(config):
             if config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
                 tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
 
-            routed_flow += sum(demand_edges_routed_flow)
-            stats["flow"] = routed_flow
-            stats["packet_monitoring"] += stats_packet_monitoring
-            packet_monitor = stats["packet_monitoring"]
+        elif config.monitoring_type == co.PriorKnowledge.DUNNY_IP:
+            monitoring = dummy_pruning(G)
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = monitoring
+
+        routed_flow += sum(demand_edges_routed_flow)
+        stats["flow"] = routed_flow
+        stats["packet_monitoring"] += stats_packet_monitoring
+        packet_monitor = stats["packet_monitoring"]
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", len(demand_edges), demand_edges)
 
-        # -------------- 2. Repairing --------------
-        paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
-        path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+        if len(demand_edges) > 0:
 
-        if path_to_fix is not None:
+            # -------------- 2. Repairing --------------
+            paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
+            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+
+            print(paths_proposed)
+            assert path_to_fix is not None
+
             if co.ProtocolRepairingPath.SHORTEST_MINUS:
                 if get_path_residual_capacity(G, path_to_fix) == 0:
                     cancel_demand_edge(G, path_to_fix)  # if the protocol SHORTEST_MINUS proposes a 0 capacity edge
 
-            fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
-            stats["node"] += fixed_nodes
-            stats["edge"] += fixed_edges
+                fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
+                stats["node"] += fixed_nodes
+                stats["edge"] += fixed_edges
 
         stats_list.append(stats)
 

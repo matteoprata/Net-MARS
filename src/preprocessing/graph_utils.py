@@ -10,7 +10,10 @@ import tqdm
 
 # utilities requiring computation
 def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residual=False):
-    """node, node, demand"""
+    """ node, node, demand.
+    is_check_unsatisfied: keeps edges only if the residual capacity i > 0;
+    is_capacity: show third component capacity
+    is_residual: is residual demand or total demand """
 
     demand_edges = []
     for n1, n2, etype in G.edges:
@@ -45,6 +48,17 @@ def get_demand_nodes(G, is_residual=False):
 
 
 # ---- MONITORS
+
+def do_k_monitoring(G, monitor, K=2):
+    SG = get_supply_graph(G)
+    reach_k_paths = nx.single_source_shortest_path(SG, monitor, cutoff=K)
+    monitoring_messages = 0
+    for no in reach_k_paths:
+        discover_path_truth_limit_broken(G, reach_k_paths[no])
+        monitoring_messages += 1
+    return monitoring_messages
+
+
 def get_monitor_nodes(G):
     """ The set of monitor nodes."""
     monitors = []
@@ -55,48 +69,32 @@ def get_monitor_nodes(G):
     return monitors
 
 
-def monitor_placement_centrality(G, d_edges):
-    # print("Updating centrality")
-    bc = None
-    bc_centrality = - np.inf
-    v_saturating_paths = saturating_paths(G, d_edges)
 
-    if v_saturating_paths is not None:
-        for n in tqdm.tqdm(G.nodes, disable=True):
-            demand_based_centrality(G, n, v_saturating_paths)
-            if G.nodes[n][co.ElemAttr.CENTRALITY.value] > bc_centrality:
-                bc_centrality = G.nodes[n][co.ElemAttr.CENTRALITY.value]
-                bc = n
-        G.nodes[bc][co.ElemAttr.IS_MONITOR.value] = True
-        print("Highest centrality node is", bc)  # TODO: centrality node can be the sam
-        return {bc}
-    else:
-        print("No monitor added this time.")
-        return {}
+
 
 
 def is_demand_edge(G, n1, n2):
     return (n1, n2) in get_demand_edges(G, is_capacity=False)
 
 
-def is_there_worcap_path(G, n1o, n2o):
-    """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
-    GCO = G.copy()
-    nodes = list(GCO.nodes)[:]
-    for n in nodes:
-        if GCO.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value:
-            GCO.remove_node(n)
-
-    edges = list(GCO.edges)[:]
-    for n1, n2, _ in edges:
-        if GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value or \
-                GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
-            GCO.remove_edge(n1, n2)
-    try:
-        nx.shortest_path(GCO, n1o, n2o)
-        return True
-    except:
-        return False
+# def is_there_worcap_path(G, n1o, n2o):
+#     """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
+#     GCO = G.copy()
+#     nodes = list(GCO.nodes)[:]
+#     for n in nodes:
+#         if GCO.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value:
+#             GCO.remove_node(n)
+#
+#     edges = list(GCO.edges)[:]
+#     for n1, n2, _ in edges:
+#         if GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value or \
+#                 GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
+#             GCO.remove_edge(n1, n2)
+#     try:
+#         nx.shortest_path(GCO, n1o, n2o)
+#         return True
+#     except:
+#         return False
 
 
 def is_there_working_path(G, n1o, n2o):
@@ -116,6 +114,19 @@ def is_there_working_path(G, n1o, n2o):
         return True
     except:
         return False
+
+
+def is_known_path(G, path):
+    """ Return True iff the path is fully known. """
+    for i in range(len(path) - 1):
+        n1, n2 = make_existing_edge(G, path[i], path[i + 1])
+        pun_e = 1 > G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
+        pun_n1 = 1 > G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
+        pun_n2 = 1 > G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
+
+        if pun_e or pun_n1 or pun_n2:
+            return False
+    return True
 
 
 def heuristic_priority_pruning(G, d1, d2):
@@ -170,7 +181,8 @@ def is_bubble(G, path):
     return tuple_is_unique
 
 
-def do_prune(G, path):
+def do_prune(G, path, is_log=True):
+    """ Assumes that the path is working! """
     d1, d2 = path[0], path[-1]
     d1, d2 = make_existing_edge(G, d1, d2)
 
@@ -178,7 +190,8 @@ def do_prune(G, path):
     demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
     quantity_pruning = min(st_path_cap, demand_residual)
     demand_pruning(G, path, quantity_pruning)
-    print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2, "of res capacity", demand_residual, "on path of capacity", st_path_cap)
+    if is_log:
+        print("path exists, pruning quantity:", quantity_pruning, "on edge", d1, d2, "of res capacity", demand_residual, "on path of capacity", st_path_cap)
     return quantity_pruning
 
 
@@ -210,6 +223,15 @@ def get_node_degree_working_edges(G, node, is_fake_fixed):
                 count += 1
     return count
 
+
+def is_path_working(G, path):
+    for i in range(len(path)-1):
+        n1, n2 = path[i], path[i+1]
+        n1, n2 = make_existing_edge(G, n1, n2)
+        if G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] == 1 or G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] == 1 or \
+                G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]:
+            return False
+    return True
 
 def get_supply_graph(G):
     """ The supply graph is G without demand edges. """
@@ -287,6 +309,9 @@ def make_existing_edge(G, n1, n2):
     return n2, n1
 
 
+def net_max_degree(G):
+    return sorted(G.degree, key=lambda x: x[1], reverse=True)[0][1]
+
 # - - - - - - - - - - REPAIRING - - - - - - - - - -
 
 def do_fix_path(G, path_to_fix):
@@ -297,7 +322,7 @@ def do_fix_path(G, path_to_fix):
 
         # NODES
         for n1 in path_to_fix:
-            did_repair = repair_node(G, n1)
+            did_repair = do_repair_node(G, n1)
             if did_repair:
                 fixed_nodes.append(n1)
 
@@ -305,27 +330,27 @@ def do_fix_path(G, path_to_fix):
         for i in range(len(path_to_fix) - 1):
             n1, n2 = path_to_fix[i], path_to_fix[i + 1]
             n1, n2 = make_existing_edge(G, n1, n2)
-            did_repair = repair_edge(G, n1, n2)
+            did_repair = do_repair_edge(G, n1, n2)
             if did_repair:
                 fixed_edges.append((n1, n2))
 
     return fixed_nodes, fixed_edges
 
 
-def repair_node(G, n):
+def do_repair_node(G, n):
     """ counts the repairs! """
     did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
-    return did_repair
+    return n if did_repair else None
 
 
-def repair_edge(G, n1, n2):
+def do_repair_edge(G, n1, n2):
     """ counts the repairs! """
     did_repair = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
-    return did_repair
+    return (n1, n2) if did_repair else None
 
 
 def discover_edge(G, n1, n2, p_broken):
@@ -350,6 +375,40 @@ def discover_path(G, path, p_broken):
         assert (G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n1][co.ElemAttr.STATE_TRUTH.value])
         assert (G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
         assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+
+
+def discover_path_truth_limit_broken(G, path):
+    """  Sets the posterior probability according to the actual state of the path. """
+    for i in range(len(path)-1):
+        n1, n2 = make_existing_edge(G, path[i], path[i+1])
+        ed_truth = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
+
+        G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value]
+        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = ed_truth
+        if ed_truth == 1:
+            break
+
+        no_truth = G.nodes[n2][co.ElemAttr.STATE_TRUTH.value]
+        G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] = no_truth
+        if no_truth == 1:
+            break
+
+        assert (G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n1][co.ElemAttr.STATE_TRUTH.value])
+        assert (G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
+        assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+
+
+# def discover_path(G, path, p_broken):
+#     """  Sets the posterior probability according to the actual state of the path. """
+#     for i in range(len(path)-1):
+#         n1, n2 = make_existing_edge(G, path[i], path[i+1])
+#         G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+#         G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+#         G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
+#         assert (G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n1][co.ElemAttr.STATE_TRUTH.value])
+#         assert (G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
+#         assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+
 
 def get_element_by_state_KT(G, graph_element, state, knowledge):
     """ K: discovered, T: truth """
@@ -559,15 +618,21 @@ def probabilistic_edge_weights(SG, G):
         G.edges[n1, n2, et][co.ElemAttr.WEIGHT.value] = weight
 
 
-def broken_elements_in_path(G, path_nodes):
-    """ Returns the broken or unknown elements in path. """
-    n_broken_unk = 0
+def broken_elements_in_path_T(G, path_nodes):
+    """ Returns the broken elements in path TRUTH. """
+    n_broken = 0
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
         n1, n2 = make_existing_edge(G, n1, n2)
-        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] > 0:
-            n_broken_unk += 1
-    return n_broken_unk
+
+        if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == 1:
+            n_broken += 1
+        if G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] == 1:
+            n_broken += 1
+
+    if G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] == 1:
+        n_broken += 1
+    return n_broken
 
 
 def set_infinite_weights(G):
@@ -582,45 +647,48 @@ def saturating_paths(G, d_edges):
     """ For all demands D, it returns all the paths that saturate D along with their capacity. """
     demands = {}
     for d1, d2, c in d_edges:
-        # d1, d2 = make_existing_edge(G, d1, d2)
-
         res_capacity = c
-        Gmom_all = G.copy()  # independent from the other demands
+        GCO = G.copy()
+        SG = get_supply_graph(GCO)
         all_paths_saturate, capacity_all_paths_saturate = [], []
 
         while res_capacity > 0:  # reset residual capacity adding paths
-            path, _ = mxv.protocol_routing_IP(get_supply_graph(Gmom_all), d1, d2)
-            path_capacity = get_path_residual_capacity(Gmom_all, path)
-            path_capacity_min = min(path_capacity, res_capacity)
+            path, _, _ = mxv.protocol_repair_cedarlike(SG, d1, d2)
+            quantity = do_prune(GCO, path, is_log=False)
 
-            if path_capacity_min == 0:  # loop otherwise, do not consider 0 capacity edges
-                if not grout.is_routable(Gmom_all, co.Knowledge.TRUTH):
-                    print("Caused unfeasibility.")
-                    return None
-                else:
-                    print("Sta a succede qualcosa di brutto.")
-                continue
+            if quantity > 0:  # this is not ok
+                res_capacity -= quantity
+                all_paths_saturate.append(path)
+                capacity_all_paths_saturate.append(quantity)
+            else:
+                break
 
-            # print(path, path_capacity, res_capacity, path_capacity_min)
-            demand_pruning(Gmom_all, path, path_capacity_min)
-            res_capacity -= path_capacity_min
-
-            all_paths_saturate.append(path)
-            capacity_all_paths_saturate.append(path_capacity)
         demands[(d1, d2)] = all_paths_saturate, capacity_all_paths_saturate
     return demands
 
 
-def demand_based_centrality(G, n, saturating_paths):
+def best_centrality_node(G):
+    """ CEDAR centrality node. """
+    nodes_centrality = []
+    candidates = list(set(G.nodes) - set(get_monitor_nodes(G)))[:10]
+    for n in tqdm.tqdm(candidates):
+        centrality = demand_based_centrality(G, n)
+        nodes_centrality.append(centrality)
+
+    bc = candidates[np.argmax(nodes_centrality)]
+    print("Highest centrality node is", bc)  # TODO: centrality node can be the same
+    return bc
+
+
+def demand_based_centrality(G, n):
     """ Computes the centrality to find the best centrality node. """
 
-    d_edges = get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)
     centrality = 0
+    d_edges = get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)
+    saturating_paths_vec = saturating_paths(G, d_edges)
 
     for d1, d2, c in d_edges:
-        # d1, d2 = make_existing_edge(G, d1, d2)
-        all_paths_saturate, capacity_all_paths_saturate = saturating_paths[(d1, d2)]
-
+        all_paths_saturate, capacity_all_paths_saturate = saturating_paths_vec[(d1, d2)]
         capacity_paths_saturate_through_n = []
         for i, path in enumerate(all_paths_saturate):
             path_capacity = capacity_all_paths_saturate[i] if n in path else 0
@@ -628,5 +696,4 @@ def demand_based_centrality(G, n, saturating_paths):
 
         ratio = sum(capacity_paths_saturate_through_n) / sum(capacity_all_paths_saturate)
         centrality += ratio * c
-
-    G.nodes[n][co.ElemAttr.CENTRALITY.value] = centrality
+    return centrality

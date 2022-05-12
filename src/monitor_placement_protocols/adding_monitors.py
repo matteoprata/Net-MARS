@@ -86,7 +86,7 @@ def new_monitoring_add(G, config):
 
         monitors_repaired = []
         for bc in monitors:
-            did_repair = gu.repair_node(G, bc)
+            did_repair = gu.do_repair_node(G, bc)
             if did_repair:
                 monitors_repaired.append(bc)
 

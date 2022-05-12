@@ -192,6 +192,30 @@ def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_pa
     return prob_n_broken
 
 
+def dummy_pruning(G):
+    """
+    pruning for the shortest path
+    :param G:
+    :param config:
+    :return:
+    """
+    demand_edges_to_repair, demand_edges_routed_flow = [], []
+    demand_edges_residual = get_demand_edges(G, is_check_unsatisfied=True, is_capacity=False)
+
+    for d_edge in demand_edges_residual:
+        d1, d2 = d_edge[0], d_edge[1]
+        SG = get_supply_graph(G)
+        path = mxv.protocol_stpath(SG, d1, d2)
+        if gu.broken_elements_in_path_T(G, path) == 0:
+            quantity_pruning = gu.do_prune(G, path)
+            demand_edges_routed_flow.append(quantity_pruning)
+            G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = 0
+        else:
+            demand_edges_to_repair.append((d1, d2))
+
+    return 0, demand_edges_to_repair, demand_edges_routed_flow
+
+
 def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_message, monitors_map, config):
     """ PRUNING CORE """
     demand_edges_to_repair = []

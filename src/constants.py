@@ -17,8 +17,8 @@ class GraphName(Enum):
 
 
 class PriorKnowledge(Enum):
-    FULL = 0
     TOMOGRAPHY = 1
+    DUNNY_IP = 2
 
 
 class Destruction(Enum):
@@ -88,6 +88,8 @@ class AlgoName(Enum):
     DEEP = "DEEP"
     TOMO_CEDAR = "TOMO_CEDAR"
     CEDARNEW = "CEDARNEW"
+    ISR = "ISR"
+    ISR_MULTICOM = "ISR_MULTICOM"
 
 
 class ProtocolRepairingPath(Enum):
@@ -121,6 +123,7 @@ class IndependentVariable(Enum):
     PROB_BROKEN = 0, "Percentage Broken Elements"
     N_DEMAND_EDGES = 1, "Number Demand Edges"
     FLOW_DEMAND = 2, "Flow Demand Pair"
+    MONITOR_BUDGET = 3, "Flow Demand Pair"
 
 
 # constants

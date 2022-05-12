@@ -5,7 +5,7 @@ import src.constants as co
 
 class Configuration:
     def __init__(self):
-        self.seed = 10
+        self.seed = None
 
         self.mute_log = False
         self.algo_name = co.AlgoName.CEDARNEW.value
@@ -23,15 +23,15 @@ class Configuration:
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (30, None)
+        self.supply_capacity = (150, None)
 
         # clique world
-        self.is_demand_clique = False
-        self.n_demand_clique = 5
+        self.is_demand_clique = True
+        self.demand_clique_factor = 0.5
+        self.n_demand_clique = None
 
         # Edges world
-        self.n_demand_pairs = 6
-        self.n_demand_pairs = int(self.n_demand_clique * (self.n_demand_clique-1) / 2) if self.is_demand_clique else self.n_demand_pairs
+        self.n_demand_pairs = None
 
         self.rand_generator_capacities = None
         self.rand_generator_path_choice = None

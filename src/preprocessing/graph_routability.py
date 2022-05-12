@@ -12,7 +12,7 @@ def is_feasible(G, is_fake_fixed=True):
     m = system_for_routability(G, demand_edges, supply_edges, None, is_fake_fixed)
     is_solution_ok = m.status == GRB.status.OPTIMAL
 
-    print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
+    # print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
     return is_solution_ok
 
 
@@ -41,12 +41,13 @@ def is_routable(G, knowledge, is_fake_fixed=False):
     m = system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fixed)
     is_solution_ok = m.status == GRB.status.OPTIMAL
 
-    print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
+    # print("> System says it " + ("IS" if is_solution_ok else "IS NOT") + " routable")
     return is_solution_ok
 
 
 def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fixed):
     """ Linear system of equations to check the routability. """
+
 
     var_demand_flows = []
     for i, (n1, n2, f) in enumerate(demand_edges):
@@ -65,6 +66,7 @@ def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fix
 
     m.setObjective(1, GRB.MAXIMIZE)
     m.params.OutputFlag = 0
+    m.params.LogToConsole = 0
 
     # 1. create: flow variables f_ij^h
     flow_var = {}

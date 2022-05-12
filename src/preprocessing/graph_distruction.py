@@ -106,7 +106,7 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     return distribution, broken_nodes, broken_edges
 
 
-def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.15, sig=.5, distance_factor=1):
+def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.1, sig=.5, distance_factor=1):
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
@@ -189,7 +189,10 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
             broken += random.sample(bins_dict[slice], int(np.ceil(n_expected_broken_slice)))
 
     perc_broken_sofar = (len(broken) / n_elements)
-    assert util.is_distance_tolerated(perc_broken_sofar, destruction_quantity, .05), "Percentage of disruption is insufficient."
+    assert util.is_distance_tolerated(perc_broken_sofar, destruction_quantity, .05), \
+        "Percentage of disruption is insufficient {} v.s. {} for seed {}".format(perc_broken_sofar,
+                                                                                 destruction_quantity,
+                                                                                 config.seed)
 
     broken_nodes, broken_edges = [], []
     for el in broken:

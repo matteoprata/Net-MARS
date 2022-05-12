@@ -13,6 +13,7 @@ import src.constants as co
 import src.utilities.util as util
 from collections import defaultdict
 from matplotlib import pyplot as plt
+from itertools import combinations
 
 # 1 -- init graph G
 def init_graph(path_to_graph, graph_name, supply_capacity, config):
@@ -75,7 +76,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
     max_comp = list(get_max_component(G))
 
     np.random.seed(config.fixed_unvarying_seed)  # this does not vary
-    list_pairs = [np.random.choice(max_comp, size=2, replace=True) for _ in range(config.n_backbone_pairs)]
+    list_pairs = [np.random.choice(max_comp, size=2, replace=False) for _ in range(config.n_backbone_pairs)]
     np.random.seed(config.seed)
 
     for p1, p2 in list_pairs:
@@ -153,14 +154,8 @@ def print_graph_info(G):
     print("graph has nodes:", len(G.nodes), "and edges:", len(G.edges))
 
 
-# 6 -- demand pairs
-def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
-    max_comp = list(get_max_component(G))
-
-    # if we are varying the destruction probability the demand edges need to stay same
-    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
-    #     np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
-
+def select_demand(G, max_comp, n_samples, is_nodes, THRESHOLD_DIST=0.7):
+    """ This produces demand nodes or pairs on the frontier of the graph."""
     # # CEREFUL n^2 complexity
     nodes_dis = dict()
     for ns in max_comp:
@@ -171,16 +166,31 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
             nodes_dis[(ns, nt)] = dist
 
     list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2, dis)]
-    THRESHOLD_DIST = .6  # on MINNESOTA it works
 
     distances = np.array([B[1] for B in list_pairs_dist])
     pairs = np.array([B[0] for B in list_pairs_dist])
-
     mask_ok_distance = distances >= THRESHOLD_DIST
-    pairs_to_sample = pairs[mask_ok_distance]
-    np.random.shuffle(pairs_to_sample)
 
-    list_pairs = pairs_to_sample[:n_demand_pairs, :]
+    if is_nodes:
+        pairs_to_sample = np.array(list(set(pairs[mask_ok_distance].flatten())))
+        np.random.shuffle(pairs_to_sample)
+        list_pairs = pairs_to_sample[:n_samples]
+    else:
+        pairs_to_sample = pairs[mask_ok_distance]
+        np.random.shuffle(pairs_to_sample)
+        list_pairs = pairs_to_sample[:n_samples, :]
+    return list_pairs
+
+
+# 6 -- demand pairs
+def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
+    max_comp = list(get_max_component(G))
+
+    # if we are varying the destruction probability the demand edges need to stay same
+    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
+    #     np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
+
+    list_pairs = select_demand(G, max_comp, n_demand_pairs, False)
 
     # assert config.is_xindvar_destruction and config.n_demand_pairs <= 8 # otherwise, pick them at random!
     # list_pairs = [(60, 411), (360, 522), (186, 78), (27, 221), (79, 474), (397, 525), (83, 564), (373, 281)]
@@ -232,25 +242,28 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
     #     np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
-    list_nodes = np.random.choice(max_comp, size=n_demand_nodes, replace=True, p=max_comp_degs if is_biased else None)
+    list_nodes = select_demand(G, max_comp, n_demand_nodes, is_nodes=True)
 
     # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
     #     np.random.seed(config.seed)
+    clique_edges = np.asarray(list(combinations(list_nodes, r=2)))
+    clique_edges_ind = np.arange(clique_edges.shape[0])
+    clique_edges_ids_cut = np.random.choice(clique_edges_ind, size=config.n_demand_pairs, replace=False)
+    clique_edges = clique_edges[clique_edges_ids_cut, :]
 
     # print("\nDegrees")
     demand_edges = set()
     demand_nodes = set()
-    for n1 in list_nodes:
-        for n2 in list_nodes:
-            if n1 > n2:
-                # print("n1", n1, nx.degree(G, n1), degs[n1], ";", "n2", n2, nx.degree(G, n2), degs[n2])
-                G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
-                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
-                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
-                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
-                G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
+    for i, edge in enumerate(clique_edges):
+        n1, n2 = edge
+        G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
 
-                demand_edges.add((n1, n2))
-                demand_nodes.add(n1)
-                demand_nodes.add(n2)
+        demand_edges.add((n1, n2))
+        demand_nodes.add(n1)
+        demand_nodes.add(n2)
+
     return demand_nodes, demand_edges

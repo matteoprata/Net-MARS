@@ -10,9 +10,11 @@ import random
 from src.utilities.util import min_max_normalizer
 from src import main as ma
 import src.constants as co
+from itertools import combinations
+from matplotlib.backends.backend_pdf import PdfPages
 
 
-def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_position, algo_names):
+def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_position, algo_names, out_fig, title):
     """
 
     :param source:
@@ -29,15 +31,13 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
     path_prefix = source + "{}"
 
-    Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow"}
+    Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow", 3: "Monitors"}
+    datas = np.empty(shape=(1, len(seeds_values), len(algos), len(X_vals)))
 
-    slices = []
-    for al in algos:
-        seeds_pbro = []
+    for ai, al in enumerate(algos):
         algo, rep = al
-        for pbro in X_vals:
-            dfs = []  # many dfs as the seeds (columns to average on axis 0)
-            for ss in seeds_values:
+        for pi, pbro in enumerate(X_vals):
+            for si, ss in enumerate(seeds_values):
                 if x_position == 0:
                     # varying probs
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
@@ -76,28 +76,32 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         config.destruction_quantity,
                         rep[0], rep[1], rep[2])
 
-                path = path_prefix.format(regex_fname)
+                elif x_position == 3:
+                    # varying flow pp
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        config.n_demand_pairs,
+                        int(config.demand_capacity),
+                        config.supply_capacity,
+                        algo,
+                        pbro,
+                        config.destruction_quantity,
+                        rep[0], rep[1], rep[2])
 
+                path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
                 df = df[typep]
-                df = pd.DataFrame([df.iloc[0]])
-                dfs.append(df)
-
-            seed_df = pd.concat(dfs, axis=1).T
-            seeds_pbro.append(seed_df)
-        slices.append(seeds_pbro)
+                datas[0, si, ai, pi] = df.iloc[0]
 
     plt.figure(figsize=(10, 8))
 
-    for i, sli in enumerate(slices):
-        out = pd.concat(sli, axis=1).mean(axis=0)
-        # out.columns = pbro_values
-        # out = out
-        # print(out)
-        # exit()
-        plt.plot(X_vals, out, label=algo_names[tuple(algos[i][1])])
+    for i, _ in enumerate(algos):
+        avg_val = datas.mean(axis=1)
+        plt.plot(X_vals, avg_val[0, i, :], label=algo_names[tuple(algos[i][1])])
 
     plt.legend()
+    plt.title(title)
     plt.xlabel(Xlabels[x_position])
     plt.ylabel(plot_name[typep])
     plt.grid(alpha=.4)
@@ -107,14 +111,16 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
     # print(out)
     # plt.savefig(plot_name[typep] + str(time.time()) + ".png")
-    plt.show()
+    # plt.show()
+    out_fig.savefig()  # saves the current figure into a pdf page
+    plt.close()
 
 
 def sample_file(seed, graph, np, dc, spc, alg, bud, pbro, rep, pik, mop):
     return "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(seed, graph, np, dc, spc, alg, bud, pbro, rep, pik, mop)
 
 
-def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_position, outliers=0, algo_names=None):
+def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_position, outliers:float=0, algo_names=None, out_fig=None, title=None):
     """
     :param source:
     :param config:
@@ -128,9 +134,10 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     path_prefix = source + "{}"  # "data/experiments/{}"
     Xlabels = {0: "Probability Broken",
                1: "Number Demand Pairs",
-               2: "Demand Flow"}
+               2: "Demand Flow",
+               3: "Monitors"}
 
-    MAX_STEPS = 150
+    MAX_STEPS = 400
     datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
     datas[:] = np.nan
 
@@ -157,6 +164,11 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(x), config.supply_capacity,
                                               algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
 
+                elif x_position == 3:  # vary monit
+                    MAX_TOTAL_FLOW = config.n_demand_pairs * config.demand_capacity
+                    MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity * MAX_STEPS
+                    regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity,
+                                              algo, x, config.destruction_quantity, rep[0], rep[1], rep[2])
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)["flow_cum"]
@@ -176,6 +188,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     sum_flows = (datas.sum(axis=0) / MAX_FLOW_STEPS)
     avg_sum_flows = sum_flows.mean(axis=0)
     std_sum_flows = sum_flows.std(axis=0)
+    # print(sum_flows[:, 0, :])
+    # print(sum_flows.shape)
 
     # datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
     # print(sum_flows[:,3,:])
@@ -203,6 +217,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     avg_sum_flows = sum_flows.mean(axis=0)
     std_sum_flows = sum_flows.std(axis=0)
 
+    # print(avg_sum_flows)
+    # exit()
+
     if outliers > 0:
         print("discarded some seeds, now they are", sum_flows.shape[0])
 
@@ -216,8 +233,18 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     IS_TRUNCATE = True
     if IS_TRUNCATE:  # remove the last lines when all the algos reached the max
-        mask_reach_max = (datas.mean(axis=1)[:, :, -1] == MAX_TOTAL_FLOW).sum(axis=1) == len(algos)
-        datas = datas[~mask_reach_max, :]
+        flowz = datas.mean(axis=1)[:, :, -1]
+        flowz_r = np.roll(flowz, -1, axis=0)
+        flowz = flowz[:-1, :]
+        flowz_r = flowz_r[:-1, :]
+
+        agreement = (((flowz == flowz_r)*1).sum(axis=1) == len(algos))*1
+        agreement_row = np.where(agreement==0)[0][-1] + 1
+        # print(agreement)
+        # print(np.where(agreement==0))
+        # exit()
+        # mask_reach_max = (datas.mean(axis=1)[:, :, -1] == MAX_TOTAL_FLOW).sum(axis=1) == len(algos)
+        datas = datas[:agreement_row, :]
 
     if plot_type == 2:
         avg_flow = datas.mean(axis=1)[:, :, -1] / MAX_TOTAL_FLOW  # last element
@@ -227,14 +254,14 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         plt.xlabel("Repair Steps")
 
     elif plot_type == 3:
-        A1, A2 = 3, 0
-        A1_avg_flow = datas.mean(axis=1)[:, A1, -1] / MAX_TOTAL_FLOW
-        A2_avg_flow = datas.mean(axis=1)[:, A2, -1] / MAX_TOTAL_FLOW
-        out = A1_avg_flow - A2_avg_flow
-        label_out = "{} - {}".format(algo_names[tuple(algos[A1][1])], algo_names[tuple(algos[A2][1])])
-        plt.plot(np.arange(out.shape[0]), out, label=label_out)
-        plt.ylabel("Flow Difference")
-        plt.xlabel("Repair Steps")
+        for A1, A2 in combinations(range(datas.shape[2]), r=2):
+            A1_avg_flow = datas.mean(axis=1)[:, A1, -1] / MAX_TOTAL_FLOW
+            A2_avg_flow = datas.mean(axis=1)[:, A2, -1] / MAX_TOTAL_FLOW
+            out = A1_avg_flow - A2_avg_flow
+            label_out = "{} - {}".format(algo_names[tuple(algos[A1][1])], algo_names[tuple(algos[A2][1])])
+            plt.plot(np.arange(out.shape[0]), out, label=label_out)
+            plt.ylabel("Flow Difference")
+            plt.xlabel("Repair Steps")
 
     else:
         for i, _ in enumerate(algos):
@@ -243,13 +270,16 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         plt.ylabel("Total Flow" if plot_type else "Cumulative Flow")
         plt.xlabel(Xlabels[x_position])
 
+    plt.title(title)
     plt.legend()
     plt.grid(alpha=.4)
     # plt.savefig("flow" + str(time.time()) + ".png")
-    plt.show()
+    # plt.show()
+    out_fig.savefig()  # saves the current figure into a pdf page
+    plt.close()
 
 
-def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, fixed_percentage, algo_names):
+def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, fixed_percentage, algo_names, out_fig, title):
     """
     :param source:
     :param config:
@@ -262,7 +292,7 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
     path_prefix = source + "{}"  # "data/experiments/{}"
     Xlabels = {0: "Probability Broken", 1: "Number Demand Nodes", 2: "Demand Flow"}
 
-    MAX_STEPS = 150
+    MAX_STEPS = 400
     NORM_MAX_FLOW_STEPS = 100
 
     data_repairs = np.empty(shape=(NORM_MAX_FLOW_STEPS, len(seeds_values), len(algos), len(X_var)))
@@ -286,6 +316,11 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
                     MAX_TOTAL_FLOW = int(config.n_demand_pairs * x)
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(x), config.supply_capacity,
                                               algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
+
+                elif x_position == 3:
+                    MAX_TOTAL_FLOW = int(config.n_demand_pairs * x)
+                    regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity,
+                                              algo, x, config.destruction_quantity, rep[0], rep[1], rep[2])
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
@@ -332,71 +367,124 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
         plt.xlabel(Xlabels[x_position])
         plt.ylabel("Cumulative Repairs")
 
+    plt.title(title)
     plt.legend()
     plt.grid(alpha=.4)
-    time.time()
-    # plt.savefig("flow-repair" + str(time.time()) + ".png")
-    plt.show()
+
+    out_fig.savefig()  # saves the current figure into a pdf page
+    plt.close()
 
 
 def plotting_data():
     config = ma.setup_configuration()
-    seeds = set(list(range(31, 40)))
 
-    dis_uni = [.1, .2, .3, .4, .5, .6]
-    n_pairs = [2, 3, 4, 5, 6]
-    fpp = [2, 5, 10, 15, 20]  # 25 pp is not ok with 30 edge flow
-    algos = []
+    dis_uni = {
+               0: [.1, .2, .3, .4, .5, .6],
+               1: [.5],
+               2: [.5],
+               3: [.5]
+               }
 
-    x_axis = {# co.IndependentVariable.PROB_BROKEN: dis_uni,
-              # co.IndependentVariable.N_DEMAND_EDGES: n_pairs,
-              co.IndependentVariable.FLOW_DEMAND: fpp
+    npairs = {
+              0: [8],
+              1: [5, 6, 7, 8, 9, 10],
+              2: [8],
+              3: [8]
               }
 
-    algo_names = {(0, 4, 5): "ST-PATH",
+    flowpp = {
+              0: [11],
+              1: [11],
+              2: [5, 7, 9, 11, 13, 15],
+              3: [11]
+              }
+
+    monitor_bud = {
+                   0: [25],
+                   1: [25],
+                   2: [25],
+                   3: [15, 20, 25, 30, 35, 40]
+                   }
+
+    ind_var = {0: (co.IndependentVariable.PROB_BROKEN, dis_uni),
+               1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
+               2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
+               3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
+               }
+
+    seeds = range(40, 50)
+
+    def n_pairs_conversion(n):
+        return int(n * (n - 1) / 2 * config.demand_clique_factor)
+
+    algos = []
+
+    algo_names = {(0, 4, 5): "ST-PATH-PLUS",
                   (1, 5, 5): "CEDAR-LIKE",
                   (2, 2, 4): "TOMO-CEDAR",
-                  (2, 2, 3): "ORACLE"}
+                  (2, 2, 3): "ORACLE",
+                  (5, 0, 5): "ST-PATH",
+                  (99, 99, 99): "CEDAR"}
 
-    algos += [("CEDARNEW", [i, j, k]) for i in [0] for j in [4] for k in [5]]
-    algos += [("CEDARNEW", [i, j, k]) for i in [1] for j in [5] for k in [5]]
     algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
     algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [4]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+    # algos += [("CEDARNEW", [i, j, k]) for i in [0] for j in [4] for k in [5]]
+    algos += [("CEDAR", [i, j, k]) for i in [99] for j in [99] for k in [99]]
+    # algos += [("CEDARNEW-SP", [i, j, k]) for i in [5] for j in [0] for k in [5]]
 
     source = "data/experiments/"
     OUTLIERS = 0
 
-    for name, xa in x_axis.items():
-        i, _ = name.value
-        print("Now varying", i, "as", xa)
+    with PdfPages('multipage_pdf.pdf') as pdf:
+        for i, (name, vals) in ind_var.items():
+            print("Now varying", name.name, "as", vals[i])
 
-        if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
-            config.n_demand_pairs = 5  # 5 is ok
-            config.monitors_budget = 25
-            config.supply_capacity = (30, None)
+            config.supply_capacity = (150, None)
 
-        elif name == co.IndependentVariable.N_DEMAND_EDGES:  # vary n_pairs fix prob and ffp
-            config.destruction_quantity = 0.6  # 0.6 is ok
-            config.monitors_budget = 25
-            config.supply_capacity = (30, None)
+            if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
+                config.n_demand_clique = npairs[i][0]
+                config.n_demand_pairs = n_pairs_conversion(npairs[i][0])
+                config.demand_capacity = flowpp[i][0]
+                config.monitors_budget = monitor_bud[i][0]
+                plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format("*", config.n_demand_clique, config.n_demand_pairs,
+                                                                                      config.demand_capacity, config.monitors_budget)
 
-        elif name == co.IndependentVariable.FLOW_DEMAND:  # vary fpp fix prob and n_pais
-            config.destruction_quantity = 0.5
-            config.n_demand_pairs = 5
-            config.supply_capacity = (30, None)
-            config.monitors_budget = 25
+            elif name == co.IndependentVariable.N_DEMAND_EDGES:  # vary n_pairs fix prob and ffp
+                config.destruction_quantity = dis_uni[i][0]
+                config.monitors_budget = monitor_bud[i][0]
+                config.demand_capacity = flowpp[i][0]
+                vals[i] = [n_pairs_conversion(val) for val in vals[i]]
+                plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique, "*",
+                                                                                      config.demand_capacity, config.monitors_budget)
 
-        plot_Xflow_Yrepair(source, config, seeds, xa, algos, x_position=i, fixed_percentage=-1, algo_names=algo_names)
-        # plot_Xflow_Yrepair(source, config, seeds, xa, algos, x_position=i, fixed_percentage=None, algo_names=algo_names)
+            elif name == co.IndependentVariable.FLOW_DEMAND:  # vary fpp fix prob and n_pais
+                config.destruction_quantity = dis_uni[i][0]
+                config.n_demand_clique = npairs[i][0]
+                config.n_demand_pairs = n_pairs_conversion(npairs[i][0])
+                config.monitors_budget = monitor_bud[i][0]
+                plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
+                                                                                      config.n_demand_pairs, "*", config.monitors_budget)
 
-        plot_integral(source, config, seeds, xa, algos, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names)
-        plot_integral(source, config, seeds, xa, algos, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names)
-        plot_integral(source, config, seeds, xa, algos, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names)
-        plot_integral(source, config, seeds, xa, algos, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names)
+            elif name == co.IndependentVariable.MONITOR_BUDGET:  # vary fpp fix prob and n_pais
+                config.destruction_quantity = dis_uni[i][0]
+                config.n_demand_clique = npairs[i][0]
+                config.n_demand_pairs = n_pairs_conversion(npairs[i][0])
+                config.demand_capacity = flowpp[i][0]
+                plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
+                                                                                      config.n_demand_pairs, config.demand_capacity, "*")
 
-        plot_monitors_stuff(source, config, seeds, xa, algos, typep="n_monitor_msg", x_position=i, algo_names=algo_names)
-        plot_monitors_stuff(source, config, seeds, xa, algos, typep="n_monitors", x_position=i, algo_names=algo_names)
-        plot_monitors_stuff(source, config, seeds, xa, algos, typep="n_repairs", x_position=i, algo_names=algo_names)
+            plot_Xflow_Yrepair(source, config, seeds, vals[i], algos, x_position=i, fixed_percentage=-1, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            # # # plot_Xflow_Yrepair(source, config, seeds, vals[i], algos, x_position=i, fixed_percentage=None, algo_names=algo_names)
+
+            plot_integral(source, config, seeds, vals[i], algos, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_integral(source, config, seeds, vals[i], algos, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_integral(source, config, seeds, vals[i], algos, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_integral(source, config, seeds, vals[i], algos, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title)
+
+            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
 
 if __name__ == '__main__':
