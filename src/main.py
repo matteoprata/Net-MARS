@@ -9,9 +9,10 @@ import traceback
 import signal
 import src.constants as co
 import src.configuration as configuration
-import src.recovery_protocols.main_tomocedar_setup as main_cedar_setup
+import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
 import src.recovery_protocols.main_stocedar_setup as main_stocedar_setup
 import src.recovery_protocols.main_cedar_setup as main_cedar_setup
+import src.recovery_protocols.main_shp_setup as main_shp_setup
 
 from src.utilities.util import set_seeds, disable_print, enable_print
 
@@ -110,7 +111,7 @@ def fname_formation():
                                                                                                      config.n_demand_pairs,
                                                                                                      int(config.demand_capacity),
                                                                                                      config.supply_capacity,
-                                                                                                     config.algo_name,
+                                                                                                     config.algo_name.value,
                                                                                                      config.monitors_budget,
                                                                                                      config.destruction_quantity,
                                                                                                      config.repairing_mode.value,
@@ -159,9 +160,9 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
     fname = fname_formation()
 
     if config.force_recompute or not os.path.exists("data/experiments/" + fname):
-        # print()
+        print()
         # print("NOW running...\n\n", config_details)
-        # print("exec name > ", fname)
+        print("exec name > ", fname)
 
         set_seeds(config.seed)
 
@@ -172,8 +173,10 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
             stats = main_stocedar_setup.run(config)
         elif config.algo_name == co.AlgoName.CEDAR:
             stats = main_cedar_setup.run(config)
+        elif config.algo_name == co.AlgoName.SHP:
+            stats = main_shp_setup.run(config)
         else:
-            stats = main_cedar_setup.run(config)
+            stats = main_tomocedar_setup.run(config)
         enable_print()
 
         if stats is not None:
@@ -193,7 +196,8 @@ def parallel_exec():
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN],
                1: [co.IndependentVariable.N_DEMAND_EDGES],
                2: [co.IndependentVariable.FLOW_DEMAND],
-               3: [co.IndependentVariable.MONITOR_BUDGET]}
+               3: [co.IndependentVariable.MONITOR_BUDGET]
+               }
 
     dis_uni = {0: [.1, .2, .3, .4, .5, .6],
                1: [.5],
@@ -216,7 +220,9 @@ def parallel_exec():
                    3: [15, 20, 25, 30, 35, 40]}
 
     processes = []
-    for k in range(len(dis_uni)):
+    for k in range(len(ind_var)):
+
+        # SHORTEST
         for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
                                            [co.ProtocolRepairingPath.SHORTEST_MINUS],
                                            [co.ProtocolPickingPath.RANDOM],
@@ -230,6 +236,34 @@ def parallel_exec():
                                            [co.ProtocolMonitorPlacement.ORACLE,
                                             co.ProtocolMonitorPlacement.BUDGET], ind_var[k],
                                            [co.PriorKnowledge.TOMOGRAPHY], [co.AlgoName.CEDARNEW], [True]):
+            processes.append(execution)
+
+        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
+                                           [co.ProtocolPickingPath.RANDOM],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.CEDAR], [True]):
+            processes.append(execution)
+
+        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
+                                           [co.ProtocolPickingPath.RANDOM],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR], [True]):
+            processes.append(execution)
+
+        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
+                                           [co.ProtocolPickingPath.RANDOM],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR_MULTICOM], [True]):
+            processes.append(execution)
+
+        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
+                                           [co.ProtocolPickingPath.RANDOM],
+                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.SHP], [True]):
             processes.append(execution)
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
@@ -248,8 +282,8 @@ def initializer():
 
 
 if __name__ == '__main__':
-    # parallel_exec()
-    #
+    parallel_exec()
+
     # run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=11, flowpp=10,
     #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
     #                  pick_mode=co.ProtocolPickingPath.RANDOM,
@@ -258,14 +292,14 @@ if __name__ == '__main__':
     #                  monitoring_type=co.PriorKnowledge.DUNNY_IP
     #                  )
 
-    run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=5, flowpp=10,
-                     rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                     pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-                     indvar=co.IndependentVariable.FLOW_DEMAND,
-                     monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
-                     monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
-                     algo_name=co.AlgoName.CEDAR
-                     )
+    # run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
+    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+    #                  indvar=co.IndependentVariable.FLOW_DEMAND,
+    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+    #                  monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+    #                  algo_name=co.AlgoName.CEDAR
+    #                  )
 
 
 

@@ -113,23 +113,31 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
     return m
 
 
-def derive_from_optimum(G, m):
-    path_nodes, path_edges = set(), set()
+def derive_from_optimum(G, m, R_cutoff):
+    path_nodes, path_edges = list(), list()
+    path_nodes_pi, path_edges_pi = list(), list()
+
     for v in m.getVars():
-        if v.X >= .5:  # means repair
-            if str(v.VarName).startswith("rep_node_var_"):
-                node = int(str(v.VarName).split("_")[-1])
-                print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_nodes.add(node)
+        if str(v.VarName).startswith("rep_node_var_"):
+            node = int(str(v.VarName).split("_")[-1])
+            # print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
+            if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+                path_nodes.append(node)
+                path_nodes_pi.append(v.X)
 
-            elif str(v.VarName).startswith("rep_edge_var_"):
-                edge = str(v.VarName).split("_")[-1].split(",")
-                edd = (int(edge[0]), int(edge[1]))
-                print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_edges.add(edd)
+        elif str(v.VarName).startswith("rep_edge_var_"):
+            edge = str(v.VarName).split("_")[-1].split(",")
+            edd = (int(edge[0]), int(edge[1]))
+            # print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+            if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+                path_edges.append(edd)
+                path_edges_pi.append(v.X)
 
+    no_ids = np.argsort(path_nodes_pi)
+    ed_ids = np.argsort(path_edges_pi)
+
+    path_nodes = np.array(path_nodes)[no_ids][-R_cutoff:]
+    path_edges = [path_edges[i] for i in ed_ids][-R_cutoff:]
     return path_nodes, path_edges
 
 
@@ -278,98 +286,45 @@ def run(config):
         routed_flow += quantity
         stats["flow"] = routed_flow
 
-        paths_nodes, paths_edges, paths_tot = isr_srt(G)
+        SG_edges = get_supply_graph(G).edges
+        demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
+        broken_supply_nodes = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.KNOW)
+        unk_supply_nodes = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.UNK, co.Knowledge.KNOW)
+        broken_supply_edges = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.KNOW)
+        unk_supply_edges = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.UNK, co.Knowledge.KNOW)
+        bro_unk_node = list(set(unk_supply_nodes).union(set(broken_supply_nodes)))
+        bro_unk_edge = list(set(unk_supply_edges).union(set(broken_supply_edges)))
 
-        if config.algo_name == co.AlgoName.ISR_MULTICOM:
-            SG_edges = get_supply_graph(G).edges
-
-            demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
-            broken_supply_nodes = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.KNOW)
-            unk_supply_nodes = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.UNK, co.Knowledge.KNOW)
-            broken_supply_edges = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.BROKEN, co.Knowledge.KNOW)
-            unk_supply_edges = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.UNK, co.Knowledge.KNOW)
-            bro_unk_node = list(set(unk_supply_nodes).union(set(broken_supply_nodes)))
-            bro_unk_edge = list(set(unk_supply_edges).union(set(broken_supply_edges)))
-
-            m = system_for_routability(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
-            paths_nodes, paths_edges = derive_from_optimum(G, m)
-
-        paths_elements = paths_nodes.union(paths_edges)
-        paths_nodes, paths_edges = list(paths_nodes), list(paths_edges)
+        m = system_for_routability(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
+        CUTOFF = 5
+        paths_nodes, paths_edges = derive_from_optimum(G, m, R_cutoff=CUTOFF)
 
         print(paths_nodes)
         print(paths_edges)
 
-        if len(paths_elements) == 0:
-            print("Process completed!", get_residual_demand(G), get_demand_edges(G, True, True, True))
-            stats_list.append(stats)
-            return stats_list
-        else:
-            if len(paths_nodes) == 0 and len(paths_edges) > 0:
-                rep_nodes, rep_edges = [], []
-                for ed1, ed2 in paths_edges:
-                    rep_b = do_repair_edge(G, ed1, ed2)
-                    rep_edges.append(rep_b)
+        rep_nodes, rep_edges = [], []
+        for n in paths_nodes:
+            rep_a = do_repair_node(G, n)
+            rep_nodes.append(rep_a)
 
-                rep_edges = [rp for rp in rep_edges if rp is not None]
-                stats["edge"] += rep_edges
+        for ed1, ed2 in paths_edges:
+            rep_b = do_repair_edge(G, ed1, ed2)
+            rep_c = do_repair_node(G, ed1)
+            rep_d = do_repair_node(G, ed2)
+            rep_nodes.append(rep_c)
+            rep_nodes.append(rep_d)
+            rep_edges.append(rep_b)
 
-                stats_list.append(stats)
-                continue
+        rep_nodes = [rp for rp in rep_nodes if rp is not None]
+        rep_edges = [rp for rp in rep_edges if rp is not None]
 
-            r_rem_tot = get_residual_demand(G)
-            values_of_v = []
-            for v in paths_nodes:
-                _, endpoints = shortest_through_v(v, paths_tot)
-                f_rem_v = remaining_demand_endpoints(G, endpoints)
-                nv = f_rem_v / r_rem_tot
-                values_of_v.append(nv)
+        stats["edge"] += rep_edges
+        stats["node"] += rep_nodes
 
-            node_rep_id = np.argmax(values_of_v)
-            node_rep = paths_nodes[node_rep_id]
-            # todo: break ties
+        res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
 
-            rep_a = do_repair_node(G, node_rep)
-            rep_nodes, rep_edges = [rep_a], []
-            for ed1, ed2 in paths_edges:
-                if node_rep == ed1 or node_rep == ed2:
-                    rep_b = do_repair_edge(G, ed1, ed2)
-                    rep_c = do_repair_node(G, ed1)
-                    rep_d = do_repair_node(G, ed2)
-                    rep_nodes.append(rep_c)
-                    rep_nodes.append(rep_d)
-                    rep_edges.append(rep_b)
-
-            rep_nodes = [rp for rp in rep_nodes if rp is not None]
-            rep_edges = [rp for rp in rep_edges if rp is not None]
-
-            stats["edge"] += rep_edges
-            stats["node"] += rep_nodes
-
-            res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-            monitor_nodes = gu.get_monitor_nodes(G)
-
-            print("These are the residual demand edges:")
-            print(len(res_demand_edges), res_demand_edges)
-
-            # add monitor to v_rep
-            if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
-                monitors_stats |= {node_rep}
-                stats["monitors"] |= monitors_stats
-
-            # k-discovery
-            K = 2
-            SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=K)
-            for no in reach_k_paths:
-                discover_path_truth_limit_broken(G, reach_k_paths[no])
-                packet_monitor += 1
-                stats["packet_monitoring"] = packet_monitor
-
+        print("These are the residual demand edges:")
+        print(len(res_demand_edges), res_demand_edges)
         stats_list.append(stats)
-
-        print()
-        for el in stats:
-            print(el, stats[el])
 
     return stats_list

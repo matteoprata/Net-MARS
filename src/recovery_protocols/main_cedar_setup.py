@@ -15,11 +15,6 @@ import time
 import src.preprocessing.graph_utils as gru
 from gurobipy import *
 
-GUROBI_STATUS = {1: 'LOADED', 2: 'OPTIMAL', 3: 'INFEASIBLE', 4: 'INF_OR_UNBD', 5: 'UNBOUNDED', 6: 'CUTOFF',
-                 7: 'ITERATION_LIMIT', 8: 'NODE_LIMIT', 9: 'TIME_LIMIT', 10: 'SOLUTION_LIMIT', 11: 'INTERRUPTED',
-                 12: 'NUMERIC', 13: 'SUBOPTIMAL', 14: 'INPROGRESS', 15: 'USER_OBJ_LIMIT'}
-
-
 def run(config):
     stats_list = []
 
@@ -84,7 +79,7 @@ def run(config):
         stats = {"iter": iter,
                  "node": [],
                  "edge": [],
-                 "flow": 0,
+                 "flow": routed_flow,
                  "monitors": monitors_stats,
                  "packet_monitoring": packet_monitor}
 
@@ -109,20 +104,21 @@ def run(config):
 
             quantity_pruning = do_prune(G, path_to_fix)
             routed_flow += quantity_pruning
-            stats["flow"] = routed_flow
             print("pruned", quantity_pruning, "on", path_to_fix)
         else:
             if len(get_monitor_nodes(G)) < config.monitors_budget:
                 v = best_centrality_node(G)
                 fixed_node = do_repair_node(G, v)
-                stats["node"] += [fixed_node]
+                if fixed_node:
+                    stats["node"] += [fixed_node]
 
                 monitors_stats |= {v}
                 G.nodes[v][co.ElemAttr.IS_MONITOR.value] = True
                 stats["monitors"] |= monitors_stats
 
                 # k-discovery
-                packets_monitoring = do_k_monitoring(G, v, 2)
+                K = 2
+                packets_monitoring = do_k_monitoring(G, v, K)
                 stats["packet_monitoring"] = packets_monitoring
             else:
                 print("No monitors left.")

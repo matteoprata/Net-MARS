@@ -670,9 +670,12 @@ def saturating_paths(G, d_edges):
 def best_centrality_node(G):
     """ CEDAR centrality node. """
     nodes_centrality = []
-    candidates = list(set(G.nodes) - set(get_monitor_nodes(G)))[:10]
+    d_edges = get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)
+    candidates = list(set(G.nodes) - set(get_monitor_nodes(G)))
+    saturating_paths_vec = saturating_paths(G, d_edges)
+
     for n in tqdm.tqdm(candidates):
-        centrality = demand_based_centrality(G, n)
+        centrality = demand_based_centrality(G, n, d_edges, saturating_paths_vec)
         nodes_centrality.append(centrality)
 
     bc = candidates[np.argmax(nodes_centrality)]
@@ -680,13 +683,10 @@ def best_centrality_node(G):
     return bc
 
 
-def demand_based_centrality(G, n):
+def demand_based_centrality(G, n, d_edges, saturating_paths_vec):
     """ Computes the centrality to find the best centrality node. """
 
     centrality = 0
-    d_edges = get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)
-    saturating_paths_vec = saturating_paths(G, d_edges)
-
     for d1, d2, c in d_edges:
         all_paths_saturate, capacity_all_paths_saturate = saturating_paths_vec[(d1, d2)]
         capacity_paths_saturate_through_n = []

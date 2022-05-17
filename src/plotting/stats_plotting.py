@@ -98,7 +98,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
     for i, _ in enumerate(algos):
         avg_val = datas.mean(axis=1)
-        plt.plot(X_vals, avg_val[0, i, :], label=algo_names[tuple(algos[i][1])])
+        plt.plot(X_vals, avg_val[0, i, :], label=algo_names[i])
 
     plt.legend()
     plt.title(title)
@@ -249,23 +249,28 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     if plot_type == 2:
         avg_flow = datas.mean(axis=1)[:, :, -1] / MAX_TOTAL_FLOW  # last element
         for i, _ in enumerate(algos):
-            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[tuple(algos[i][1])])
+            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[i])
         plt.ylabel("Flow")
         plt.xlabel("Repair Steps")
 
     elif plot_type == 3:
-        for A1, A2 in combinations(range(datas.shape[2]), r=2):
-            A1_avg_flow = datas.mean(axis=1)[:, A1, -1] / MAX_TOTAL_FLOW
-            A2_avg_flow = datas.mean(axis=1)[:, A2, -1] / MAX_TOTAL_FLOW
-            out = A1_avg_flow - A2_avg_flow
-            label_out = "{} - {}".format(algo_names[tuple(algos[A1][1])], algo_names[tuple(algos[A2][1])])
-            plt.plot(np.arange(out.shape[0]), out, label=label_out)
-            plt.ylabel("Flow Difference")
-            plt.xlabel("Repair Steps")
+        for i in range(len(algos)):
+            PERC_DESTRUCTION = -1
+            ALGO_OUR = 0
+            if i != ALGO_OUR:
+                A1_avg_flow = datas.mean(axis=1)[:, ALGO_OUR, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
+                A2_avg_flow = datas.mean(axis=1)[:, i, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
+                out = A1_avg_flow - A2_avg_flow
+                label_out = "{} - {}".format(algo_names[ALGO_OUR], algo_names[i])
+                plt.plot(np.arange(out.shape[0]), out, label=label_out)
+                plt.plot(np.arange(out.shape[0]), out, label=label_out)
+                plt.axhline(y=0, color='r', linestyle=':')
+                plt.ylabel("Flow Difference")
+                plt.xlabel("Repair Steps")
 
     else:
         for i, _ in enumerate(algos):
-            plt.plot(X_var, y_plot[i], label=algo_names[tuple(algos[i][1])])
+            plt.plot(X_var, y_plot[i], label=algo_names[i])
             # plt.fill_between(X_var, y_plot[i] - std_y_plot[i], y_plot[i] + std_y_plot[i], alpha=0.2)
         plt.ylabel("Total Flow" if plot_type else "Cumulative Flow")
         plt.xlabel(Xlabels[x_position])
@@ -357,13 +362,13 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
     if fixed_percentage:
         avg_sum_flows = avg_sum_flows[:, :, fixed_percentage]  # fix a destruction
         for i, _ in enumerate(algos):
-            plt.plot(np.arange(NORM_MAX_FLOW_STEPS)/100, avg_sum_flows[:, i], label=algo_names[tuple(algos[i][1])])
+            plt.plot(np.arange(NORM_MAX_FLOW_STEPS)/100, avg_sum_flows[:, i], label=algo_names[i])
         plt.xlabel("Normalized flow ({})".format(MAX_TOTAL_FLOW))
         plt.ylabel("Number of repairs")
     else:
         avg_sum_flows = avg_sum_flows.sum(axis=0)
         for i, _ in enumerate(algos):
-            plt.plot(X_var, avg_sum_flows[i], label=algo_names[tuple(algos[i][1])])
+            plt.plot(X_var, avg_sum_flows[i], label=algo_names[i])
         plt.xlabel(Xlabels[x_position])
         plt.ylabel("Cumulative Repairs")
 
@@ -407,9 +412,9 @@ def plotting_data():
                    }
 
     ind_var = {0: (co.IndependentVariable.PROB_BROKEN, dis_uni),
-               1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
-               2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
-               3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
+               # 1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
+               # 2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
+               # 3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
                }
 
     seeds = range(40, 50)
@@ -419,19 +424,19 @@ def plotting_data():
 
     algos = []
 
-    algo_names = {(0, 4, 5): "ST-PATH-PLUS",
-                  (1, 5, 5): "CEDAR-LIKE",
-                  (2, 2, 4): "TOMO-CEDAR",
-                  (2, 2, 3): "ORACLE",
-                  (5, 0, 5): "ST-PATH",
-                  (99, 99, 99): "CEDAR"}
+
 
     algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
     algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [4]]
     algos += [("CEDARNEW", [i, j, k]) for i in [5] for j in [0] for k in [5]]
-    # algos += [("CEDARNEW", [i, j, k]) for i in [0] for j in [4] for k in [5]]
-    algos += [("CEDAR", [i, j, k]) for i in [99] for j in [99] for k in [99]]
-    # algos += [("CEDARNEW-SP", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+
+    algos += [("CEDAR", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+    algos += [("ISR", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+    algos += [("ISR_MULTICOM", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+    algos += [("SHP", [i, j, k]) for i in [5] for j in [0] for k in [5]]
+
+    algo_names = [i[0] for i in algos]
+    algo_names[0], algo_names[1], algo_names[2] = "ORACLE", "CEDARNEW", "ST-PATH"
 
     source = "data/experiments/"
     OUTLIERS = 0
