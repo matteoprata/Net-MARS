@@ -282,7 +282,7 @@ def initializer():
 
 
 if __name__ == '__main__':
-    parallel_exec()
+    # parallel_exec()
 
     # run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=11, flowpp=10,
     #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
@@ -292,14 +292,16 @@ if __name__ == '__main__':
     #                  monitoring_type=co.PriorKnowledge.DUNNY_IP
     #                  )
 
-    # run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
-    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-    #                  indvar=co.IndependentVariable.FLOW_DEMAND,
-    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
-    #                  monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
-    #                  algo_name=co.AlgoName.CEDAR
-    #                  )
+    run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
+                     rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                     pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+                     indvar=co.IndependentVariable.FLOW_DEMAND,
+                     monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+                     monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+
+                     # KEY PARAM
+                     algo_name=co.AlgoName.SHP
+                     )
 
 
 

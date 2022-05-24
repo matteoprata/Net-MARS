@@ -14,11 +14,13 @@ import time
 import src.preprocessing.graph_utils as gru
 from gurobipy import *
 
+
 GUROBI_STATUS = {1: 'LOADED', 2: 'OPTIMAL', 3: 'INFEASIBLE', 4: 'INF_OR_UNBD', 5: 'UNBOUNDED', 6: 'CUTOFF',
                  7: 'ITERATION_LIMIT', 8: 'NODE_LIMIT', 9: 'TIME_LIMIT', 10: 'SOLUTION_LIMIT', 11: 'INTERRUPTED',
                  12: 'NUMERIC', 13: 'SUBOPTIMAL', 14: 'INPROGRESS', 15: 'USER_OBJ_LIMIT'}
 
-def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, supply_edges, broken_unk_nodes, broken_unk_edges):
+
+def shp_optimum(G, demand_edges, supply_nodes, broken_supply_edges, supply_edges, broken_unk_nodes, broken_unk_edges):
 
     # print(supply_edges)
     # print(broken_supply_edges)
@@ -41,6 +43,7 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
     # m.setObjective(1, GRB.MAXIMIZE)
     m.params.OutputFlag = 0
     m.params.LogToConsole = 0
+    constraints_names = []
 
     # 1. create: flow variables f_ij^h
     flow_var = {}
@@ -52,10 +55,10 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
             flow_var[h, j, i] = m.addVar(lb=0, ub=min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val) ,
                                          vtype=GRB.CONTINUOUS, name='flow_var_{}_{}_{}'.format(h, i, j))
 
-    # 2. create: repair node d_i
-    rep_node_var = {}
-    for n in supply_nodes:
-        rep_node_var[n] = m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='rep_node_var_{}'.format(n))
+    flow_quantity = {}
+    for i, (n1, n2, f) in enumerate(demand_edges):
+        flow_quantity[i] = m.addVar(lb=0, ub=G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value],
+                                     vtype=GRB.CONTINUOUS, name='dem_flow_var_{}'.format(i))
 
     # 3. create: repair edge d_ij
     rep_edge_var = {}
@@ -63,29 +66,35 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
         var_e = m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='rep_edge_var_{},{}'.format(n1, n2))
         rep_edge_var[n1, n2] = var_e
 
-    # 4. create: perc flow
-    # alpha_var = {}
-    # for h, _ in var_demand_flows:
-    #     alpha_var[h] = m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='alpha_var_{}'.format(h))
-
-
     # CONSTRAINTS
-    var_mom = dict()
     # 1. add: edge capacity constraints
-    for i, j, _ in supply_edges:
-        m.addConstr(quicksum(flow_var[h, i, j] + flow_var[h, j, i] for h, _ in var_demand_flows) <=
-                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] * rep_edge_var[i, j], 'cap_%s_%s' % (i, j))
-
+    use_constraints = 0
+    for sed in supply_edges:
+        i, j, _ = sed
         for h, dem_val in var_demand_flows:
-            m.addConstr(flow_var[h, i, j] <= (rep_edge_var[i, j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_edge_var[i, j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_node_var[i] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_node_var[j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, i, j] <= (rep_node_var[i] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, i, j] <= (rep_node_var[j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+            m.addConstr(flow_var[h, i, j] <= (rep_edge_var[i, j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)),
+                        "topi_{}_{}".format(i, j))
 
-    for i in supply_nodes:  # broken_supply_edges
-        m.addConstr(rep_node_var[i] * net_max_degree(G) >= quicksum(rep_edge_var[e1, e2] for e1, e2, _ in broken_supply_edges if i in [e1, e2]))
+            m.addConstr(flow_var[h, j, i] <= (rep_edge_var[i, j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)),
+                        "topi_{}_{}".format(j, i))
+
+            constraints_names.append((use_constraints, (i, j)))
+            use_constraints += 1
+            constraints_names.append((use_constraints, (j, i)))
+            use_constraints += 1
+
+    for sed in supply_edges:
+        i, j, _ = sed
+
+        if sed not in broken_supply_edges:
+            m.addConstr(rep_edge_var[i, j] == 0)
+            constraints_names.append(None)
+
+    # budget
+    m.addConstr(quicksum(rep_edge_var[i, j] for i, j, _ in broken_supply_edges) <= 20)
+    constraints_names.append(None)
 
     # 2 add: flow conservation constraints
     for h, dem_val in var_demand_flows:
@@ -96,49 +105,48 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
             flow_in_j = quicksum(flow_var[h, k, j] for k, _ in to_j)     # inner flow da j
 
             if var_demand_node_pos[j, h] == 0:    # source
-                m.addConstr(flow_out_j - flow_in_j == dem_val, 'node_%s_%s' % (h, j))
+                m.addConstr(flow_out_j - flow_in_j == flow_quantity[h], 'node_%s_%s' % (h, j))
+                constraints_names.append(None)
             elif var_demand_node_pos[j, h] == 2:  # destination
-                m.addConstr(flow_in_j - flow_out_j == dem_val, 'node_%s_%s' % (h, j))
+                m.addConstr(flow_in_j - flow_out_j == flow_quantity[h], 'node_%s_%s' % (h, j))
+                constraints_names.append(None)
             elif var_demand_node_pos[j, h] == 1:  # intermediate
                 m.addConstr(flow_in_j == flow_out_j, 'node_%s_%s' % (h, j))
+                constraints_names.append(None)
 
-    m.setObjective(quicksum(rep_node_var[n] * co.REPAIR_COST * G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] for n in broken_unk_nodes) +
-                   quicksum(rep_edge_var[n1, n2] * co.REPAIR_COST * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] for n1, n2, _ in broken_unk_edges),
-                   GRB.MINIMIZE)
-
+    pi_id_start, pi_id_end = id_useful_constraints(constraints_names)
+    m.setObjective(quicksum(flow_quantity[i] for i, _ in enumerate(demand_edges)), GRB.MAXIMIZE)
     print("OPTIMIZING...")
     m.update()
     m.optimize()
     print("DONE, RESULT:", GUROBI_STATUS[m.status])
-    return m
+    return m, (pi_id_start, pi_id_end), constraints_names
 
 
-def derive_from_optimum(G, m, R_cutoff):
-    path_nodes, path_edges = list(), list()
-    path_nodes_pi, path_edges_pi = list(), list()
+def id_useful_constraints(constraints_names):
+    """ [None, None A, ..., B, None, None] index of A and B"""
+    id_start, id_end = None, None
+    for i, con in enumerate(constraints_names):
+        if con is not None:
+            id_start = i
+            break
 
-    for v in m.getVars():
-        if str(v.VarName).startswith("rep_node_var_"):
-            node = int(str(v.VarName).split("_")[-1])
-            # print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
-            if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                path_nodes.append(node)
-                path_nodes_pi.append(v.X)
+    for i, con in enumerate(reversed(constraints_names)):
+        if con is not None:
+            id_end = i
+            break
 
-        elif str(v.VarName).startswith("rep_edge_var_"):
-            edge = str(v.VarName).split("_")[-1].split(",")
-            edd = (int(edge[0]), int(edge[1]))
-            # print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
-            if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                path_edges.append(edd)
-                path_edges_pi.append(v.X)
+    return id_start, id_end
 
-    no_ids = np.argsort(path_nodes_pi)
-    ed_ids = np.argsort(path_edges_pi)
 
-    path_nodes = np.array(path_nodes)[no_ids][-R_cutoff:]
-    path_edges = [path_edges[i] for i in ed_ids][-R_cutoff:]
-    return path_nodes, path_edges
+def edge_from_shadow_price(G, m, pi_index, constrs):
+    st, en = pi_index
+    shadow_price = m.getAttr(GRB.Attr.Pi)[st:en]
+    idx = np.argmax(shadow_price)
+
+    e1, e2 = constrs[idx][1]
+    e1, e2 = make_existing_edge(G, e1, e2)
+    return e1, e2
 
 
 def isr_srt(G):
@@ -281,11 +289,13 @@ def run(config):
                  "packet_monitoring": packet_monitor}
 
         # START
+        # PRUNING DEMAND AS ISR
         update_graph_probabilities(G)
         quantity = isr_pruning_demand(G)
         routed_flow += quantity
         stats["flow"] = routed_flow
 
+        # begin GET DATA FOR OPTIMUM
         SG_edges = get_supply_graph(G).edges
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         broken_supply_nodes = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.KNOW)
@@ -294,30 +304,25 @@ def run(config):
         unk_supply_edges = get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.UNK, co.Knowledge.KNOW)
         bro_unk_node = list(set(unk_supply_nodes).union(set(broken_supply_nodes)))
         bro_unk_edge = list(set(unk_supply_edges).union(set(broken_supply_edges)))
+        # end GET DATA FOR OPTIMUM
 
-        m = system_for_routability(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
-        CUTOFF = 5
-        paths_nodes, paths_edges = derive_from_optimum(G, m, R_cutoff=CUTOFF)
-
-        print(paths_nodes)
-        print(paths_edges)
+        # begin CORE
+        m, pi_index, constrs = shp_optimum(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
+        ed1, ed2 = edge_from_shadow_price(G, m, pi_index, constrs)
+        # begin CORE
 
         rep_nodes, rep_edges = [], []
-        for n in paths_nodes:
-            rep_a = do_repair_node(G, n)
-            rep_nodes.append(rep_a)
-
-        for ed1, ed2 in paths_edges:
-            rep_b = do_repair_edge(G, ed1, ed2)
-            rep_c = do_repair_node(G, ed1)
-            rep_d = do_repair_node(G, ed2)
-            rep_nodes.append(rep_c)
-            rep_nodes.append(rep_d)
-            rep_edges.append(rep_b)
+        rep_b = do_repair_edge(G, ed1, ed2)
+        rep_c = do_repair_node(G, ed1)
+        rep_d = do_repair_node(G, ed2)
+        rep_nodes.append(rep_c)
+        rep_nodes.append(rep_d)
+        rep_edges.append(rep_b)
 
         rep_nodes = [rp for rp in rep_nodes if rp is not None]
         rep_edges = [rp for rp in rep_edges if rp is not None]
 
+        print(rep_nodes, rep_edges)
         stats["edge"] += rep_edges
         stats["node"] += rep_nodes
 

@@ -254,15 +254,14 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         plt.xlabel("Repair Steps")
 
     elif plot_type == 3:
+        PERC_DESTRUCTION = -1
+        ALGO_OUR = 0
         for i in range(len(algos)):
-            PERC_DESTRUCTION = -1
-            ALGO_OUR = 0
             if i != ALGO_OUR:
                 A1_avg_flow = datas.mean(axis=1)[:, ALGO_OUR, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
                 A2_avg_flow = datas.mean(axis=1)[:, i, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
                 out = A1_avg_flow - A2_avg_flow
                 label_out = "{} - {}".format(algo_names[ALGO_OUR], algo_names[i])
-                plt.plot(np.arange(out.shape[0]), out, label=label_out)
                 plt.plot(np.arange(out.shape[0]), out, label=label_out)
                 plt.axhline(y=0, color='r', linestyle=':')
                 plt.ylabel("Flow Difference")
@@ -411,13 +410,15 @@ def plotting_data():
                    3: [15, 20, 25, 30, 35, 40]
                    }
 
-    ind_var = {0: (co.IndependentVariable.PROB_BROKEN, dis_uni),
-               # 1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
-               # 2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
-               # 3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
+    ind_var = {
+               0: (co.IndependentVariable.PROB_BROKEN, dis_uni),
+               1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
+               2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
+               3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
                }
 
     seeds = range(40, 50)
+    seeds = set(seeds)
 
     def n_pairs_conversion(n):
         return int(n * (n - 1) / 2 * config.demand_clique_factor)
@@ -425,9 +426,8 @@ def plotting_data():
     algos = []
 
 
-
-    algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
     algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [4]]
+    algos += [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [3]]
     algos += [("CEDARNEW", [i, j, k]) for i in [5] for j in [0] for k in [5]]
 
     algos += [("CEDAR", [i, j, k]) for i in [5] for j in [0] for k in [5]]
@@ -436,7 +436,7 @@ def plotting_data():
     algos += [("SHP", [i, j, k]) for i in [5] for j in [0] for k in [5]]
 
     algo_names = [i[0] for i in algos]
-    algo_names[0], algo_names[1], algo_names[2] = "ORACLE", "CEDARNEW", "ST-PATH"
+    algo_names[0], algo_names[1], algo_names[2] = "CEDARNEW", "ORACLE", "ST-PATH"
 
     source = "data/experiments/"
     OUTLIERS = 0

@@ -44,13 +44,14 @@ def run(config):
     packet_monitor = 0
     monitors_stats = set()
 
+    K = 2
     # repair demand edges
     demand_node = get_demand_nodes(G)
     for dn in demand_node:
         do_repair_node(G, dn)
         monitors_stats |= {dn}
         G.nodes[dn][co.ElemAttr.IS_MONITOR.value] = True
-        packet_monitor += do_k_monitoring(G, dn, 2)
+        packet_monitor += do_k_monitoring(G, dn, K)
         # INITIAL NODES repairs are not counted in the stats
 
     iter = 0
@@ -117,7 +118,6 @@ def run(config):
                 stats["monitors"] |= monitors_stats
 
                 # k-discovery
-                K = 2
                 packets_monitoring = do_k_monitoring(G, v, K)
                 stats["packet_monitoring"] = packets_monitoring
             else:
