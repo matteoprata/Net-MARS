@@ -37,10 +37,12 @@ def run(config):
     #                                                                                    config.supply_capacity[0])
     # util.save_porting_dictionary(G, path)
     # util.enable_print()
-    #
-    # feasible = is_feasible(G, is_fake_fixed=True)
-    # print("OK" if feasible else "WARNING! No feasible", path)
-    # return
+
+    feasible = is_feasible(G, is_fake_fixed=True)
+    util.enable_print()
+    if not feasible:
+        print("WARNING! No feasible")
+    return
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)

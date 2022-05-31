@@ -199,7 +199,7 @@ def parallel_exec():
                3: [co.IndependentVariable.MONITOR_BUDGET]
                }
 
-    dis_uni = {0: [.1, .2, .3, .4, .5, .6],
+    dis_uni = {0: [.3, .4, .5, .6, .7, .8, .9],
                1: [.5],
                2: [.5],
                3: [.5]}
@@ -259,12 +259,12 @@ def parallel_exec():
                                            [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR_MULTICOM], [True]):
             processes.append(execution)
 
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
-                                           [co.ProtocolPickingPath.RANDOM],
-                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
-                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.SHP], [True]):
-            processes.append(execution)
+        # for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+        #                                    [co.ProtocolRepairingPath.SHORTEST_MINUS],
+        #                                    [co.ProtocolPickingPath.RANDOM],
+        #                                    [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+        #                                    [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.SHP], [True]):
+        #     processes.append(execution)
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
         try:
@@ -282,7 +282,7 @@ def initializer():
 
 
 if __name__ == '__main__':
-    # parallel_exec()
+    parallel_exec()
 
     # run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=11, flowpp=10,
     #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
@@ -292,16 +292,16 @@ if __name__ == '__main__':
     #                  monitoring_type=co.PriorKnowledge.DUNNY_IP
     #                  )
 
-    run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
-                     rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                     pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-                     indvar=co.IndependentVariable.FLOW_DEMAND,
-                     monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
-                     monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
-
-                     # KEY PARAM
-                     algo_name=co.AlgoName.SHP
-                     )
+    # run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
+    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+    #                  indvar=co.IndependentVariable.FLOW_DEMAND,
+    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+    #                  monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+    #
+    #                  # KEY PARAM
+    #                  algo_name=co.AlgoName.CEDARNEW
+    #                  )
 
 
 

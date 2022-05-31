@@ -15,6 +15,7 @@ from collections import defaultdict
 from matplotlib import pyplot as plt
 from itertools import combinations
 
+
 # 1 -- init graph G
 def init_graph(path_to_graph, graph_name, supply_capacity, config):
     """
@@ -73,6 +74,13 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   })])
 
     # ADD the backbones!
+    if config.n_backbone_pairs > 0:
+        place_backbone(G, config)
+
+    return G, elements_val_id, elements_id_val
+
+
+def place_backbone(G, config):
     max_comp = list(get_max_component(G))
 
     np.random.seed(config.fixed_unvarying_seed)  # this does not vary
@@ -81,15 +89,12 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
 
     for p1, p2 in list_pairs:
         path = nx.shortest_path(G, p1, p2)
-        for i in range(len(path)-1):
-            e1, e2 = path[i], path[i+1]
+        for i in range(len(path) - 1):
+            e1, e2 = path[i], path[i + 1]
             e1, e2 = grau.make_existing_edge(G, e1, e2)
             backbone_flow = config.supply_capacity[0] * (1 + config.percentage_flow_backbone)
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_flow
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_flow
-
-    return G, elements_val_id, elements_id_val
-
 
 # 2 -- scale graph G
 def scale_coordinates(G):

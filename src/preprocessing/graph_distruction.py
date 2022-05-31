@@ -106,7 +106,7 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     return distribution, broken_nodes, broken_edges
 
 
-def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.1, sig=.5, distance_factor=1):
+def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.1, sig=.9, distance_factor=1):
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 

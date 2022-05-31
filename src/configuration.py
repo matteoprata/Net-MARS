@@ -23,7 +23,7 @@ class Configuration:
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (150, None)
+        self.supply_capacity = (80, None)
 
         # clique world
         self.is_demand_clique = True
@@ -41,7 +41,7 @@ class Configuration:
         self.monitors_budget_residual = None
         self.monitoring_messages_budget = np.inf
 
-        self.n_backbone_pairs = 5
+        self.n_backbone_pairs = 0
         self.percentage_flow_backbone = 1  # increase in flow quantity
 
         self.repairing_mode = None  # co.ProtocolRepairingPath.MIN_COST_BOT_CAP
@@ -56,7 +56,7 @@ class Configuration:
         self.UNK_prior = None
 
         self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
-        self.is_exhaustive_paths = True
+        self.is_exhaustive_paths = False
 
         self.force_recompute = True
         self.log_execution_details = True

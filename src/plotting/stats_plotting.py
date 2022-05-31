@@ -148,25 +148,25 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             for k, ss in enumerate(seeds_values):
                 # varying probability
                 if x_position == 0:  # demand capacity
-                    MAX_TOTAL_FLOW = config.n_demand_pairs * config.demand_capacity
-                    MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity * MAX_STEPS
+                    MAX_TOTAL_FLOW = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
+                    MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity),
                                               config.supply_capacity, algo, config.monitors_budget, x, rep[0], rep[1], rep[2])
                 elif x_position == 1:  # demand pairs
-                    MAX_TOTAL_FLOW = int(x * config.demand_capacity)
-                    MAX_FLOW_STEPS = x * config.demand_capacity * MAX_STEPS
+                    MAX_TOTAL_FLOW = np.array(X_var) * config.demand_capacity
+                    MAX_FLOW_STEPS = x * config.demand_capacity
                     regex_fname = sample_file(ss, config.graph_dataset.name, x, int(config.demand_capacity), config.supply_capacity,
                                               algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
 
                 elif x_position == 2:  # vary fpp
-                    MAX_TOTAL_FLOW = int(config.n_demand_pairs * x)
-                    MAX_FLOW_STEPS = config.n_demand_pairs * x * MAX_STEPS
+                    MAX_TOTAL_FLOW = np.array(X_var) * config.n_demand_pairs
+                    MAX_FLOW_STEPS = config.n_demand_pairs * x
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(x), config.supply_capacity,
                                               algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
 
                 elif x_position == 3:  # vary monit
-                    MAX_TOTAL_FLOW = config.n_demand_pairs * config.demand_capacity
-                    MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity * MAX_STEPS
+                    MAX_TOTAL_FLOW = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
+                    MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity,
                                               algo, x, config.destruction_quantity, rep[0], rep[1], rep[2])
 
@@ -185,74 +185,80 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 max_val = np.nanmax(vec)
                 datas[:, k, i, j] = np.where(~mask, vec, max_val)
 
-    sum_flows = (datas.sum(axis=0) / MAX_FLOW_STEPS)
-    avg_sum_flows = sum_flows.mean(axis=0)
-    std_sum_flows = sum_flows.std(axis=0)
-    # print(sum_flows[:, 0, :])
-    # print(sum_flows.shape)
+    PERC_DESTRUCTION = -1
+    RAW_DATA = datas[:]
 
-    # datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
-    # print(sum_flows[:,3,:])
-    # print(avg_sum_flows[3,:])
-    # print(std_sum_flows[3,:])
+    # TRUNCATE:  # remove the last lines when all the algos reached the max
+    # shape=(MAX_STEPS, len(seeds_values), len(algos), perc_destruction)  > (MAX_STEPS, len(algos), perc_destruction)
+    flowz = datas.mean(axis=1)[:, :, :]  # 2D
+    flowz_r = np.roll(flowz, -1, axis=0)
+
+    flowz = flowz[:-1, :, :]   # removes the first row due to the shift
+    flowz_r = flowz_r[:-1, :, :]
+
+    agreement = (((flowz == flowz_r) * 1).sum(axis=1) == len(algos)) * 1  # 2D [MAX_STEPS, len(X_var)]
+
+    # the index of the last 0 is where they were different for the last time
+    agreement_rows = np.where(agreement == 0)[0]
+    agreement_cols = np.where(agreement == 0)[1]
+
+    FRONTIER = np.ones(shape=(datas.shape[-1])) * - np.inf
+    for i, cc in enumerate(agreement_cols):
+        if FRONTIER[cc] < agreement_rows[i]:
+            FRONTIER[cc] = agreement_rows[i]
+    FRONTIER = FRONTIER + 2
+
+    datas = datas.mean(axis=1)
+    for i in range(datas.shape[-1]):  # x
+        front = int(max(FRONTIER))
+        pad = int(MAX_STEPS - front)
+        datas[front:, :, i] = np.zeros(shape=(pad, datas.shape[1]))
+
+    # DONE TRUNCATE
+
+    # sum_flows = (datas.sum(axis=0) / MAX_FLOW_STEPS)
+    # avg_sum_flows = sum_flows.mean(axis=0)
+    # std_sum_flows = sum_flows.std(axis=0)
+
+    # # REMOVING OUTLIERS
+    # av_p_std = avg_sum_flows + std_sum_flows
+    # av_m_std = avg_sum_flows - std_sum_flows
     #
-    # print(algos)
-    # exit()
-    # discard outliers
-    av_p_std = avg_sum_flows + std_sum_flows
-    av_m_std = avg_sum_flows - std_sum_flows
+    # av_p_std = np.tile(av_p_std, (len(seeds_values), 1, 1))
+    # av_m_std = np.tile(av_m_std, (len(seeds_values), 1, 1))
+    #
+    # A = np.asarray((sum_flows <= av_p_std), dtype=int)
+    # B = np.asarray((sum_flows >= av_m_std), dtype=int)
+    #
+    # THRESHOLD = int(len(algos) * len(X_var) * outliers)
+    #
+    # # is how many times the seed was in the band
+    # normal_seeds = (A*B).sum(axis=(1, 2)) >= THRESHOLD   # a vector as big as the number of seeds, the sum says how many times the samples fall in the stds
 
-    av_p_std = np.tile(av_p_std, (len(seeds_values), 1, 1))
-    av_m_std = np.tile(av_m_std, (len(seeds_values), 1, 1))
-
-    A = np.asarray((sum_flows <= av_p_std), dtype=int)
-    B = np.asarray((sum_flows >= av_m_std), dtype=int)
-
-    THRESHOLD = int(len(algos) * len(X_var) * outliers)
-
-    # is how many times the seed was in the band
-    normal_seeds = (A*B).sum(axis=(1, 2)) >= THRESHOLD   # a vector as big as the number of seeds, the sum says how many times the samples fall in the stds
-
-    sum_flows = sum_flows[normal_seeds, :, :]
-    avg_sum_flows = sum_flows.mean(axis=0)
-    std_sum_flows = sum_flows.std(axis=0)
+    # sum_flows = sum_flows[normal_seeds, :, :]
+    # avg_sum_flows = sum_flows.mean(axis=0)
+    # std_sum_flows = sum_flows.std(axis=0)
 
     # print(avg_sum_flows)
     # exit()
 
-    if outliers > 0:
-        print("discarded some seeds, now they are", sum_flows.shape[0])
-
-    avg_max_flows = (datas.max(axis=0) / MAX_TOTAL_FLOW).mean(axis=0)
-    std_max_flows = (datas.max(axis=0) / MAX_TOTAL_FLOW).std(axis=0)
-
-    y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
-    std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
-
+    # if outliers > 0:
+    #     print("discarded some seeds, now they are", sum_flows.shape[0])
+    # # REMOVING OUTLIERS
+    #
+    # avg_max_flows = (datas.max(axis=0) / MAX_TOTAL_FLOW).mean(axis=0)
+    # std_max_flows = (datas.max(axis=0) / MAX_TOTAL_FLOW).std(axis=0)
+    #
+    # y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
+    # std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
+    #
     plt.figure(figsize=(10, 8))
 
-    # TODO rendere generico
-    PERC_DESTRUCTION = -1
-    IS_TRUNCATE = True
-    if IS_TRUNCATE:  # remove the last lines when all the algos reached the max
-        # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
-        flowz = datas.mean(axis=1)[:, :, PERC_DESTRUCTION]  # 2D
-        flowz_r = np.roll(flowz, -1, axis=0)
-
-        flowz = flowz[:-1, :]
-        flowz_r = flowz_r[:-1, :]
-
-        agreement = (((flowz == flowz_r)*1).sum(axis=1) == len(algos))*1
-        agreement_row = np.where(agreement==0)[0][-1] + 1
-        # print(agreement)
-        # print(np.where(agreement==0))
-        # exit()
-        # mask_reach_max = (datas.mean(axis=1)[:, :, -1] == MAX_TOTAL_FLOW).sum(axis=1) == len(algos)
-        datas = datas[:agreement_row, :]
-
+    # -------------------- PLOT NOW
     if plot_type == 2:
         # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
-        avg_flow = datas.mean(axis=1)[:, :, PERC_DESTRUCTION] / MAX_TOTAL_FLOW  # last element
+        front = int(FRONTIER[PERC_DESTRUCTION])
+        avg_flow = datas[:front, :, PERC_DESTRUCTION] / MAX_TOTAL_FLOW[PERC_DESTRUCTION]  # last element
         for i, _ in enumerate(algos):
             plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[i])
         plt.ylabel("Flow")
@@ -262,8 +268,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         ALGO_OUR = 0
         for i in range(len(algos)):
             if i != ALGO_OUR:
-                A1_avg_flow = datas.mean(axis=1)[:, ALGO_OUR, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
-                A2_avg_flow = datas.mean(axis=1)[:, i, PERC_DESTRUCTION] / MAX_TOTAL_FLOW
+                front = int(FRONTIER[PERC_DESTRUCTION])
+                A1_avg_flow = datas[:front, ALGO_OUR, PERC_DESTRUCTION] / MAX_TOTAL_FLOW[PERC_DESTRUCTION]
+                A2_avg_flow = datas[:front, i, PERC_DESTRUCTION] / MAX_TOTAL_FLOW[PERC_DESTRUCTION]
                 out = A1_avg_flow - A2_avg_flow
                 label_out = "{} - {}".format(algo_names[ALGO_OUR], algo_names[i])
                 plt.plot(np.arange(out.shape[0]), out, label=label_out)
@@ -272,6 +279,17 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 plt.xlabel("Repair Steps")
     else:
         for i, _ in enumerate(algos):
+            front = max(FRONTIER)
+            avg_sum_flows = (datas.sum(axis=0) / (front * MAX_FLOW_STEPS))
+            avg_max_flows = (datas / MAX_TOTAL_FLOW).max(axis=0)   # (numero algo, numero rottura)
+
+            std_sum_flows = (RAW_DATA.sum(axis=0)).std(axis=0) / (front * MAX_FLOW_STEPS)
+            std_max_flows = (RAW_DATA.max(axis=0)).std(axis=0) / MAX_TOTAL_FLOW
+
+            y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
+            std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
+
+            # plt.ylim((0, 1))
             plt.plot(X_var, y_plot[i], label=algo_names[i])
             # plt.fill_between(X_var, y_plot[i] - std_y_plot[i], y_plot[i] + std_y_plot[i], alpha=0.2)
         plt.ylabel("Total Flow" if plot_type else "Cumulative Flow")
@@ -483,7 +501,7 @@ def plotting_data():
                 plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
                                                                                       config.n_demand_pairs, config.demand_capacity, "*")
 
-            plot_Xflow_Yrepair(source, config, seeds, vals[i], algos, x_position=i, fixed_percentage=-1, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            # plot_Xflow_Yrepair(source, config, seeds, vals[i], algos, x_position=i, fixed_percentage=-1, algo_names=algo_names, out_fig=pdf, title=plot_title)
             # # # plot_Xflow_Yrepair(source, config, seeds, vals[i], algos, x_position=i, fixed_percentage=None, algo_names=algo_names)
 
             plot_integral(source, config, seeds, vals[i], algos, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title)
