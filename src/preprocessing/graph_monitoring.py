@@ -281,6 +281,8 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
 
                     func_flat = lambda li: set(list(zip(*li))[0] + list(zip(*li))[1])
 
+                    # (MON, MON) (DEM MON) (DEM DEM)
+
                     to_handle = False
                     if is_n1_only_monitor and is_n2_only_monitor:  # both monitors must serve at least 1 demand edge in common
                         if len(set(monitors_map[n1_mon]).intersection(monitors_map[n2_mon])) != 0:

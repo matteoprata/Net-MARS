@@ -147,12 +147,12 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             algo, rep = algo
             for k, ss in enumerate(seeds_values):
                 # varying probability
-                if x_position == 0:
+                if x_position == 0:  # demand capacity
                     MAX_TOTAL_FLOW = config.n_demand_pairs * config.demand_capacity
                     MAX_FLOW_STEPS = config.n_demand_pairs * config.demand_capacity * MAX_STEPS
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity),
                                               config.supply_capacity, algo, config.monitors_budget, x, rep[0], rep[1], rep[2])
-                elif x_position == 1:
+                elif x_position == 1:  # demand pairs
                     MAX_TOTAL_FLOW = int(x * config.demand_capacity)
                     MAX_FLOW_STEPS = x * config.demand_capacity * MAX_STEPS
                     regex_fname = sample_file(ss, config.graph_dataset.name, x, int(config.demand_capacity), config.supply_capacity,
@@ -231,10 +231,14 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     plt.figure(figsize=(10, 8))
 
+    # TODO rendere generico
+    PERC_DESTRUCTION = -1
     IS_TRUNCATE = True
     if IS_TRUNCATE:  # remove the last lines when all the algos reached the max
-        flowz = datas.mean(axis=1)[:, :, -1]
+        # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
+        flowz = datas.mean(axis=1)[:, :, PERC_DESTRUCTION]  # 2D
         flowz_r = np.roll(flowz, -1, axis=0)
+
         flowz = flowz[:-1, :]
         flowz_r = flowz_r[:-1, :]
 
@@ -247,14 +251,14 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         datas = datas[:agreement_row, :]
 
     if plot_type == 2:
-        avg_flow = datas.mean(axis=1)[:, :, -1] / MAX_TOTAL_FLOW  # last element
+        # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
+        avg_flow = datas.mean(axis=1)[:, :, PERC_DESTRUCTION] / MAX_TOTAL_FLOW  # last element
         for i, _ in enumerate(algos):
             plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[i])
         plt.ylabel("Flow")
         plt.xlabel("Repair Steps")
 
     elif plot_type == 3:
-        PERC_DESTRUCTION = -1
         ALGO_OUR = 0
         for i in range(len(algos)):
             if i != ALGO_OUR:
@@ -266,7 +270,6 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 plt.axhline(y=0, color='r', linestyle=':')
                 plt.ylabel("Flow Difference")
                 plt.xlabel("Repair Steps")
-
     else:
         for i, _ in enumerate(algos):
             plt.plot(X_var, y_plot[i], label=algo_names[i])
@@ -354,6 +357,7 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
                 # outr = [0 0 0 0 0 0 12 12 12 12 50 50 50 50 50 50]
                 data_repairs[:, k, i, j] = outr
 
+    # shape=(NORM_MAX_FLOW_STEPS, len(seeds_values), len(algos), len(X_var))
     avg_sum_flows = data_repairs.mean(axis=1)
 
     plt.figure(figsize=(10, 8))

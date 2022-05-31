@@ -58,20 +58,21 @@ def new_monitoring_add(G, config):
     candidate_monitors_dem = {n: set() for n in G.nodes}
 
     paths = []
+    # for each demand pair a path according to our metric
     for n1, n2, _ in demand_edges:
         residual_demand = gu.get_residual_demand(G)
         path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline)
         paths.append(path)
 
     if len(paths) > 0 and config.monitors_budget_residual > 0:
-        # between all nodes that are known as working and aren't monitors,
+        # between all nodes that aren't monitors
         # the new monitor is the one that resides on most recovery paths
         for n in G.nodes:  # gu.get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW):
             if co.ElemAttr.IS_MONITOR.value not in G.nodes[n].keys() or not G.nodes[n][co.ElemAttr.IS_MONITOR.value]:  # is not a monitor already
                 for path in paths:
                     if n in path:
                         candidate_monitors[n] += 1
-                        nn1, nn2 = gu.make_existing_edge(G, path[0], path[-1])
+                        nn1, nn2 = gu.make_existing_edge(G, path[0], path[-1])  # demand edge
                         candidate_monitors_dem[n].add((nn1, nn2))
 
         candidate_monitors_keys = list(candidate_monitors.keys())[:]
@@ -118,7 +119,7 @@ def removing_monitor(G, monitors_map, config):
 
 
 def merge_monitor_maps(monitors_map, moment_monitors_map):
-    """ {1:[(1,2)]} {1:[(3,4)], 2:[(5,6)]} > {1:[(1,2), (3,4)], 2:[(5,6)]}"""
+    """ {1:[(1,2)]} -- {1:[(3,4)], 2:[(5,6)]} > {1:[(1,2), (3,4)], 2:[(5,6)]}"""
     for k in moment_monitors_map:
         if k in monitors_map:
             monitors_map[k] = set(monitors_map[k] | moment_monitors_map[k])

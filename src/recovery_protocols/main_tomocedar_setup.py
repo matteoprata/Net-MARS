@@ -83,6 +83,7 @@ def run(config):
             G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
             monitors_stats |= {n1, n2}
 
+            # does not look defined for only monitors
             monitors_map[n1].append((n1, n2))
             monitors_map[n2].append((n1, n2))
 
@@ -125,7 +126,8 @@ def run(config):
                 monitors_stats = stats["monitors"]
 
             elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET:
-                monitors, _, _ = mon.new_monitoring_add(G, config)
+                monitors, _, candidate_monitors_dem = mon.new_monitoring_add(G, config)
+                monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)
                 stats["monitors"] |= monitors
                 monitors_stats = stats["monitors"]
 
