@@ -38,11 +38,11 @@ def run(config):
     # util.save_porting_dictionary(G, path)
     # util.enable_print()
 
-    feasible = is_feasible(G, is_fake_fixed=True)
-    util.enable_print()
-    if not feasible:
-        print("WARNING! No feasible")
-    return
+    # feasible = is_feasible(G, is_fake_fixed=True)
+    # util.enable_print()
+    # if not feasible:
+    #     print("WARNING! No feasible")
+    # return
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
@@ -76,6 +76,10 @@ def run(config):
 
     # set as monitors all the nodes that are demand endpoints
     monitors_map = defaultdict(list)
+    monitors_connections = defaultdict(set)
+    monitors_non_connections = defaultdict(set)
+
+    last_repaired_demand = None
 
     # ADD preliminary monitors
     if config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
@@ -143,6 +147,9 @@ def run(config):
                                             stats["packet_monitoring"],
                                             config.monitoring_messages_budget,
                                             monitors_map,
+                                            monitors_connections,
+                                            monitors_non_connections,
+                                            last_repaired_demand,
                                             config)
 
             if monitoring is None:
@@ -172,6 +179,8 @@ def run(config):
             # -------------- 2. Repairing --------------
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
             path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+
+            last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
 
             print(paths_proposed)
             assert path_to_fix is not None

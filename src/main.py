@@ -189,9 +189,7 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
     return
 
 
-def parallel_exec():
-
-    seeds = list(range(40, 50))
+def parallel_exec(seeds):
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN],
                1: [co.IndependentVariable.N_DEMAND_EDGES],
@@ -282,7 +280,14 @@ def initializer():
 
 
 if __name__ == '__main__':
-    parallel_exec()
+    # parallel_exec(seeds=range(50, 55))
+    # print("DONE R1")
+    # parallel_exec(seeds=range(0, 5))
+    # print("DONE R2")
+    # parallel_exec(seeds=range(100, 105))
+    # print("DONE R3")
+    # parallel_exec(seeds=range(550, 555))
+    # print("DONE R4")
 
     # run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=11, flowpp=10,
     #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
@@ -292,16 +297,13 @@ if __name__ == '__main__':
     #                  monitoring_type=co.PriorKnowledge.DUNNY_IP
     #                  )
 
-    # run_var_seed_dis(seed=40, dis=.6, budget=25, nnodes=8, flowpp=10,
-    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-    #                  indvar=co.IndependentVariable.FLOW_DEMAND,
-    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
-    #                  monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
-    #
-    #                  # KEY PARAM
-    #                  algo_name=co.AlgoName.CEDARNEW
-    #                  )
+    run_var_seed_dis(seed=50, dis=.3, budget=25, nnodes=5, flowpp=11,
+                     rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                     pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+                     indvar=co.IndependentVariable.FLOW_DEMAND,
+                     monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+                     monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
 
-
-
+                     # KEY PARAM
+                     algo_name=co.AlgoName.CEDARNEW
+                     )

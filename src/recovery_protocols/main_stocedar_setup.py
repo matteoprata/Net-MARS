@@ -68,21 +68,48 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
     # for h, _ in var_demand_flows:
     #     alpha_var[h] = m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='alpha_var_{}'.format(h))
 
+    print(len(supply_edges - broken_unk_edges), len(supply_edges), len(broken_unk_edges))
+    for e in supply_edges:
+        i, j, _ = e
 
-    # CONSTRAINTS
-    var_mom = dict()
-    # 1. add: edge capacity constraints
-    for i, j, _ in supply_edges:
+        is_working_edge = int(e in supply_edges - broken_unk_edges)
+        is_working_i = int(i in supply_nodes - broken_unk_nodes)
+        is_working_j = int(j in supply_nodes - broken_unk_nodes)
+
         m.addConstr(quicksum(flow_var[h, i, j] + flow_var[h, j, i] for h, _ in var_demand_flows) <=
-                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] * rep_edge_var[i, j], 'cap_%s_%s' % (i, j))
+                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value],
+                    'wor_%s_%s' % (i, j))
+
+        m.addConstr(quicksum(flow_var[h, i, j] + flow_var[h, j, i] for h, _ in var_demand_flows) <=
+                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] * (is_working_i + rep_node_var[i]),
+                    'wor_%s_%s' % (i, j))
+
+        m.addConstr(quicksum(flow_var[h, i, j] + flow_var[h, j, i] for h, _ in var_demand_flows) <=
+                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] * (is_working_j + rep_node_var[j]),
+                    'wor_%s_%s' % (i, j))
+
+        m.addConstr(quicksum(flow_var[h, i, j] + flow_var[h, j, i] for h, _ in var_demand_flows) <=
+                    G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] * (is_working_edge + rep_edge_var[i, j]),
+                    'wor_%s_%s' % (i, j))
 
         for h, dem_val in var_demand_flows:
-            m.addConstr(flow_var[h, i, j] <= (rep_edge_var[i, j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_edge_var[i, j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_node_var[i] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, j, i] <= (rep_node_var[j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, i, j] <= (rep_node_var[i] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
-            m.addConstr(flow_var[h, i, j] <= (rep_node_var[j] * min(G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+            m.addConstr(flow_var[h, i, j] <= (rep_edge_var[i, j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+
+            m.addConstr(flow_var[h, j, i] <= (rep_edge_var[i, j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+
+            m.addConstr(flow_var[h, j, i] <= (rep_node_var[i] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+
+            m.addConstr(flow_var[h, j, i] <= (rep_node_var[j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+
+            m.addConstr(flow_var[h, i, j] <= (rep_node_var[i] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
+
+            m.addConstr(flow_var[h, i, j] <= (rep_node_var[j] * min(
+                G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem_val)))
 
     for i in supply_nodes:  # broken_supply_edges
         m.addConstr(rep_node_var[i] * net_max_degree(G) >= quicksum(rep_edge_var[e1, e2] for e1, e2, _ in broken_supply_edges if i in [e1, e2]))
@@ -116,7 +143,7 @@ def system_for_routability(G, demand_edges, supply_nodes, broken_supply_edges, s
 def derive_from_optimum(G, m):
     path_nodes, path_edges = set(), set()
     for v in m.getVars():
-        if v.X >= .5:  # means repair
+        if v.X >= .5:  # means repair_node, repair_edge
             if str(v.VarName).startswith("rep_node_var_"):
                 node = int(str(v.VarName).split("_")[-1])
                 print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
@@ -141,14 +168,14 @@ def isr_srt(G):
         path = nx.shortest_path(SG, ed[0], ed[1], weight=co.ElemAttr.WEIGHT.value)
         is_unk_bro_path = False
         for nd in path:
-            if G.nodes[nd][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+            if G.nodes[nd][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:  # nodes broken or unk
                 nodes.add(nd)
                 is_unk_bro_path = True
 
         for i in range(len(path)-1):
             n1, n2 = path[i], path[i+1]
             n1, n2 = make_existing_edge(G, n1, n2)
-            if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+            if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:  # edges broken or unk
                 edges |= {(n1, n2)}
                 is_unk_bro_path = True
 
@@ -186,6 +213,7 @@ def isr_pruning_demand(G):
         if cap <= 0:
             SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.WEIGHT.value] = np.inf
 
+    # prune on least cost paths
     for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
         path = nx.shortest_path(SG, d1, d2, weight=co.ElemAttr.WEIGHT.value)
         if is_path_working(G, path):
@@ -295,12 +323,25 @@ def run(config):
             paths_nodes, paths_edges = derive_from_optimum(G, m)
 
         paths_elements = paths_nodes.union(paths_edges)
+
+        # nodes for which the state is broken or unknown
         paths_nodes, paths_edges = list(paths_nodes), list(paths_edges)
 
         print(paths_nodes)
         print(paths_edges)
 
-        if len(paths_elements) == 0:
+        if len(paths_elements) == 0:  # it may be all working elements, do not return!, rather go on
+
+            # for e in get_demand_edges(G, True, True, True):
+            #     SG = get_supply_graph(G)
+            #     path = mxv.protocol_stpath_capacity(SG, e[0], e[1])
+            #     cap = get_path_residual_capacity(SG, path)
+            #     print(path, cap)
+            #     print(is_path_working(G, path))
+            #     print(is_known_path(G, path))
+            #     print(is_worcap_path(G, path))
+            #     print()
+
             print("Process completed!", get_residual_demand(G), get_demand_edges(G, True, True, True))
             stats_list.append(stats)
             return stats_list
