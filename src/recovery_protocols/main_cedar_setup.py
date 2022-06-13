@@ -15,6 +15,7 @@ import time
 import src.preprocessing.graph_utils as gru
 from gurobipy import *
 
+
 def run(config):
     stats_list = []
 
@@ -43,6 +44,7 @@ def run(config):
     routed_flow = 0
     packet_monitor = 0
     monitors_stats = set()
+    demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
     K = 2
     # repair demand edges
@@ -62,7 +64,7 @@ def run(config):
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
         # go on if there are demand edges to satisfy, and still is_feasible
-
+        demand_edges_routed_flow_pp = defaultdict(int)  # (d_edge): flow
 
         print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
         print(len(get_demand_edges(G, is_check_unsatisfied=True)), "demands to prune")
@@ -82,7 +84,10 @@ def run(config):
                  "edge": [],
                  "flow": routed_flow,
                  "monitors": monitors_stats,
-                 "packet_monitoring": packet_monitor}
+                 "packet_monitoring": packet_monitor,
+                 "demands_sat": demands_sat}
+
+        # [{ nodes: [1,2,3], flow:50 }, { nodes: [5,6], flow: 55 }]
 
         SG = get_supply_graph(G)
         paths = []
@@ -104,8 +109,11 @@ def run(config):
             stats["node"] += fixed_edges
 
             quantity_pruning = do_prune(G, path_to_fix)
-            routed_flow += quantity_pruning
+            routed_flow += quantity_pruning  # TODO CHECK MISSING stats["flow"] = routed_flow
             print("pruned", quantity_pruning, "on", path_to_fix)
+
+            d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+            demand_edges_routed_flow_pp[d_edge] += quantity_pruning
         else:
             if len(get_monitor_nodes(G)) < config.monitors_budget:
                 v = best_centrality_node(G)
@@ -123,8 +131,15 @@ def run(config):
             else:
                 print("No monitors left.")
                 stats_list.append(stats)
+                demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
                 return stats_list
 
+        demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
         stats_list.append(stats)
-
     return stats_list
+
+
+def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
+    for ke in demands_sat:
+        flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+        stats["demands_sat"][ke].append(flow)

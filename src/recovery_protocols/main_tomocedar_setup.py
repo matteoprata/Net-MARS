@@ -64,6 +64,7 @@ def run(config):
     routed_flow = 0
     packet_monitor = 0
     monitors_stats = set()
+    demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
     # if config.monitoring_type == co.PriorKnowledge.FULL:
     #     gain_knowledge_all(G)
@@ -75,7 +76,7 @@ def run(config):
         config.monitors_budget = get_demand_nodes(G)
 
     # set as monitors all the nodes that are demand endpoints
-    monitors_map = defaultdict(list)
+    monitors_map = defaultdict(set)
     monitors_connections = defaultdict(set)
     monitors_non_connections = defaultdict(set)
 
@@ -90,8 +91,8 @@ def run(config):
             monitors_stats |= {n1, n2}
 
             # does not look defined for only monitors
-            monitors_map[n1].append((n1, n2))
-            monitors_map[n2].append((n1, n2))
+            monitors_map[n1] |= {(n1, n2)}
+            monitors_map[n2] |= {(n1, n2)}
 
         config.monitors_budget_residual -= len(monitors_stats)
 
@@ -116,7 +117,8 @@ def run(config):
                  "edge": [],
                  "flow": 0,
                  "monitors": monitors_stats,
-                 "packet_monitoring": packet_monitor}
+                 "packet_monitoring": packet_monitor,
+                 "demands_sat": demands_sat}
 
         # -------------- 0. Monitor placement --------------
 
@@ -138,7 +140,6 @@ def run(config):
                 monitors_stats = stats["monitors"]
 
         # no monitor for ORACLE mode
-
         # -------------- 1. Tomography, Pruning, Probability --------------
         if config.monitoring_type == co.PriorKnowledge.TOMOGRAPHY:  # TODO: adjust if
 
@@ -156,7 +157,7 @@ def run(config):
                 stats_list.append(stats)
                 return stats_list
 
-            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths = monitoring
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp = monitoring
 
             # >>>> PROBABILITY HERE
             if config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
@@ -164,12 +165,16 @@ def run(config):
 
         elif config.monitoring_type == co.PriorKnowledge.DUNNY_IP:
             monitoring = dummy_pruning(G)
-            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow = monitoring
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, demand_edges_routed_flow_pp = monitoring
 
         routed_flow += sum(demand_edges_routed_flow)
         stats["flow"] = routed_flow
         stats["packet_monitoring"] += stats_packet_monitoring
         packet_monitor = stats["packet_monitoring"]
+
+        for ke in demands_sat:
+            flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+            stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", len(demand_edges), demand_edges)
@@ -180,10 +185,9 @@ def run(config):
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
             path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
 
-            last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
-
             print(paths_proposed)
             assert path_to_fix is not None
+            last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
 
             if co.ProtocolRepairingPath.SHORTEST_MINUS:
                 if get_path_residual_capacity(G, path_to_fix) == 0:
@@ -194,6 +198,7 @@ def run(config):
                 stats["edge"] += fixed_edges
 
         stats_list.append(stats)
+        print(stats)
 
     return stats_list
 

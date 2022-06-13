@@ -297,7 +297,7 @@ def get_incident_edges_of_node(node, edges):
     return to_node, from_node
 
 
-def is_demand_edge_exist(G, n1, n2):
+def is_demand_edge_exists(G, n1, n2):
     return (n1, n2, co.EdgeType.DEMAND.value) in G.edges
 
 

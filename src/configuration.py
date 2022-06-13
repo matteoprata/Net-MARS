@@ -51,6 +51,8 @@ class Configuration:
         self.is_oracle_baseline = False  # baseline TOMOCEDAR
         self.fixed_unvarying_seed = 0
         self.experiment_ind_var = None
+        self.edges_list_var = None  # a dictionary containing the demand edges in the previous runs if the demand pairs vary
+        self.edges_list_path = "data/demand_edges/edges_list.json"
 
         self.is_dynamic_prior = True
         self.UNK_prior = None
@@ -61,3 +63,6 @@ class Configuration:
         self.force_recompute = True
         self.log_execution_details = True
 
+    def n_edges_given_n_nodes(self, n_nodes):
+        """ number of edges given pruned clique """
+        return int(n_nodes*(n_nodes-1)/2 * self.demand_clique_factor)

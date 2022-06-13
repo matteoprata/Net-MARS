@@ -204,7 +204,7 @@ def shortest_through_v(v, paths_tot):
     return paths, endpoints
 
 
-def isr_pruning_demand(G):
+def isr_pruning_demand(G, demand_edges_routed_flow_pp):
     # set the infinite weight for the 0 capacity edges
     SG = get_supply_graph(G)
     quantity = 0
@@ -217,7 +217,9 @@ def isr_pruning_demand(G):
     for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
         path = nx.shortest_path(SG, d1, d2, weight=co.ElemAttr.WEIGHT.value)
         if is_path_working(G, path):
-            quantity += do_prune(G, path)
+            pruned_quant = do_prune(G, path)
+            quantity += pruned_quant
+            demand_edges_routed_flow_pp[(d1, d2)] += pruned_quant
             discover_path(G, path, co.NodeState.WORKING.value)
     return quantity
 
@@ -267,6 +269,7 @@ def run(config):
     routed_flow = 0
     packet_monitor = 0
     monitors_stats = set()
+    demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
     # if config.monitoring_type == co.PriorKnowledge.FULL:
     #     gain_knowledge_all(G)
@@ -280,6 +283,7 @@ def run(config):
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
         # go on if there are demand edges to satisfy, and still is_feasible
+        demand_edges_routed_flow_pp = defaultdict(int)  # (d_edge): flow
 
         print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
 
@@ -298,13 +302,15 @@ def run(config):
                  "edge": [],
                  "flow": 0,
                  "monitors": monitors_stats,
-                 "packet_monitoring": packet_monitor}
+                 "packet_monitoring": packet_monitor,
+                 "demands_sat": demands_sat}
 
         # START
         update_graph_probabilities(G)
-        quantity = isr_pruning_demand(G)
+        quantity = isr_pruning_demand(G, demand_edges_routed_flow_pp)
         routed_flow += quantity
         stats["flow"] = routed_flow
+
 
         paths_nodes, paths_edges, paths_tot = isr_srt(G)
 
@@ -343,6 +349,7 @@ def run(config):
             #     print()
 
             print("Process completed!", get_residual_demand(G), get_demand_edges(G, True, True, True))
+            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
             stats_list.append(stats)
             return stats_list
         else:
@@ -355,6 +362,7 @@ def run(config):
                 rep_edges = [rp for rp in rep_edges if rp is not None]
                 stats["edge"] += rep_edges
 
+                demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
                 stats_list.append(stats)
                 continue
 
@@ -407,10 +415,13 @@ def run(config):
                 packet_monitor += 1
                 stats["packet_monitoring"] = packet_monitor
 
+        demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
         stats_list.append(stats)
 
-        print()
-        for el in stats:
-            print(el, stats[el])
-
     return stats_list
+
+
+def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
+    for ke in demands_sat:
+        flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+        stats["demands_sat"][ke].append(flow)

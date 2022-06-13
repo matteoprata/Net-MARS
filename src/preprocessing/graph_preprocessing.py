@@ -14,6 +14,7 @@ import src.utilities.util as util
 from collections import defaultdict
 from matplotlib import pyplot as plt
 from itertools import combinations
+from filelock import FileLock
 
 
 # 1 -- init graph G
@@ -170,25 +171,28 @@ def select_demand(G, max_comp, n_samples, is_nodes, THRESHOLD_DIST=0.7):
             dist = np.linalg.norm(np.asarray([x1, y1]) - np.asarray([x2, y2]))
             nodes_dis[(ns, nt)] = dist
 
-    list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2, dis)]
+    list_pairs_dist = sorted(nodes_dis.items(), key=lambda x: x[1], reverse=True)  # [(n1, n2), dis] # sorted pairs decreasing orders
 
     distances = np.array([B[1] for B in list_pairs_dist])
     pairs = np.array([B[0] for B in list_pairs_dist])
-    mask_ok_distance = distances >= THRESHOLD_DIST
+    mask_ok_distance = distances >= THRESHOLD_DIST  # [(1,2), (2,3)]  [1,2,3]
 
-    if is_nodes:
+    if is_nodes:  # returns nodes
         pairs_to_sample = np.array(list(set(pairs[mask_ok_distance].flatten())))
         np.random.shuffle(pairs_to_sample)
         list_pairs = pairs_to_sample[:n_samples]
-    else:
+    #
+    else:  # returns pairs of nodes
         pairs_to_sample = pairs[mask_ok_distance]
         np.random.shuffle(pairs_to_sample)
         list_pairs = pairs_to_sample[:n_samples, :]
+
     return list_pairs
 
 
 # 6 -- demand pairs
 def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
+    assert(False)  # because we want to add demand edges progressively with seeds
     max_comp = list(get_max_component(G))
 
     # if we are varying the destruction probability the demand edges need to stay same
@@ -238,28 +242,64 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     max_comp = list(get_max_component(G))  # biggest connected component in G
 
     # pick higher degree nodes with higher probability
-    degs = G.degree()
-    max_comp_degs = np.array([degs[n] for n in max_comp])
-    max_comp_degs = max_comp_degs / np.sum(max_comp_degs)
-    is_biased = False
+    # degs = G.degree()
+    # max_comp_degs = np.array([degs[n] for n in max_comp])
+    # max_comp_degs = max_comp_degs / np.sum(max_comp_degs)
+    # is_biased = False
 
     # choose n_demand_nodes randomly in the graph
-    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
-    #     np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
+    if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
+        np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
-    list_nodes = select_demand(G, max_comp, n_demand_nodes, is_nodes=True)
+    # ----> FIXING DEMAND NODES and EDGES
+    nv_index = None  # read from file the edges in the graph
+    if os.path.exists(config.edges_list_path):
+        while not os.access(config.edges_list_path, os.R_OK):
+            pass
+        dict_edges_r = util.read_pickle(config.edges_list_path)
 
-    # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
-    #     np.random.seed(config.seed)
-    clique_edges = np.asarray(list(combinations(list_nodes, r=2)))
-    clique_edges_ind = np.arange(clique_edges.shape[0])
-    clique_edges_ids_cut = np.random.choice(clique_edges_ind, size=config.n_demand_pairs, replace=False)
-    clique_edges = clique_edges[clique_edges_ids_cut, :]
+        if config.seed in dict_edges_r.keys():
+            dict_edges_s = dict_edges_r[config.seed]
+            nv_index = util.nearest_value_index(value=config.n_demand_clique, list_values=list(dict_edges_s.keys()))
+
+        dict_edges = defaultdict(lambda: defaultdict(set))
+        for k in dict_edges_r:
+            dict_edges[k] = dict_edges_r[k]
+    else:
+        dict_edges = defaultdict(lambda: defaultdict(set))
+
+    prev_edges = dict_edges[config.seed][nv_index] if nv_index is not None else set()
+    print("Previous edges", prev_edges)
+
+    list_nodes_tot = select_demand(G, max_comp, config.n_demand_clique, is_nodes=True)  # ndn demand nodes
+    list_nodes = list_nodes_tot[:n_demand_nodes]  # all clique nodes
+
+    clique_edges = np.asarray(list(combinations(list_nodes, r=2)))                       # all clique edges
+    clique_edges_available = list(set([tuple(se) for se in clique_edges]) - prev_edges)  # removes edges used before
+    n_new_edges = config.n_demand_pairs - len(prev_edges)                                # how many new edges to add
+    clique_edges_idxs = np.random.choice(np.arange(len(clique_edges_available)), size=n_new_edges, replace=False)
+    new_edges = {clique_edges_available[ind] for ind in clique_edges_idxs}
+    # print(prev_edges, new_edges)  # new_edges is empty if before it was set and store on file
+
+    total_edges = prev_edges | new_edges
+    print(dict_edges)
+    dict_edges[config.seed][config.n_demand_clique] = total_edges
+
+    # needed to serialize...
+    ser_dict = dict({int(k): dict({int(k1): set((int(li[0]), int(li[1])) for li in dict_edges[k][k1]) for k1 in dict_edges[k]}) for k in dict_edges})
+
+    while os.path.exists(config.edges_list_path) and not os.access(config.edges_list_path, os.W_OK):
+        print("waiting")
+        pass
+    util.write_pickle(ser_dict, config.edges_list_path)
+
+    if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
+        np.random.seed(config.seed)
 
     # print("\nDegrees")
     demand_edges = set()
     demand_nodes = set()
-    for i, edge in enumerate(clique_edges):
+    for i, edge in enumerate(total_edges):
         n1, n2 = edge
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value

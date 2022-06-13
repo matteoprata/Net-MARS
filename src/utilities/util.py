@@ -7,6 +7,8 @@ import json
 import traceback
 from src import constants as co
 from src.preprocessing import graph_utils as gu
+import json
+import pickle
 
 
 class Singleton(type):
@@ -68,6 +70,36 @@ def disable_print():
 # Restore
 def enable_print():
     sys.stdout = sys.__stdout__
+
+
+def read_json(fname):
+    with open(fname) as json_file:
+        data = json.load(json_file)
+        return data
+
+
+def write_json(dictionary, fname):
+    with open(fname, "w") as json_file:
+        json.dump(dictionary, json_file)
+
+
+def read_pickle(fname):
+    with open(fname, 'rb') as handle:
+        data = pickle.load(handle)
+        return data
+
+
+def write_pickle(dictionary, fname):
+    with open(fname, 'wb') as handle:
+        pickle.dump(dictionary, handle)
+
+
+def nearest_value_index(value, list_values:list):
+    nval = min(list_values, key=lambda x: abs(x - value))
+    nval_index = list_values.index(nval) - 1 if nval > value else list_values.index(nval)
+    if nval_index < 0 or nval_index >= len(list_values):
+        return None
+    return list_values[nval_index]
 
 
 def save_porting_dictionary(G, fname):

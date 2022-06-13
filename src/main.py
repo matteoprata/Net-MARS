@@ -37,15 +37,21 @@ def save_stats_as_df_ph1(stats, fname):
 
     repairs, iter, flow_cum = [], [], []
     n_repairs = 0
-    for i, dic in enumerate(stats):
+    demand_pairs = {k: [] for k in stats[-1]["demands_sat"].keys()}
+    for i, dic in enumerate(stats):  # iteration index
         vals = dic["node"] + dic["edge"]
+        # numbers in this iteration, to propagate values accordingly
         n_vals = max(len(vals), 1)
         repairs += vals if len(vals) > 0 else [None]
         iter += [dic["iter"]] * n_vals
         flow_cum += [stats[i]["flow"]] * n_vals
         n_repairs += len(vals)
 
-    # flow_cum[-1] = stats[-1]["flow"]
+        i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
+        for k in i_demand_pairs:
+            d_flow = [0] * n_vals
+            d_flow[-1] = stats[i]["demands_sat"][k][i]
+            demand_pairs[k] = demand_pairs[k] + d_flow
 
     df = pd.DataFrame()
     df["repairs"] = repairs
@@ -66,6 +72,9 @@ def save_stats_as_df_ph1(stats, fname):
     n_monitor_msg_messages = none_vec[:]
     n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
     df["n_monitor_msg"] = n_monitor_msg_messages
+
+    for k in demand_pairs:
+        df["d-" + str(k)] = demand_pairs[k]
 
     print("saving stats > {}".format(fname))
     df.to_csv("data/experiments/{}".format(fname))
@@ -181,81 +190,83 @@ def run_var_seed_dis(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, mon
 
         if stats is not None:
             df = save_stats_as_df_ph1(stats, fname)
-            print(df)
+            print(df.to_string())
     else:
         print()
         print("THIS already existed...\n", fname, "\n")
 
-    return
-
 
 def parallel_exec(seeds):
 
-    ind_var = {0: [co.IndependentVariable.PROB_BROKEN],
-               1: [co.IndependentVariable.N_DEMAND_EDGES],
-               2: [co.IndependentVariable.FLOW_DEMAND],
-               3: [co.IndependentVariable.MONITOR_BUDGET]
+    dis_uni = {0: [.3, .4, .5, .6, .7, .8, .9],
+               1: .5,
+               2: .5,
+               3: .5}
+
+    npairs = {0: 8,
+              1: [5, 6, 7, 8, 9, 10],
+              2: 8,
+              3: 8}
+
+    flowpp = {0: 11,
+              1: 11,
+              2: [5, 7, 9, 11, 13, 15],
+              3: 11}
+
+    monitor_bud = {0: 20,
+                   1: 20,
+                   2: 20,
+                   3: [10, 15, 20, 25, 30]
+                   }
+
+    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
+               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    dis_uni = {0: [.3, .4, .5, .6, .7, .8, .9],
-               1: [.5],
-               2: [.5],
-               3: [.5]}
-
-    npairs = {0: [8],
-              1: [5, 6, 7, 8, 9, 10],
-              2: [8],
-              3: [8]}
-
-    flowpp = {0: [11],
-              1: [11],
-              2: [5, 7, 9, 11, 13, 15],
-              3: [11]}
-
-    monitor_bud = {0: [25],
-                   1: [25],
-                   2: [25],
-                   3: [15, 20, 25, 30, 35, 40]}
-
     processes = []
-    for k in range(len(ind_var)):
+    for seed in seeds:
+        for k in ind_var:
+            indep_variable_values = ind_var[k][1][k].copy()  # [list of x axis values]
+            for iv in indep_variable_values:
+                ind_var[k][1][k] = iv
 
-        # SHORTEST
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
-                                           [co.ProtocolPickingPath.RANDOM],
-                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
-                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.CEDARNEW], [True]):
-            processes.append(execution)
+                v = (seed, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k], co.ProtocolRepairingPath.SHORTEST_MINUS,
+                      co.ProtocolPickingPath.RANDOM, co.ProtocolMonitorPlacement.NONE, ind_var[k][0],
+                      co.PriorKnowledge.DUNNY_IP, co.AlgoName.CEDARNEW, True)
+                processes.append(v)
 
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.MIN_COST_BOT_CAP],
-                                           [co.ProtocolPickingPath.MIN_COST_BOT_CAP],
-                                           [co.ProtocolMonitorPlacement.ORACLE,
-                                            co.ProtocolMonitorPlacement.BUDGET], ind_var[k],
-                                           [co.PriorKnowledge.TOMOGRAPHY], [co.AlgoName.CEDARNEW], [True]):
-            processes.append(execution)
+                v = (seed, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k], co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                      co.ProtocolPickingPath.MIN_COST_BOT_CAP, co.ProtocolMonitorPlacement.BUDGET, ind_var[k][0],
+                      co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.CEDARNEW, True)
+                processes.append(v)
 
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
-                                           [co.ProtocolPickingPath.RANDOM],
-                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
-                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.CEDAR], [True]):
-            processes.append(execution)
+                v = (seed, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k], co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                      co.ProtocolMonitorPlacement.ORACLE, co.ProtocolMonitorPlacement.BUDGET, ind_var[k][0],
+                      co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.CEDARNEW, True)
+                processes.append(v)
 
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
-                                           [co.ProtocolPickingPath.RANDOM],
-                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
-                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR], [True]):
-            processes.append(execution)
+                v = (seed, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k], co.ProtocolRepairingPath.SHORTEST_MINUS,
+                      co.ProtocolPickingPath.RANDOM, co.ProtocolMonitorPlacement.NONE, ind_var[k][0],
+                      co.PriorKnowledge.DUNNY_IP, co.AlgoName.CEDAR, True)
+                processes.append(v)
 
-        for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
-                                           [co.ProtocolRepairingPath.SHORTEST_MINUS],
-                                           [co.ProtocolPickingPath.RANDOM],
-                                           [co.ProtocolMonitorPlacement.NONE], ind_var[k],
-                                           [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR_MULTICOM], [True]):
-            processes.append(execution)
+                v = (seed, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k], co.ProtocolRepairingPath.SHORTEST_MINUS,
+                      co.ProtocolPickingPath.RANDOM, co.ProtocolMonitorPlacement.NONE, ind_var[k][0],
+                      co.PriorKnowledge.DUNNY_IP, co.AlgoName.ISR, True)
+                processes.append(v)
+
+            ind_var[k][1][k] = indep_variable_values  # reset
+
+        # for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
+        #                                    [co.ProtocolRepairingPath.SHORTEST_MINUS],
+        #                                    [co.ProtocolPickingPath.RANDOM],
+        #                                    [co.ProtocolMonitorPlacement.NONE], ind_var[k],
+        #                                    [co.PriorKnowledge.DUNNY_IP], [co.AlgoName.ISR_MULTICOM], [True]):
+        #     processes.append(execution)
+        #     print(len(execution))
+        #     print(len(v1))
 
         # for execution in itertools.product(seeds, dis_uni[k], monitor_bud[k], npairs[k], flowpp[k],
         #                                    [co.ProtocolRepairingPath.SHORTEST_MINUS],
@@ -280,14 +291,20 @@ def initializer():
 
 
 if __name__ == '__main__':
-    # parallel_exec(seeds=range(50, 55))
-    # print("DONE R1")
-    # parallel_exec(seeds=range(0, 5))
-    # print("DONE R2")
-    # parallel_exec(seeds=range(100, 105))
-    # print("DONE R3")
-    # parallel_exec(seeds=range(550, 555))
-    # print("DONE R4")
+    seeds = set(range(0, 5)) | set(range(100, 105)) | set(range(550, 555)) | set(range(950, 955))
+    parallel_exec(seeds=seeds)
+
+    # v1 = (1, 0.5, 20, 3, 11, co.ProtocolRepairingPath.SHORTEST_MINUS,
+    #       co.ProtocolPickingPath.RANDOM, co.ProtocolMonitorPlacement.NONE, co.IndependentVariable.N_DEMAND_EDGES,
+    #       co.PriorKnowledge.DUNNY_IP, co.AlgoName.CEDARNEW, None, False)
+    #
+    # run_var_seed_dis(*v1)
+    #
+    # v1 = (1, 0.5, 20, 4, 11, co.ProtocolRepairingPath.SHORTEST_MINUS,
+    #       co.ProtocolPickingPath.RANDOM, co.ProtocolMonitorPlacement.NONE, co.IndependentVariable.N_DEMAND_EDGES,
+    #       co.PriorKnowledge.DUNNY_IP, co.AlgoName.CEDARNEW, None, False)
+    #
+    # run_var_seed_dis(*v1)
 
     # run_var_seed_dis(seed=100, dis=.6, budget=25, nnodes=11, flowpp=10,
     #                  rep_mode=co.ProtocolRepairingPath.SHORTEST_MINUS,
@@ -297,13 +314,28 @@ if __name__ == '__main__':
     #                  monitoring_type=co.PriorKnowledge.DUNNY_IP
     #                  )
 
-    run_var_seed_dis(seed=50, dis=.3, budget=25, nnodes=5, flowpp=11,
-                     rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                     pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
-                     indvar=co.IndependentVariable.FLOW_DEMAND,
-                     monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
-                     monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+    # permanent_params = run_var_seed_dis(seed=50, dis=.3, budget=25, nnodes=6, flowpp=11,
+    #                  rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #                  pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+    #                  indvar=co.IndependentVariable.N_DEMAND_EDGES,
+    #                  monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+    #                  monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+    #                  edges_list_var=None,
+    #                  # KEY PARAM
+    #                  algo_name=co.AlgoName.CEDARNEW
+    #                  )
 
-                     # KEY PARAM
-                     algo_name=co.AlgoName.CEDARNEW
-                     )
+    # for i in range(3):
+    #     for j in [.3, .5, .7]:
+    #         permanent_params = run_var_seed_dis(seed=i, dis=j, budget=15, nnodes=7, flowpp=11,
+    #                          rep_mode=co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
+    #                          pick_mode=co.ProtocolPickingPath.MIN_COST_BOT_CAP,
+    #                          indvar=co.IndependentVariable.PROB_BROKEN,
+    #                          monitor_placement=co.ProtocolMonitorPlacement.BUDGET,
+    #                          monitoring_type=co.PriorKnowledge.TOMOGRAPHY,
+    #                          edges_list_var=None, #permanent_params["edges_list_var"],
+    #                          # KEY PARAM
+    #                          algo_name=co.AlgoName.ISR,
+    #                          is_parallel=False
+    #                          )
+    #         exit()
