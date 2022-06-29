@@ -282,54 +282,31 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                 break
 
             # PRUNING
+            to_monitor = True
             if config.protocol_monitor_placement in [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT, co.ProtocolMonitorPlacement.BUDGET]:
                 if (config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or
-                        config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP) and not config.is_exhaustive_paths:
+                      config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP) and not config.is_exhaustive_paths:
 
-                    to_handle = is_edge_to_monitor(n1_mon, n2_mon, monitors_map,
+                    to_monitor = is_edge_to_monitor(n1_mon, n2_mon, monitors_map,
                                                    monitors_connections, monitors_non_connections, demand_nodes)
 
-                    # print(n1_mon, n2_mon, to_handle)
-
-                    if not to_handle:
-                        handled_pairs.add((n1_mon, n2_mon))
-                        continue
+                    # if not to_monitor:
+                    #     handled_pairs.add((n1_mon, n2_mon))
+                    #     continue
 
             # if no capacitive path exists, abort, this should not happen
-            st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
-            stats_packet_monitoring += 1
+            if to_monitor:
+                st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+                stats_packet_monitoring += 1
+            else:
+                print("Skipped to monitor", n1_mon, n2_mon)
+                st_path_out = None, np.inf, None
 
-            if st_path_out is None:   # NO CAPACITY
-                handled_pairs.add((n1_mon, n2_mon))
-                demand_nodes = get_demand_nodes(G)
-                is_demand_path = n1_mon in demand_nodes and n2_mon in demand_nodes
-                str_info = "ROUTABLE" if is_demand_path else "PINGABLE"
-                print("Flow is not {} for pair".format(str_info), n1_mon, n2_mon)
-
-                # monitors are not connected PHASE 1
-                monitors_non_connections[n1_mon] |= {n2_mon}
-                monitors_non_connections[n2_mon] |= {n1_mon}
-
-                monitors_connections[n1_mon] -= {n2_mon}
-                monitors_connections[n2_mon] -= {n1_mon}
-
-                continue
-                # return None
+            assert st_path_out is not None, "some infeasibility issue"
 
             path, metric, rc = st_path_out
-
-            # prc = get_path_residual_capacity(G, path)
-            # assert prc == rc
-            # print(metric, prc, rc, path)
-
-            if config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or \
-                    config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP:
-
-                # only this protocol requires monitoring
-                residual_demand = gu.get_residual_demand(G)
-                pappo, _, _ = util.safe_exec(mxv.protocol_repair_min_exp_cost, (SG, n1_mon, n2_mon, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline))  # n1, n2 is not handleable
-                monitoring_paths.append(pappo)  # <<<<< probability
-                monitoring_paths.append(path)   # <<<<< probability
+            if path is not None:
+                monitoring_paths.append(path)  # <<< probability
 
             if metric < len(SG.edges):  # works AND has capacity
                 if is_demand_edge_exists(G, n1_mon, n2_mon):
@@ -349,17 +326,10 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                 monitors_non_connections[n1_mon] -= {n2_mon}
                 monitors_non_connections[n2_mon] -= {n1_mon}
 
-            else:  # path broken OR not has capacity (this second predicate is impossible due to continue above)
+            else:  # path broken [OR not has capacity] (this second predicate is impossible due to continue above)
                 if is_demand_edge_exists(G, n1_mon, n2_mon):
                     demand_edges_to_repair.append((n1_mon, n2_mon))
                     # print("path is broken", n_to_repair_paths)
-
-                    # monitors are not connected PHASE 0
-                    monitors_non_connections[n1_mon] |= {n2_mon}
-                    monitors_non_connections[n2_mon] |= {n1_mon}
-
-                    monitors_connections[n1_mon] -= {n2_mon}
-                    monitors_connections[n2_mon] -= {n1_mon}
 
             # print(monitors_connections)
             handled_pairs.add((n1_mon, n2_mon))

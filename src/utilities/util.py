@@ -94,6 +94,11 @@ def write_pickle(dictionary, fname):
         pickle.dump(dictionary, handle)
 
 
+def write_file(text, fname, is_append=False):
+    with open(fname, "a" if is_append else "w") as myfile:
+        myfile.write(text)
+
+
 def nearest_value_index(value, list_values:list):
     nval = min(list_values, key=lambda x: abs(x - value))
     nval_index = list_values.index(nval) - 1 if nval > value else list_values.index(nval)

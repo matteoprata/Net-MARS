@@ -128,6 +128,7 @@ class IndependentVariable(Enum):
 
 # constants
 PATH_TO_GRAPH = "data/graphs/"
+PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
 
 REPAIR_COST = 500
 EPSILON = 10 ** -10

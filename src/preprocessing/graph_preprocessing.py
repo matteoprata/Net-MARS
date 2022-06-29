@@ -282,8 +282,8 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     # print(prev_edges, new_edges)  # new_edges is empty if before it was set and store on file
 
     total_edges = prev_edges | new_edges
-    print(dict_edges)
     dict_edges[config.seed][config.n_demand_clique] = total_edges
+    print(config.seed, dict_edges)
 
     # needed to serialize...
     ser_dict = dict({int(k): dict({int(k1): set((int(li[0]), int(li[1])) for li in dict_edges[k][k1]) for k1 in dict_edges[k]}) for k in dict_edges})

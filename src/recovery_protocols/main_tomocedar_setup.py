@@ -187,7 +187,8 @@ def run(config):
 
             print(paths_proposed)
             assert path_to_fix is not None
-            last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+            d1, d2 = last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+            update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections)
 
             if co.ProtocolRepairingPath.SHORTEST_MINUS:
                 if get_path_residual_capacity(G, path_to_fix) == 0:
@@ -201,6 +202,15 @@ def run(config):
         print(stats)
 
     return stats_list
+
+
+def update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections):
+    # monitors are not connected PHASE 0
+    monitors_non_connections[d1] |= {d2}
+    monitors_non_connections[d2] |= {d1}
+
+    monitors_connections[d1] -= {d2}
+    monitors_connections[d2] -= {d1}
 
 
 def cancel_demand_edge(G, path_to_fix):
