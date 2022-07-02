@@ -233,6 +233,7 @@ def is_path_working(G, path):
             return False
     return True
 
+
 def get_supply_graph(G):
     """ The supply graph is G without demand edges. """
     demand_edges = get_demand_edges(G)
@@ -341,7 +342,8 @@ def do_repair_node(G, n):
     """ counts the repairs! """
     did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
-    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
+    G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value  # discover
+    print("repairing", n, did_repair)
     return n if did_repair else None
 
 
@@ -349,8 +351,24 @@ def do_repair_edge(G, n1, n2):
     """ counts the repairs! """
     did_repair = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
-    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value
+    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value  # discover
+    print("repairing", n1, n2, did_repair)
     return (n1, n2) if did_repair else None
+
+
+def do_repair_full_edge(G, n1, n2):
+    """ repairs all elements of the edge"""
+    d0 = do_repair_edge(G, n1, n2)
+    d1 = do_repair_node(G, n1)
+    d2 = do_repair_node(G, n2)
+    repn, repe = [], []
+    if d0:
+        repe.append((n1, n2))
+    if d1:
+        repn.append(n1)
+    if d2:
+        repn.append(n2)
+    return repn, repe
 
 
 def discover_edge(G, n1, n2, p_broken):
@@ -490,8 +508,8 @@ def demand_node_position(demand_edges, demands, nodes):
         for h in demands:
             demand_node_pos[node, h] = 1  # 1 nodo centrale di demand
 
-    sources = [i for i, _, _ in demand_edges]
-    targets = [j for _, j, _ in demand_edges]
+    sources = [i for i, _, _ in demand_edges]  # [1,2,3]
+    targets = [j for _, j, _ in demand_edges]  # [45,67,88]
 
     for i, h in enumerate(demands):
         demand_node_pos[sources[i], h] = 0  # 0 nodo sorgente di demand

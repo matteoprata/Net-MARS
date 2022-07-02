@@ -10,9 +10,9 @@ import signal
 import src.constants as co
 import src.configuration as configuration
 import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
-import src.recovery_protocols.main_stocedar_setup as main_stocedar_setup
+import src.recovery_protocols.main_ISR_setup as main_stocedar_setup
 import src.recovery_protocols.main_cedar_setup as main_cedar_setup
-import src.recovery_protocols.main_shp_setup as main_shp_setup
+import src.recovery_protocols.main_SHP_setup as main_shp_setup
 
 from src.utilities.util import set_seeds, disable_print, enable_print
 import src.utilities.util as util
@@ -307,6 +307,6 @@ if __name__ == '__main__':
     # seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_parallel=False
     v = (952, .5, 16, 7, 11, co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
                       co.ProtocolPickingPath.MIN_COST_BOT_CAP, co.ProtocolMonitorPlacement.BUDGET, co.IndependentVariable.N_DEMAND_EDGES,
-                      co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.CEDARNEW, False)
+                      co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.ISR_MULTICOM, False)
     run_var_seed_dis(*v)
 
