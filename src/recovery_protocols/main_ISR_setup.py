@@ -22,13 +22,6 @@ GUROBI_STATUS = {1: 'LOADED', 2: 'OPTIMAL', 3: 'INFEASIBLE', 4: 'INF_OR_UNBD', 5
 
 # demand edges // supply edges // nodes // nodes (broken, unk) // supply edges (broken) // supply edges (broken, unk)
 def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supply_edges, broken_unk_nodes, broken_unk_edges):
-    # print("PROBLEM: d-edges", len(demand_edges), demand_edges)
-    # print("PROBLEM: supply nodes", len(supply_nodes), supply_nodes)
-    # print("PROBLEM: supply_edges", len(supply_edges), supply_edges)
-    # print("PROBLEM: broken_supply_edges", len(broken_supply_edges), broken_supply_edges)
-    # print("PROBLEM: broken_unk_nodes", len(broken_unk_nodes), broken_unk_nodes)
-    # print("PROBLEM: broken_unk_edges", len(broken_unk_edges), broken_unk_edges)
-
     var_demand_flows = [(i, f) for i, (_, _, f) in enumerate(demand_edges)]   # [(d1, f1), ...]
 
     # for endpoint source 0, mid 1, destination 2
@@ -114,36 +107,8 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
     return var_demand_flows, var_demand_node_pos, supply_edges, m
 
 
-# def derive_from_optimum_flow(demand_flows, supply_edges, m):
-#     """ Returns the subgraph induced by the feasible paths edges. AND A DICTIONARY mapping to every demand the
-#     path that satisfies it."""
-#
-#     demand_path = defaultdict(lambda: defaultdict(int))
-#     # CHECK: assumes that the flow is routable
-#
-#     if m.status == GRB.status.OPTIMAL:
-#         for h, _ in enumerate(demand_flows):
-#             for i, j, _ in supply_edges:
-#                 var_value_v1 = m.getVarByName('flow_var_{}_{}_{}'.format(h, i, j))  # edge variable to check if > 0
-#                 var_value_v2 = m.getVarByName('flow_var_{}_{}_{}'.format(h, j, i))  # edge variable to check if > 0
-#
-#                 if var_value_v1 is not None and var_value_v1.x > 0:  # the edge is part of the solution, thus of the subgraph
-#                     demand_path[h][i, j] += var_value_v1.x
-#
-#                 if var_value_v2 is not None and var_value_v2.x > 0:
-#                     demand_path[h][i, j] += var_value_v2.x
-#     else:
-#         print("There's something wrong and milp failed.")
-#         exit()
-#
-#     demand_pruned_quantity = dict()
-#     for d in demand_path:
-#         demand_pruned_quantity[d] = max([demand_path[d][e] for e in demand_path[d]])
-#
-#     return demand_pruned_quantity
-
-
 def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supply_edges, m):
+    """ returns the node with maximum in flow """
     total_flow_node = defaultdict(int)
 
     if m.status == GRB.status.OPTIMAL:
@@ -167,6 +132,13 @@ def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supp
                         total_flow_node[j] += var_value_v2.x
                     else:  # in any other case
                         total_flow_node[j] += var_value_v1.x
+
+    path_nodes, _ = derive_from_optimum_repairs(G, m)
+    # if there are indication to what node repair, go with that, else, go with flow
+    if len(path_nodes) > 0:
+        for k in list(total_flow_node.keys()):
+            if k not in path_nodes:
+                del total_flow_node[k]
 
     # choose the node that has max flow
     max_flow_node, max_flow = None, -np.inf
@@ -453,21 +425,14 @@ def run_isr_st(config):
             # todo: break ties
 
             rep_a = do_repair_node(G, node_rep)
-            rep_nodes, rep_edges = [rep_a], []
+            if rep_a is not None:
+                stats["edge"] += [rep_a]
+
             for ed1, ed2 in paths_edges:
-                if node_rep == ed1 or node_rep == ed2:
-                    rep_b = do_repair_edge(G, ed1, ed2)
-                    rep_c = do_repair_node(G, ed1)
-                    rep_d = do_repair_node(G, ed2)
-                    rep_nodes.append(rep_c)
-                    rep_nodes.append(rep_d)
-                    rep_edges.append(rep_b)
-
-            rep_nodes = [rp for rp in rep_nodes if rp is not None]
-            rep_edges = [rp for rp in rep_edges if rp is not None]
-
-            stats["edge"] += rep_edges
-            stats["node"] += rep_nodes
+                if node_rep in (ed1, ed2):
+                    rep_nodes, rep_edges = do_repair_full_edge(G, ed1, ed2)
+                    stats["edge"] += rep_edges
+                    stats["node"] += rep_nodes
 
             res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
             monitor_nodes = gu.get_monitor_nodes(G)

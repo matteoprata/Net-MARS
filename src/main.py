@@ -306,7 +306,7 @@ if __name__ == '__main__':
 
     # seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_parallel=False
     v = (952, .5, 16, 7, 11, co.ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                      co.ProtocolPickingPath.MIN_COST_BOT_CAP, co.ProtocolMonitorPlacement.BUDGET, co.IndependentVariable.N_DEMAND_EDGES,
-                      co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.ISR_MULTICOM, False)
+                             co.ProtocolPickingPath.MIN_COST_BOT_CAP, co.ProtocolMonitorPlacement.BUDGET, co.IndependentVariable.N_DEMAND_EDGES,
+                             co.PriorKnowledge.TOMOGRAPHY, co.AlgoName.ISR, False)
     run_var_seed_dis(*v)
 
