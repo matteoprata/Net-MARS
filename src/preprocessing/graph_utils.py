@@ -500,6 +500,18 @@ def demand_pruning(G, path, quantity):
         G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value][(n1, n2)] += round(quantity/demand_full_capacity, 3)  # (demand edge): percentage flow
 
 
+def reset_supply_edges(G):
+    """ Resets the capacity of the suply edges of a graph to the original values. Also demand edges are reset """
+    for d1, d2, _ in get_demand_edges(G):
+        original_cap = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value]
+        G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = original_cap
+
+    for n1, n2, ty in G.edges:
+        if ty == co.EdgeType.SUPPLY.value:
+            original_cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
+            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = original_cap
+
+
 def demand_node_position(demand_edges, demands, nodes):
     """ Maps every node to their position in the graph wrt the demand graph 0 source, 1 mid, 2 target. """
     demand_node_pos = {}
