@@ -37,12 +37,12 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     datas = np.empty(shape=(1, len(seeds_values), len(algos), len(X_vals)))
 
     for ai, al in enumerate(algos):
-        algo, rep, _ = al
+        algo = al.value[co.AlgoAttributes.NAME]
         for pi, pbro in enumerate(X_vals):
             for si, ss in enumerate(seeds_values):
                 if x_position == 0:
                     # varying probs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -50,11 +50,10 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         config.supply_capacity,
                         algo,
                         config.monitors_budget,
-                        pbro,
-                        rep[0], rep[1], rep[2])
+                        pbro, config.experiment_ind_var.value[0])
 
                 elif x_position == 1:
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         pbro,
@@ -62,12 +61,11 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         config.supply_capacity,
                         algo,
                         config.monitors_budget,
-                        config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 elif x_position == 2:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -76,11 +74,11 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         algo,
                         config.monitors_budget,
                         config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 elif x_position == 3:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -89,7 +87,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         algo,
                         pbro,
                         config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
@@ -118,8 +116,8 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     plt.close()
 
 
-def sample_file(seed, graph, np, dc, spc, alg, bud, pbro, rep, pik, mop):
-    return "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(seed, graph, np, dc, spc, alg, bud, pbro, rep, pik, mop)
+def sample_file(seed, graph, np, dc, spc, alg, bud, pbro, indvar):
+    return "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(seed, graph, np, dc, spc, alg, bud, pbro, indvar)
 
 
 def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_position, outliers:float=0, algo_names=None, out_fig=None, title=None, PERC_DESTRUCTION=None, fixed_x=None):
@@ -146,7 +144,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     # datas fill
     for j, x in enumerate(X_var):
         for i, algo in enumerate(algos):
-            algo, rep, _ = algo
+            algo = algo.value[co.AlgoAttributes.NAME]
             for k, ss in enumerate(seeds_values):
                 # varying probability
 
@@ -154,24 +152,24 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                     MAX_TOTAL_FLOW = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
                     MAX_FLOW_STEPS = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity),
-                                              config.supply_capacity, algo, config.monitors_budget, x, rep[0], rep[1], rep[2])
+                                              config.supply_capacity, algo, config.monitors_budget, x, config.experiment_ind_var.value[0])
 
                 elif x_position == 1:  # demand pairs
                     MAX_TOTAL_FLOW = np.array(X_var) * config.demand_capacity
                     MAX_FLOW_STEPS = np.ones(shape=len(X_var)) * np.array(X_var) * config.demand_capacity
                     regex_fname = sample_file(ss, config.graph_dataset.name, x, int(config.demand_capacity), config.supply_capacity,
-                                              algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
+                                              algo, config.monitors_budget, config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 elif x_position == 2:  # vary fpp
                     MAX_TOTAL_FLOW = np.array(X_var) * config.n_demand_pairs
                     MAX_FLOW_STEPS = np.ones(shape=len(X_var)) * config.n_demand_pairs * np.array(X_var)
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(x), config.supply_capacity,
-                                              algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
+                                              algo, config.monitors_budget, config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 elif x_position == 3:  # vary monit
                     MAX_TOTAL_FLOW = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
                     MAX_FLOW_STEPS = np.ones(shape=len(X_var)) * config.n_demand_pairs * config.demand_capacity
-                    regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity, algo, x, config.destruction_quantity, rep[0], rep[1], rep[2])
+                    regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity, algo, x, config.destruction_quantity, config.experiment_ind_var.value[0])
                 else:
                     print("Not handled x_position", x_position)
                     exit()
@@ -334,12 +332,12 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
     datas = np.zeros(shape=(MAX_N_REPAIRS, MAX_N_DEMANDS, len(seeds_values), len(algos), len(X_vals)))
 
     for ai, al in enumerate(algos):
-        algo, rep, _ = al
+        algo = al.value[co.AlgoAttributes.NAME]
         for pi, pbro in enumerate(X_vals):
             for si, ss in enumerate(seeds_values):
                 if x_position == 0:
                     # varying probs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -348,11 +346,11 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
                         algo,
                         config.monitors_budget,
                         pbro,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 elif x_position == 1:
                     # vary pairs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         pbro,
@@ -361,11 +359,11 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
                         algo,
                         config.monitors_budget,
                         config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 elif x_position == 2:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -374,11 +372,11 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
                         algo,
                         config.monitors_budget,
                         config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 elif x_position == 3:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-rep|{}-pik|{}-mop|{}.csv".format(
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_demand_pairs,
@@ -387,7 +385,7 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
                         algo,
                         pbro,
                         config.destruction_quantity,
-                        rep[0], rep[1], rep[2])
+                        config.experiment_ind_var.value[0])
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
@@ -501,21 +499,21 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
                 if x_position == 0:
                     MAX_TOTAL_FLOW = int(config.n_demand_pairs * config.demand_capacity)
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity),
-                                              config.supply_capacity, algo, config.monitors_budget, x, rep[0], rep[1], rep[2])
+                                              config.supply_capacity, algo, config.monitors_budget, x, config.experiment_ind_var.value[0])
                 elif x_position == 1:
                     MAX_TOTAL_FLOW = int(x * config.demand_capacity)
                     regex_fname = sample_file(ss, config.graph_dataset.name, x, int(config.demand_capacity), config.supply_capacity,
-                                              algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
+                                              algo, config.monitors_budget, config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 elif x_position == 2:
                     MAX_TOTAL_FLOW = int(config.n_demand_pairs * x)
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(x), config.supply_capacity,
-                                              algo, config.monitors_budget, config.destruction_quantity, rep[0], rep[1], rep[2])
+                                              algo, config.monitors_budget, config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 elif x_position == 3:
                     MAX_TOTAL_FLOW = int(config.n_demand_pairs * x)
                     regex_fname = sample_file(ss, config.graph_dataset.name, config.n_demand_pairs, int(config.demand_capacity), config.supply_capacity,
-                                              algo, x, config.destruction_quantity, rep[0], rep[1], rep[2])
+                                              algo, x, config.destruction_quantity, config.experiment_ind_var.value[0])
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
@@ -574,12 +572,12 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
 def plotting_data():
     config = ma.setup_configuration()
 
-    dis_uni = {0: [.3, .4, .5, .6, .7, .8],
+    dis_uni = {0: [.5],
                1: .5,
                2: .5,
                3: .5}
 
-    npairs = {0: 8,
+    npairs = {0: 5,
               1: [5, 6, 7, 8, 9, 10],
               2: 8,
               3: 8}
@@ -595,29 +593,19 @@ def plotting_data():
                    3: [16, 18, 20, 22, 24, 26]
                    }
 
-    ind_var = {
-        0: (co.IndependentVariable.PROB_BROKEN, dis_uni),
-        1: (co.IndependentVariable.N_DEMAND_EDGES, npairs),
-        2: (co.IndependentVariable.FLOW_DEMAND, flowpp),
-        3: (co.IndependentVariable.MONITOR_BUDGET, monitor_bud)
-    }
+    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
+               #1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               #2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               #3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+               }
 
-    seeds = set(range(0, 5)) | set(range(100, 105)) | set(range(550, 555)) | set(range(950, 955))
-    seeds -= {1, 3, 553, 950, 951, 954}  # -= {104, 550, 551, 552, 553, 100, 101, 102, 40, 41, 42}
+    seeds = [99]
     print("Using", len(seeds), seeds)
 
-    algos = []
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
+                  co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    algos += [("CEDARNEW", [i, j, k], "CEDARNEW") for i in [2] for j in [2] for k in [4]]  # CEDARNEW
-    algos += [("CEDARNEW", [i, j, k], "ORACLE") for i in [2] for j in [2] for k in [3]]    # ORACLE
-    algos += [("CEDARNEW", [i, j, k], "ST-PATH") for i in [5] for j in [0] for k in [5]]   # ST-PATH
-    algos += [("CEDAR", [i, j, k], "CEDAR") for i in [5] for j in [0] for k in [5]]
-    algos += [("ISR", [i, j, k], "ISR") for i in [5] for j in [0] for k in [5]]
-
-    # algos += [("ISR_MULTICOM", [i, j, k]) for i in [5] for j in [0] for k in [5]]
-    # algos += [("SHP", [i, j, k]) for i in [5] for j in [0] for k in [5]]
-
-    algo_names = [i[2] for i in algos]
+    algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
 
     source = "data/experiments/"
     OUTLIERS = 0
@@ -626,10 +614,11 @@ def plotting_data():
         for i, (name, vals) in ind_var.items():
             print("Now varying", name.name, "as", vals[i])
 
-            config.supply_capacity = (80, None)
+            config.supply_capacity = (80, 80)
             PERC_DESTRUCTION = -1
 
             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
+                config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
                 config.n_demand_clique = npairs[i]
                 config.n_demand_pairs = config.n_edges_given_n_nodes(npairs[i])
                 config.demand_capacity = flowpp[i]
@@ -639,6 +628,7 @@ def plotting_data():
                                                                                       config.demand_capacity, config.monitors_budget)
 
             elif name == co.IndependentVariable.N_DEMAND_EDGES:  # vary n_pairs fix prob and ffp
+                config.experiment_ind_var = co.IndependentVariable.N_DEMAND_EDGES
                 config.destruction_quantity = dis_uni[i]
                 config.monitors_budget = monitor_bud[i]
                 config.demand_capacity = flowpp[i]
@@ -648,6 +638,7 @@ def plotting_data():
                                                                                       config.demand_capacity, config.monitors_budget)
 
             elif name == co.IndependentVariable.FLOW_DEMAND:  # vary fpp fix prob and n_pais
+                config.experiment_ind_var = co.IndependentVariable.FLOW_DEMAND
                 config.destruction_quantity = dis_uni[i]
                 config.n_demand_clique = npairs[i]
                 config.n_demand_pairs = config.n_edges_given_n_nodes(npairs[i])
@@ -657,6 +648,7 @@ def plotting_data():
                                                                                       config.n_demand_pairs, "*", config.monitors_budget)
 
             elif name == co.IndependentVariable.MONITOR_BUDGET:  # vary fpp fix prob and n_pais
+                config.experiment_ind_var = co.IndependentVariable.MONITOR_BUDGET
                 config.destruction_quantity = dis_uni[i]
                 config.n_demand_clique = npairs[i]
                 config.n_demand_pairs = config.n_edges_given_n_nodes(npairs[i])
@@ -665,38 +657,19 @@ def plotting_data():
                 plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
                                                                                       config.n_demand_pairs, config.demand_capacity, "*")
 
-            plot_integral(source, config, seeds, vals[i], algos, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
-            plot_integral(source, config, seeds, vals[i], algos, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
-            plot_integral(source, config, seeds, vals[i], algos, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
-            plot_integral(source, config, seeds, vals[i], algos, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
+            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
+            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
 
-            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
-            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
-            plot_monitors_stuff(source, config, seeds, vals[i], algos, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
             ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
-            plot_Xvar_Ydems(source, config, seeds, vals[i], algos, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf)
-            plot_Xvar_Ydems(source, config, seeds, vals[i], algos, x_position=i, n_dem_edges=ndmp, plot_type=1, algo_names=algo_names, out_fig=pdf)
-            plot_Xvar_Ydems(source, config, seeds, vals[i], algos, x_position=i, n_dem_edges=ndmp, plot_type=2, algo_names=algo_names, out_fig=pdf)
-
-
-# def plt_simple():
-#     source = "data/experiments/"
-#     config = ma.setup_configuration()
-#     seeds = [0, 1, 2]
-#     probs = [.3, .5, .7]
-#
-#     config.n_demand_clique = 7
-#     config.n_demand_pairs = config.n_edges_given_n_nodes(config.n_demand_clique)
-#     config.demand_capacity = 11
-#     config.monitors_budget = 7
-#
-#     algos = [("CEDARNEW", [i, j, k]) for i in [2] for j in [2] for k in [4]]  # CEDARNEW
-#     algo_names = [i[0] for i in algos]
-#
-#     plot_Xvar_Ydems(source, config, seeds, probs, algos, typep="n_repairs", x_position=0, n_dem_edges=config.n_demand_pairs, plot_type=0, algo_names=algo_names, out_fig=out_fig)
-#     plot_Xvar_Ydems(source, config, seeds, probs, algos, typep="n_repairs", x_position=0, n_dem_edges=config.n_demand_pairs, plot_type=1, algo_names=algo_names, out_fig=out_fig)
-#     plot_Xvar_Ydems(source, config, seeds, probs, algos, typep="n_repairs", x_position=0, n_dem_edges=config.n_demand_pairs, plot_type=2, algo_names=algo_names, out_fig=out_fig)
+            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf)
+            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=1, algo_names=algo_names, out_fig=pdf)
+            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=2, algo_names=algo_names, out_fig=pdf)
 
 
 if __name__ == '__main__':

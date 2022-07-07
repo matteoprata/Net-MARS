@@ -1,6 +1,6 @@
-
 from enum import Enum
 import multiprocessing
+
 
 class GraphName(Enum):
     PALMETTO = "PALMETTO.gml"
@@ -44,7 +44,7 @@ class ElemAttr(Enum):
     # edges
     CAPACITY = 'capacity'
     RESIDUAL_CAPACITY = 'residual_capacity'
-    TYPE = 'type'       # demand/supply
+    TYPE = 'type'  # demand/supply
     WEIGHT = 'weight'
     WEIGHT_UNIT = 'weight_unit'
 
@@ -59,8 +59,8 @@ class ElemAttr(Enum):
     IS_EPICENTER = 'is_epicenter'
 
     # all
-    STATE_TRUTH = 'state'                  # ENUMERATOR  (INVISIBILE)
-    PRIOR_BROKEN = 'prior_broken'          # prior that component is broken
+    STATE_TRUTH = 'state'  # ENUMERATOR  (INVISIBILE)
+    PRIOR_BROKEN = 'prior_broken'  # prior that component is broken
     POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
     ID = 'id'
 
@@ -79,17 +79,6 @@ class PlotType(Enum):
     TRU = 0
     KNO = 1
     ROU = 2
-
-
-class AlgoName(Enum):
-    CEDAR = "CEDAR"
-    ISP = "ISP"
-    SHP = "SHP"
-    DEEP = "DEEP"
-    TOMO_CEDAR = "TOMO_CEDAR"
-    CEDARNEW = "CEDARNEW"
-    ISR = "ISR"
-    ISR_MULTICOM = "ISR_MULTICOM"
 
 
 class ProtocolRepairingPath(Enum):
@@ -119,11 +108,57 @@ class ProtocolMonitorPlacement(Enum):
     NONE = 5
 
 
+class AlgoAttributes(Enum):
+    REPAIRING_PATH = "ProtocolRepairingPath"
+    PICKING_PATH = "ProtocolPickingPath"
+    MONITOR_PLACEMENT = "ProtocolMonitorPlacement"
+    PRIOR_KNOWLEDGE = "PriorKnowledge"
+    NAME = "name"
+
+
+class Algorithm(Enum):
+    TOMO_CEDAR = {AlgoAttributes.NAME: "TOMO_CEDAR",
+                  AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                  AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
+                  AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
+                  AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.TOMOGRAPHY
+                  }
+
+    ORACLE = {AlgoAttributes.NAME: "ORACLE",
+              AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
+              AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
+              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.ORACLE,
+              AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.TOMOGRAPHY
+              }
+
+    ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
+               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.SHORTEST_MINUS,
+               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.RANDOM,
+               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
+               AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.DUNNY_IP
+               }
+
+    _ignore_ = ['_dict']
+    _dict = {AlgoAttributes.REPAIRING_PATH: None,
+             AlgoAttributes.PICKING_PATH: None,
+             AlgoAttributes.MONITOR_PLACEMENT: None,
+             AlgoAttributes.PRIOR_KNOWLEDGE: None
+             }
+
+    CEDAR = {**{AlgoAttributes.NAME: "CEDAR"}, **_dict}
+    SHP = {**{AlgoAttributes.NAME: "SHP"}, **_dict}
+    ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP"}, **_dict}
+    ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM"}, **_dict}
+
+
 class IndependentVariable(Enum):
     PROB_BROKEN = 0, "Percentage Broken Elements"
     N_DEMAND_EDGES = 1, "Number Demand Edges"
     FLOW_DEMAND = 2, "Flow Demand Pair"
     MONITOR_BUDGET = 3, "Flow Demand Pair"
+    SEED = 4, "Seed"
+    ALGORITHM = 5, "Algorithm"
+    IND_VAR = 6, "Independent Variable"
 
 
 # constants

@@ -296,8 +296,7 @@ def run_header(config):
 
 def run_shp_multi(config):
     G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter = run_header(config)
-    m = None
-    force_repair = False
+    m, force_repair = None, False
 
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -393,7 +392,7 @@ def run_shp_multi(config):
 
 
 def run(config):
-    if config.algo_name == co.AlgoName.SHP:
+    if config.algo_name == co.Algorithm.SHP:
         return run_shp_multi(config)
     else:
         exit()

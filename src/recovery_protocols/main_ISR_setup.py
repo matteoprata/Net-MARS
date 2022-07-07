@@ -65,7 +65,7 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
     # for h, _ in var_demand_flows:
     #     alpha_var[h] = m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='alpha_var_{}'.format(h))
 
-    print(len(supply_edges - broken_unk_edges), len(supply_edges), len(broken_unk_edges))
+    # print(len(supply_edges - broken_unk_edges), len(supply_edges), len(broken_unk_edges))
     for e in supply_edges:
         i, j, _ = e
 
@@ -73,10 +73,7 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
                     G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] * rep_edge_var[i, j],
                     'wor_%s_%s' % (i, j))
 
-    # for i in supply_nodes:  # broken_supply_edges
-    #     m.addConstr(rep_node_var[i] * net_max_degree(G) >= quicksum(rep_edge_var[e1, e2] for e1, e2, _ in broken_supply_edges if i in [e1, e2]))
-
-    for e0, e1, _ in supply_edges:
+    for e0, e1, _ in supply_edges:  # repairing an edge requires reparing the nodes and viceversa
         m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e1])
         m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e0])
 
@@ -96,7 +93,7 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
                 m.addConstr(flow_in_j == flow_out_j, 'node_%s_%s' % (h, j))
 
     # OBJECTIVE
-    m.setObjective(quicksum(rep_node_var[n1] * co.REPAIR_COST * G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] for n1 in broken_unk_nodes) +
+    m.setObjective(quicksum(rep_node_var[ni] * co.REPAIR_COST * G.nodes[ni][co.ElemAttr.POSTERIOR_BROKEN.value] for ni in broken_unk_nodes) +
                    quicksum(rep_edge_var[n1, n2] * co.REPAIR_COST * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] for n1, n2, _ in broken_unk_edges),
                    GRB.MINIMIZE)
 
@@ -109,7 +106,8 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
 
 def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supply_edges, m):
     """ returns the node with maximum in flow """
-    total_flow_node = defaultdict(int)
+    total_flow_node = defaultdict(int)  # all the nodes associated the flow
+    path_nodes, path_edges = set(), set()
 
     if m.status == GRB.status.OPTIMAL:
         for h, _ in enumerate(demand_flows):
@@ -119,40 +117,43 @@ def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supp
                 var_value_v2 = m.getVarByName('flow_var_{}_{}_{}'.format(h, j, i))  # edge variable to check if > 0
 
                 if var_value_v1.x > 0 or var_value_v2.x > 0:
-                    print("positive var", h, i, j, var_value_v1.x, var_value_v2.x, "pbro:", G.nodes[i][co.ElemAttr.POSTERIOR_BROKEN.value])
+                    # print("positive var", h, i, j, var_value_v1.x, var_value_v2.x, "pbro:", G.nodes[i][co.ElemAttr.POSTERIOR_BROKEN.value])
 
-                if G.nodes[i][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:  # broken or unk
+                    # TODO: LIL strong also in SHP
+                    n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
+                    n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
+                    ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
 
-                    if var_demand_node_pos[i, h] == 0:
-                        total_flow_node[i] += var_value_v1.x
-                    else:  # in any other case
-                        total_flow_node[i] += var_value_v2.x
+                    if n1bro + n2bro + ebro > 0:  # broken or unk
 
-                    if var_demand_node_pos[j, h] == 0:
-                        total_flow_node[j] += var_value_v2.x
-                    else:  # in any other case
-                        total_flow_node[j] += var_value_v1.x
+                        if var_demand_node_pos[i, h] == 0:
+                            total_flow_node[i] += var_value_v1.x
+                        else:  # in any other case
+                            total_flow_node[i] += var_value_v2.x
 
-    path_nodes, _ = derive_from_optimum_repairs(G, m)
-    # if there are indication to what node repair, go with that, else, go with flow
-    if len(path_nodes) > 0:
-        for k in list(total_flow_node.keys()):
-            if k not in path_nodes:
-                del total_flow_node[k]
+                        if var_demand_node_pos[j, h] == 0:
+                            total_flow_node[j] += var_value_v2.x
+                        else:  # in any other case
+                            total_flow_node[j] += var_value_v1.x
+
+                        path_nodes.add(i)
+                        path_nodes.add(j)
+                        path_edges.add((i, j))
 
     # choose the node that has max flow
     max_flow_node, max_flow = None, -np.inf
-    for k in total_flow_node:
+    for k in total_flow_node:    # total_flow_node is empy when path nodes è vuoto o tutto funziona
         if total_flow_node[k] > max_flow:
             max_flow = total_flow_node[k]
             max_flow_node = k
 
-    if max_flow == 0:
-        return None
+    # print(max_flow_node, max_flow, path_nodes, total_flow_node)
+    if max_flow_node is None:
+        return None, path_nodes, path_edges
 
-    broken_flow_nodes = total_flow_node.keys()
-    print("broken to choose", max_flow_node, max_flow, broken_flow_nodes)
-    return max_flow_node
+    # broken_flow_nodes = total_flow_node.keys()
+    # print("broken to choose", max_flow_node, max_flow, broken_flow_nodes)
+    return max_flow_node, path_nodes, path_edges
 
 
 def derive_from_optimum_repairs(G, m):
@@ -224,14 +225,15 @@ def shortest_through_v(v, paths_tot):
 def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
     # set the infinite weight for the 0 capacity edges
 
-    if m is None:
-        return 0
     quantity = 0
-
     rep_nodes, rep_edges = [], []
+
+    if m is None:
+        return quantity, rep_nodes, rep_edges
+
     SGOut = get_supply_graph(G)
     for h, (d1, d2, _) in enumerate(get_demand_edges(G, is_check_unsatisfied=False, is_residual=False)):  # enumeration is coherent
-        SG = get_supply_graph(G)
+        SG = nx.DiGraph()
         for i, j, _ in SGOut.edges:
             var_value_v1 = m.getVarByName('flow_var_{}_{}_{}'.format(h, i, j)).x  # edge variable to check if > 0
             var_value_v2 = m.getVarByName('flow_var_{}_{}_{}'.format(h, j, i)).x  # edge variable to check if > 0
@@ -248,21 +250,20 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
                         rep_nodes += repn
                         rep_edges += repe
 
-                    SG.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.WEIGHT.value] = var_value_v1 + var_value_v2
-                else:
-                    SG.remove_edge(i, j)
-            else:
-                # print("disc", h, d1, d2, i, j, var_value_v1, var_value_v2, n1bro, n2bro, ebro)
-                SG.remove_edge(i, j)
+                    if var_value_v2 > 0:
+                        SG.add_edge(j, i, capacity=var_value_v2)
 
-        if nx.has_path(SG, d1, d2):
-            path = nx.shortest_path(SG, d1, d2, weight=co.ElemAttr.WEIGHT.value)
-            print(path, is_path_working(G, path))
-            pruned_quant = do_prune(G, path)
+                    if var_value_v1 > 0:
+                        SG.add_edge(i, j, capacity=var_value_v1)
+
+        if d1 in SG.nodes and d2 in SG.nodes and nx.has_path(SG, d1, d2):
+            pruned_quant, flow_edge = nx.maximum_flow(SG, d1, d2)
             demand_edges_routed_flow_pp[(d1, d2)] += pruned_quant
             quantity += pruned_quant
-        # print()
-
+            G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= pruned_quant
+            for n1 in flow_edge:
+                for n2 in flow_edge[n1]:
+                    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= flow_edge[n1][n2]
     return quantity, rep_nodes, rep_edges
 
 
@@ -411,11 +412,11 @@ def run_isr_st(config):
                 stats_list.append(stats)
                 continue
 
+            # find the best node to repair based on max flow
             r_rem_tot = get_residual_demand(G)
             values_of_v = []
             for v in paths_nodes:
-                _, endpoints = shortest_through_v(v,
-                                                  paths_tot)  # per MULTI commodity usare il nodo i che max sum_j fij + f(ji)
+                _, endpoints = shortest_through_v(v, paths_tot)  # per MULTI commodity usare il nodo i che max sum_j fij + f(ji)
                 f_rem_v = remaining_demand_endpoints(G, endpoints)
                 nv = f_rem_v / r_rem_tot
                 values_of_v.append(nv)
@@ -434,9 +435,9 @@ def run_isr_st(config):
                     stats["edge"] += rep_edges
                     stats["node"] += rep_nodes
 
+            # print residual edges
             res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
             monitor_nodes = gu.get_monitor_nodes(G)
-
             print("These are the residual demand edges:")
             print(len(res_demand_edges), res_demand_edges)
 
@@ -462,6 +463,7 @@ def run_isr_st(config):
 
 def run_isr_multi(config):
     G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter = run_header(config)
+    m, force_repair = None, False
 
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -488,6 +490,27 @@ def run_isr_multi(config):
                  "packet_monitoring": packet_monitor,
                  "demands_sat": demands_sat}
 
+        # PRUNING
+        quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
+        stats["edge"] += rep_edges
+        stats["node"] += rep_nodes
+        routed_flow += quantity
+        stats["flow"] = routed_flow
+
+        res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
+        monitor_nodes = gu.get_monitor_nodes(G)
+
+        reset_supply_edges(G)
+
+        print("These are the residual demand edges:")
+        print(len(res_demand_edges), res_demand_edges)
+
+        if len(res_demand_edges) == 0:
+            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+            stats_list.append(stats)
+            return stats_list
+
+        # OPTIM
         SG_edges = get_supply_graph(G).edges
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=False, is_residual=False)
@@ -505,55 +528,42 @@ def run_isr_multi(config):
         # vv = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
         # print("broken", len(vv), vv)
 
-        node_rep = derive_from_optimum_max_flow_node(G, var_demand_flows, var_demand_node_pos, supply_edges, m)
+        node_rep, path_nodes, path_edges = derive_from_optimum_max_flow_node(G, var_demand_flows, var_demand_node_pos, supply_edges, m)
         # todo break ties
 
-        # repair
+        print(node_rep, path_nodes, path_edges)
+
+        # paths_elements = set(path_nodes).union(set(path_edges))
+
         force_repair = False
-        if node_rep is not None:
+        if node_rep is None:
+            force_repair = True
+        else:
+            # repair
             rep_a = do_repair_node(G, node_rep)
             if rep_a is not None:
                 stats["edge"] += [rep_a]
 
-            for ed1, ed2 in supply_edges(G):
+            for ed1, ed2 in path_edges:
                 if node_rep in (ed1, ed2):
                     rep_nodes, rep_edges = do_repair_full_edge(G, ed1, ed2)
                     stats["edge"] += rep_edges
                     stats["node"] += rep_nodes
-        else:
-            force_repair = True
 
-        # pruning
-        quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
-        stats["edge"] += rep_edges
-        stats["node"] += rep_nodes
-        routed_flow += quantity
-        stats["flow"] = routed_flow
+        if node_rep is not None:
+            # add monitor to v_rep
+            if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+                monitors_stats |= {node_rep}
+                stats["monitors"] |= monitors_stats
 
-        res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-        monitor_nodes = gu.get_monitor_nodes(G)
-
-        print("These are the residual demand edges:")
-        print(len(res_demand_edges), res_demand_edges)
-
-        if len(res_demand_edges) == 0:
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
-            stats_list.append(stats)
-            return stats_list
-
-        # add monitor to v_rep
-        if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
-            monitors_stats |= {node_rep}
-            stats["monitors"] |= monitors_stats
-
-        # k-discovery
-        K = 2
-        SG = get_supply_graph(G)
-        reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=K)
-        for no in reach_k_paths:
-            discover_path_truth_limit_broken(G, reach_k_paths[no])
-            packet_monitor += 1
-            stats["packet_monitoring"] = packet_monitor
+            # k-discovery
+            K = 2
+            SG = get_supply_graph(G)
+            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=K)
+            for no in reach_k_paths:
+                discover_path_truth_limit_broken(G, reach_k_paths[no])
+                packet_monitor += 1
+                stats["packet_monitoring"] = packet_monitor
 
         demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
         stats_list.append(stats)
@@ -562,9 +572,9 @@ def run_isr_multi(config):
 
 def run(config):
 
-    if config.algo_name == co.AlgoName.ISR:
+    if config.algo_name == co.Algorithm.ISR_SP:
         return run_isr_st(config)
-    elif config.algo_name == co.AlgoName.ISR_MULTICOM:
+    elif config.algo_name == co.Algorithm.ISR_MULTICOM:
         return run_isr_multi(config)
     else:
         exit()
