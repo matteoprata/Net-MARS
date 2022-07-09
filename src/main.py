@@ -202,7 +202,7 @@ def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_parallel
     rep_mode = algo_name.value[co.AlgoAttributes.REPAIRING_PATH]
     pick_mode = algo_name.value[co.AlgoAttributes.PICKING_PATH]
     monitor_placement = algo_name.value[co.AlgoAttributes.MONITOR_PLACEMENT]
-    monitoring_type = algo_name.value[co.AlgoAttributes.PRIOR_KNOWLEDGE]
+    monitoring_type = algo_name.value[co.AlgoAttributes.MONITORING_TYPE]
 
     __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_parallel)
 
@@ -342,17 +342,18 @@ def parallel_exec(seeds):
 
 
 def single_exec():
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-                  co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
+    #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
+    BENCHMARKS = [co.Algorithm.ISR_MULTICOM]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 99,
+            co.IndependentVariable.SEED: 700,
             co.IndependentVariable.PROB_BROKEN: 0.5,
             co.IndependentVariable.MONITOR_BUDGET: 16,
-            co.IndependentVariable.N_DEMAND_EDGES: 5,  # or nodes
-            co.IndependentVariable.FLOW_DEMAND: 11,
-            co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
+            co.IndependentVariable.N_DEMAND_EDGES: 8,  # or nodes
+            co.IndependentVariable.FLOW_DEMAND: 15,
+            co.IndependentVariable.IND_VAR: co.IndependentVariable.FLOW_DEMAND,
             co.IndependentVariable.ALGORITHM: algo
         }
         run_single(*exec_config.values(), False)
@@ -365,8 +366,8 @@ def initializer():
 
 if __name__ == '__main__':
 
-    # for i in range(700, 800):
-    #     seeds = [i]
+    # for i in range(704, 800, 3):
+    #     seeds = [i, i+1, i+2]
     #     parallel_exec(seeds)
 
     single_exec()

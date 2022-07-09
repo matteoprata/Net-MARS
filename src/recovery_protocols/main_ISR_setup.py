@@ -553,6 +553,7 @@ def run_isr_multi(config):
         if node_rep is not None:
             # add monitor to v_rep
             if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+                G.nodes[node_rep][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {node_rep}
                 stats["monitors"] |= monitors_stats
 

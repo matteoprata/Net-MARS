@@ -333,8 +333,6 @@ def run_shp_multi(config):
         stats["flow"] = routed_flow
 
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-        monitor_nodes = gu.get_monitor_nodes(G)
-
         reset_supply_edges(G)
 
         print("These are the residual demand edges:")
@@ -373,8 +371,11 @@ def run_shp_multi(config):
 
         if len(rep_nodes) > 0:
             # add monitor to v_rep
+            monitor_nodes = gu.get_monitor_nodes(G)
             if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
-                monitors_stats |= {rep_nodes[0]}
+                moni = rep_nodes[0]
+                G.nodes[moni][co.ElemAttr.IS_MONITOR.value] = True
+                monitors_stats |= {moni}
                 stats["monitors"] |= monitors_stats
 
             # k-discovery

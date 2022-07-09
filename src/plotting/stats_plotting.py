@@ -12,6 +12,7 @@ from src import main as ma
 import src.constants as co
 from itertools import combinations
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy.stats import sem
 
 np.set_printoptions(suppress=True)
 
@@ -92,13 +93,22 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
                 df = df[typep]
-                datas[0, si, ai, pi] = df.iloc[0]
+                datas[0, si, ai, pi] = df.iloc[0]  # 1, SEED, ALGO, VARIABILE
 
     plt.figure(figsize=(10, 8))
 
-    for i, _ in enumerate(algos):
-        avg_val = datas.mean(axis=1)
-        plt.plot(X_vals, avg_val[0, i, :], label=algo_names[i])
+    # ALGO 1: VAR 1:
+    # s1: [1,2,3,4,5]
+    # s2: [55,66,77,88]
+
+    for i, algo_en in enumerate(algos):
+        avg_val = datas.mean(axis=1)  # 1, ALGO, VAR
+        # print(datas[0, :, i, :])
+        # print(sem(datas[0, :, i, :]))
+        # print(np.std(datas[0, :, i, :], axis=0))
+        # exit()
+        plt.errorbar(X_vals, avg_val[0, i, :], yerr=np.std(datas[0, :, i, :]), label=algo_names[i],
+                     marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
 
     plt.legend()
     plt.title(title)
@@ -281,7 +291,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 plt.ylabel("Flow Difference")
                 plt.xlabel("Repair Steps")
     else:
-        for i, _ in enumerate(algos):
+        for i, algo_en in enumerate(algos):
             front = FRONTIER
             # np.set_printoptions(precision=2)
             # print(datas.sum(axis=0))
@@ -306,8 +316,11 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
             y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
             std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
+            ste_y_plot = sem(RAW_DATA.max(axis=0)[:, i, :] / MAX_TOTAL_FLOW) if plot_type == 1 else sem(RAW_DATA.sum(axis=0)[:, i, :] / (front * MAX_FLOW_STEPS))
 
-            plt.plot(X_var, y_plot[i], label=algo_names[i])
+            # plt.plot(X_var, y_plot[i], label=algo_names[i])
+            plt.errorbar(X_var, y_plot[i], yerr=ste_y_plot, label=algo_names[i],
+                         marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
             plt.xticks(X_var)
             # plt.fill_between(X_var, y_plot[i] - std_y_plot[i], y_plot[i] + std_y_plot[i], alpha=0.2)
         plt.ylabel("Total Flow" if plot_type else "Cumulative Flow")
@@ -462,7 +475,117 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
         return
 
     for i, _ in enumerate(algos):
-        plt.plot(X_vals, plot_times[i], label=algo_names[i])
+        # plt.plot(X_vals, plot_times[i], label=algo_names[i])
+        plt.errorbar(X_vals, plot_times[i], label=algo_names[i], fillstyle='none')
+        plt.xticks(X_vals)
+
+    plt.xlabel(Xlabels[x_position])
+    plt.legend()
+    plt.grid(alpha=.4)
+    out_fig.savefig()  # saves the current figure into a pdf page
+    plt.close()
+
+
+def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_dem_edges, plot_type, algo_names, out_fig):
+
+    path_prefix = source + "{}"
+    Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow", 3: "Monitors"}
+
+    MAX_N_REPAIRS = 200
+    MAX_N_DEMANDS = max(n_dem_edges)
+    FRONTIER_IND_X = np.ones(len(X_vals)) * -np.inf
+
+    datas = np.zeros(shape=(MAX_N_REPAIRS, MAX_N_DEMANDS, len(seeds_values), len(algos), len(X_vals)))
+
+    for ai, al in enumerate(algos):
+        algo = al.value[co.AlgoAttributes.NAME]
+        for pi, pbro in enumerate(X_vals):
+            for si, ss in enumerate(seeds_values):
+                if x_position == 0:
+                    # varying probs
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        config.n_demand_pairs,
+                        int(config.demand_capacity),
+                        config.supply_capacity,
+                        algo,
+                        config.monitors_budget,
+                        pbro,
+                        config.experiment_ind_var.value[0])
+
+                elif x_position == 1:
+                    # vary pairs
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        pbro,
+                        int(config.demand_capacity),
+                        config.supply_capacity,
+                        algo,
+                        config.monitors_budget,
+                        config.destruction_quantity,
+                        config.experiment_ind_var.value[0])
+
+                elif x_position == 2:
+                    # varying flow pp
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        config.n_demand_pairs,
+                        int(pbro),
+                        config.supply_capacity,
+                        algo,
+                        config.monitors_budget,
+                        config.destruction_quantity,
+                        config.experiment_ind_var.value[0])
+
+                elif x_position == 3:
+                    # varying flow pp
+                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                        ss,
+                        config.graph_dataset.name,
+                        config.n_demand_pairs,
+                        int(config.demand_capacity),
+                        config.supply_capacity,
+                        algo,
+                        pbro,
+                        config.destruction_quantity,
+                        config.experiment_ind_var.value[0])
+
+                path = path_prefix.format(regex_fname)
+                df = pd.read_csv(path)
+                df = df.iloc[:, -MAX_N_DEMANDS:]
+
+                if FRONTIER_IND_X[pi] < df.shape[0]:
+                    FRONTIER_IND_X[pi] = df.shape[0]
+
+                df_len = df.shape[0]
+                assert (df_len <= MAX_N_REPAIRS)
+                # datas = np.empty(shape=(MAX_N_REPAIRS, len(n_dem_edges), len(seeds_values), len(algos), len(X_vals)))
+                n_dems = n_dem_edges[pi] if x_position == 1 else n_dem_edges[0]
+                datas[:df_len, :n_dems, si, ai, pi] = df.values[:, -n_dems:]
+
+    # avg sees, accumulate flows
+    data_cum = datas  # np.cumsum(datas, axis=0)     # MAX, DEMS, SEEDS, ALGO, IND_X
+    # data_cum = np.mean(data_cum, axis=2)  # MAX, DEMS, ALGO, IND_X
+    # print(data_cum[:, :,0,3,0])
+    # exit()
+
+    plt.figure(figsize=(10, 8))
+    plt.ylabel("Cumulated Time")
+    sum_flow = np.max(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
+    times = np.argmax(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
+    times = times + (sum_flow == 0) * FRONTIER_IND_X
+    times = times + (sum_flow > 0) * 1
+
+    complement = np.zeros(times.shape) + FRONTIER_IND_X
+    plot_times = np.sum(complement - times, axis=0) / (FRONTIER_IND_X * data_cum.shape[1])  # SEEDS, ALGO, IND_X
+
+    for i, algo_en in enumerate(algos):
+        # plt.plot(X_vals, plot_times[i], label=algo_names[i])
+        plt.errorbar(X_vals, np.mean(plot_times[:, i, :], axis=0), yerr=sem(plot_times[:, i, :]), label=algo_names[i],
+                     marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')  # front: SEEDS, ALGO, IND_X
         plt.xticks(X_vals)
 
     plt.xlabel(Xlabels[x_position])
@@ -572,12 +695,12 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
 def plotting_data():
     config = ma.setup_configuration()
 
-    dis_uni = {0: [.5],
+    dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .5,
                2: .5,
                3: .5}
 
-    npairs = {0: 5,
+    npairs = {0: 8,
               1: [5, 6, 7, 8, 9, 10],
               2: 8,
               3: 8}
@@ -594,12 +717,14 @@ def plotting_data():
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               #1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               #2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               #3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    seeds = [99]
+    seeds = set(range(700, 795))
+    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
+              758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
     print("Using", len(seeds), seeds)
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
@@ -667,9 +792,7 @@ def plotting_data():
             plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
             ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
-            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf)
-            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=1, algo_names=algo_names, out_fig=pdf)
-            plot_Xvar_Ydems(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=2, algo_names=algo_names, out_fig=pdf)
+            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf)
 
 
 if __name__ == '__main__':

@@ -112,8 +112,9 @@ class AlgoAttributes(Enum):
     REPAIRING_PATH = "ProtocolRepairingPath"
     PICKING_PATH = "ProtocolPickingPath"
     MONITOR_PLACEMENT = "ProtocolMonitorPlacement"
-    PRIOR_KNOWLEDGE = "PriorKnowledge"
+    MONITORING_TYPE = "PriorKnowledge"
     NAME = "name"
+    PLOT_MARKER = "marker"
 
 
 class Algorithm(Enum):
@@ -121,34 +122,44 @@ class Algorithm(Enum):
                   AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
                   AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
                   AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
-                  AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.TOMOGRAPHY
+                  AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
+                  AlgoAttributes.PLOT_MARKER: "D",
                   }
 
     ORACLE = {AlgoAttributes.NAME: "ORACLE",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.ORACLE,
-              AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.TOMOGRAPHY
+              AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
+              AlgoAttributes.PLOT_MARKER: "o",
               }
 
     ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
                AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.SHORTEST_MINUS,
                AlgoAttributes.PICKING_PATH: ProtocolPickingPath.RANDOM,
                AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
-               AlgoAttributes.PRIOR_KNOWLEDGE: PriorKnowledge.DUNNY_IP
+               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.DUNNY_IP,
+               AlgoAttributes.PLOT_MARKER: "v",
                }
 
     _ignore_ = ['_dict']
     _dict = {AlgoAttributes.REPAIRING_PATH: None,
              AlgoAttributes.PICKING_PATH: None,
              AlgoAttributes.MONITOR_PLACEMENT: None,
-             AlgoAttributes.PRIOR_KNOWLEDGE: None
+             AlgoAttributes.MONITORING_TYPE: None
              }
 
-    CEDAR = {**{AlgoAttributes.NAME: "CEDAR"}, **_dict}
-    SHP = {**{AlgoAttributes.NAME: "SHP"}, **_dict}
-    ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP"}, **_dict}
-    ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM"}, **_dict}
+    CEDAR = {**{AlgoAttributes.NAME: "CEDAR",
+                AlgoAttributes.PLOT_MARKER: "s"}, **_dict}
+
+    SHP = {**{AlgoAttributes.NAME: "SHP",
+              AlgoAttributes.PLOT_MARKER: "p"}, **_dict}
+
+    ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP",
+                 AlgoAttributes.PLOT_MARKER: ">"}, **_dict}
+
+    ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM",
+                       AlgoAttributes.PLOT_MARKER: "<"}, **_dict}
 
 
 class IndependentVariable(Enum):
