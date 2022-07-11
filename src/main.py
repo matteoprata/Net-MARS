@@ -345,10 +345,10 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.ISR_MULTICOM]
+    BENCHMARKS = [co.Algorithm.CEDAR]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 700,
+            co.IndependentVariable.SEED: 1703,
             co.IndependentVariable.PROB_BROKEN: 0.5,
             co.IndependentVariable.MONITOR_BUDGET: 16,
             co.IndependentVariable.N_DEMAND_EDGES: 8,  # or nodes
@@ -366,8 +366,18 @@ def initializer():
 
 if __name__ == '__main__':
 
-    # for i in range(704, 800, 3):
-    #     seeds = [i, i+1, i+2]
-    #     parallel_exec(seeds)
+    # STEP = 3
+    # s_seed, e_seed = 700, 800
+    #
+    # seeds = set(range(s_seed, e_seed))
+    # # seeds to ignore
+    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
+    #           758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+    # seeds = list(seeds)
+    #
+    # print(seeds)
+    # for i in range(0, len(seeds), STEP):
+    #     runs = seeds[i:i+STEP]
+    #     parallel_exec(runs)
 
     single_exec()

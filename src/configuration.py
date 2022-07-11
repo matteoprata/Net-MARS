@@ -12,7 +12,7 @@ class Configuration:
         self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
 
-        self.destruction_show_plot = False
+        self.destruction_show_plot = True
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
@@ -23,7 +23,7 @@ class Configuration:
         self.n_destruction = 2
 
         self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
-        self.supply_capacity = (80, 80)
+        self.supply_capacity = (80, 81)
 
         # clique world
         self.is_demand_clique = True
@@ -41,7 +41,9 @@ class Configuration:
         self.monitors_budget_residual = None
         self.monitoring_messages_budget = np.inf
 
-        self.n_backbone_pairs = 0
+        self.is_minnesota_backbone_on = True
+        self.backbone_capacity = 320
+        # self.n_backbone_pairs = 0
         self.percentage_flow_backbone = 1  # increase in flow quantity
 
         self.repairing_mode = None  # co.ProtocolRepairingPath.MIN_COST_BOT_CAP

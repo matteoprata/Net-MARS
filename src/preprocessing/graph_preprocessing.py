@@ -62,7 +62,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
             elements_val_id[(n1, n2)] = element_id
             elements_val_id[(n2, n1)] = element_id
             elements_id_val[element_id] = (n1, n2)
-            supply_capacity_rand = config.supply_capacity[0]  # config.rand_generator_capacities.randint(*config.supply_capacity)
+            supply_capacity_rand = config.rand_generator_capacities.randint(*config.supply_capacity)
             G.add_edges_from([(n1, n2, co.EdgeType.SUPPLY.value, {co.ElemAttr.STATE_TRUTH.value: co.NodeState.WORKING.value,  # unobservable state
                                                                   co.ElemAttr.CAPACITY.value: supply_capacity_rand,
                                                                   co.ElemAttr.RESIDUAL_CAPACITY.value: supply_capacity_rand,
@@ -75,10 +75,20 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   })])
 
     # ADD the backbones!
-    if config.n_backbone_pairs > 0:
-        place_backbone(G, config)
+    if config.graph_dataset == co.GraphName.MINNESOTA and config.is_minnesota_backbone_on:
+        place_static_backbone(G, co.MINNESOTA_STP_BACKBONE, config.backbone_capacity)
 
     return G, elements_val_id, elements_id_val
+
+
+def place_static_backbone(G, path_edges, backbone_capacity):
+    SG = grau.get_supply_graph(G)
+    for na, nb in path_edges:
+        path = nx.shortest_path(SG, na, nb)
+        for i in range(len(path)-1):
+            ea, eb = grau.make_existing_edge(G, path[i], path[i+1])
+            G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_capacity
+            G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_capacity
 
 
 def place_backbone(G, config):

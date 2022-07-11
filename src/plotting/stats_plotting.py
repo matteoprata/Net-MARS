@@ -35,7 +35,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     path_prefix = source + "{}"
 
     Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow", 3: "Monitors"}
-    datas = np.empty(shape=(1, len(seeds_values), len(algos), len(X_vals)))
+    datas = np.empty(shape=(len(seeds_values), len(algos), len(X_vals)))
 
     for ai, al in enumerate(algos):
         algo = al.value[co.AlgoAttributes.NAME]
@@ -93,7 +93,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)
                 df = df[typep]
-                datas[0, si, ai, pi] = df.iloc[0]  # 1, SEED, ALGO, VARIABILE
+                datas[si, ai, pi] = df.iloc[0]  # SEED, ALGO, VARIABILE
 
     plt.figure(figsize=(10, 8))
 
@@ -102,12 +102,8 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     # s2: [55,66,77,88]
 
     for i, algo_en in enumerate(algos):
-        avg_val = datas.mean(axis=1)  # 1, ALGO, VAR
-        # print(datas[0, :, i, :])
-        # print(sem(datas[0, :, i, :]))
-        # print(np.std(datas[0, :, i, :], axis=0))
-        # exit()
-        plt.errorbar(X_vals, avg_val[0, i, :], yerr=np.std(datas[0, :, i, :]), label=algo_names[i],
+        avg_val = datas.mean(axis=0)  # ALGO, VAR
+        plt.errorbar(X_vals, avg_val[i, :], yerr=sem(datas[:, i, :]), label=algo_names[i],
                      marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
 
     plt.legend()
@@ -722,7 +718,7 @@ def plotting_data():
                3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    seeds = set(range(700, 795))
+    seeds = set(range(700, 800))
     seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
               758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
     print("Using", len(seeds), seeds)
@@ -739,7 +735,7 @@ def plotting_data():
         for i, (name, vals) in ind_var.items():
             print("Now varying", name.name, "as", vals[i])
 
-            config.supply_capacity = (80, 80)
+            config.supply_capacity = (80, 81)
             PERC_DESTRUCTION = -1
 
             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
