@@ -114,6 +114,7 @@ def run(config):
 
             d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
             demand_edges_routed_flow_pp[d_edge] += quantity_pruning
+            stats["flow"] = routed_flow
         else:
             if len(get_monitor_nodes(G)) < config.monitors_budget:
                 v = best_centrality_node(G)

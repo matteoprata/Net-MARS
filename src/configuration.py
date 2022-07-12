@@ -7,12 +7,12 @@ class Configuration:
     def __init__(self):
         self.seed = None
 
-        self.mute_log = False
+        self.is_log = False
         self.algo_name = None
         self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
 
-        self.destruction_show_plot = True
+        self.destruction_show_plot = False
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
@@ -62,7 +62,7 @@ class Configuration:
         self.protocol_monitor_placement = None  # co.ProtocolMonitorPlacement.STEP_BY_STEP
         self.is_exhaustive_paths = False
 
-        self.force_recompute = False
+        self.force_recompute = True
         self.log_execution_details = True
 
     def n_edges_given_n_nodes(self, n_nodes):

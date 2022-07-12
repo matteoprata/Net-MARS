@@ -437,12 +437,13 @@ def run_isr_st(config):
 
             # print residual edges
             res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-            monitor_nodes = gu.get_monitor_nodes(G)
             print("These are the residual demand edges:")
             print(len(res_demand_edges), res_demand_edges)
 
             # add monitor to v_rep
+            monitor_nodes = gu.get_monitor_nodes(G)
             if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+                G.nodes[node_rep][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {node_rep}
                 stats["monitors"] |= monitors_stats
 
@@ -498,8 +499,6 @@ def run_isr_multi(config):
         stats["flow"] = routed_flow
 
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-        monitor_nodes = gu.get_monitor_nodes(G)
-
         reset_supply_edges(G)
 
         print("These are the residual demand edges:")
@@ -552,6 +551,7 @@ def run_isr_multi(config):
 
         if node_rep is not None:
             # add monitor to v_rep
+            monitor_nodes = gu.get_monitor_nodes(G)
             if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
                 G.nodes[node_rep][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {node_rep}
@@ -572,10 +572,9 @@ def run_isr_multi(config):
 
 
 def run(config):
-
-    if config.algo_name == co.Algorithm.ISR_SP:
+    if config.algo_name in [co.Algorithm.ISR_SP, co.Algorithm.ISR_SP_MONITOR]:
         return run_isr_st(config)
-    elif config.algo_name == co.Algorithm.ISR_MULTICOM:
+    elif config.algo_name in [co.Algorithm.ISR_MULTICOM, co.Algorithm.ISR_MULTICOM_MONITOR]:
         return run_isr_multi(config)
     else:
         exit()

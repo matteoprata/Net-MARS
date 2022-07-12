@@ -7,8 +7,8 @@ import random
 from src.utilities import util
 
 import src.constants as co
-from src.constants import EdgeType
 from collections import defaultdict
+
 
 # 1 -- complete_destruction
 def complete_destruction(graph):

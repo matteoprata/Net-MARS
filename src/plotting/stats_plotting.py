@@ -95,7 +95,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                 df = df[typep]
                 datas[si, ai, pi] = df.iloc[0]  # SEED, ALGO, VARIABILE
 
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 6))
 
     # ALGO 1: VAR 1:
     # s1: [1,2,3,4,5]
@@ -118,6 +118,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
     # print(out)
     # plt.savefig(plot_name[typep] + str(time.time()) + ".png")
     # plt.show()
+    plt.tight_layout()
     out_fig.savefig()  # saves the current figure into a pdf page
     plt.close()
 
@@ -182,7 +183,17 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)["flow_cum"]
+
+                df_rep = pd.read_csv(path)["repairs"]
+                is_rep = 1 - df_rep.isnull() * 1
+                is_rep.iloc[-1] = 1
+                # print(df)
+                # print(is_rep)
+                # print(np.where(is_rep > 0))
+
+                df = df[np.where(is_rep > 0)[0]]
                 df_len = df.shape[0]
+
                 assert(df_len <= MAX_STEPS)
                 datas[:df_len, k, i, j] = df.values
 
@@ -223,6 +234,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         pad = int(MAX_STEPS - front)
         datas[front:, :, i] = np.zeros(shape=(pad, datas.shape[1]))
 
+    # print(FRONTIER)
+    # exit()
     # DONE TRUNCATE
 
     # sum_flows = (datas.sum(axis=0) / MAX_FLOW_STEPS)
@@ -261,7 +274,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     # y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
     # std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
     #
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 6))
 
     # -------------------- PLOT NOW
     if plot_type == 2:
@@ -327,6 +340,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     plt.grid(alpha=.4)
     # plt.savefig("flow" + str(time.time()) + ".png")
     # plt.show()
+    plt.tight_layout()
     out_fig.savefig()  # saves the current figure into a pdf page
     plt.close()
 
@@ -444,7 +458,7 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
         FRONTIER = FRONTIER + 2
         return FRONTIER
 
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 6))
 
     if plot_type == 0:
         plot_times = find_agreement_bottom()
@@ -478,11 +492,12 @@ def plot_Xvar_Ydems(source, config, seeds_values, X_vals, algos, x_position, n_d
     plt.xlabel(Xlabels[x_position])
     plt.legend()
     plt.grid(alpha=.4)
+    plt.tight_layout()
     out_fig.savefig()  # saves the current figure into a pdf page
     plt.close()
 
 
-def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_dem_edges, plot_type, algo_names, out_fig):
+def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_dem_edges, plot_type, algo_names, out_fig, title):
 
     path_prefix = source + "{}"
     Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow", 3: "Monitors"}
@@ -568,7 +583,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
     # print(data_cum[:, :,0,3,0])
     # exit()
 
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 6))
     plt.ylabel("Cumulated Time")
     sum_flow = np.max(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
     times = np.argmax(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
@@ -586,7 +601,9 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
     plt.xlabel(Xlabels[x_position])
     plt.legend()
+    plt.title(title)
     plt.grid(alpha=.4)
+    plt.tight_layout()
     out_fig.savefig()  # saves the current figure into a pdf page
     plt.close()
 
@@ -665,7 +682,7 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
     # shape=(NORM_MAX_FLOW_STEPS, len(seeds_values), len(algos), len(X_var))
     avg_sum_flows = data_repairs.mean(axis=1)
 
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(6, 6))
 
     if fixed_percentage:
         avg_sum_flows = avg_sum_flows[:, :, fixed_percentage]  # fix a destruction
@@ -706,29 +723,36 @@ def plotting_data():
               2: [5, 7, 9, 11, 13, 15],
               3: 11}
 
-    monitor_bud = {0: 16,
-                   1: 16,
-                   2: 16,
+    monitor_bud = {0: np.inf,
+                   1: np.inf,
+                   2: np.inf,
                    3: [16, 18, 20, 22, 24, 26]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
                1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
                2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+               # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    seeds = set(range(700, 800))
+    seeds = set(range(700, 790))
     seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
-              758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+              758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
+    seeds -= {784, 702, 732, 747, 751, 775, 781, 793}  # no limit budget
+    # seeds -= {706, 711, 730, 772, 737}
     print("Using", len(seeds), seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-                  co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
+    #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_MONITOR, co.Algorithm.CEDAR_MONITOR,
+                  co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.SHP_MONITOR,
+                  co.Algorithm.ISR_SP_MONITOR
+                  ]
 
     algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
 
-    source = "data/experiments/"
+    source = co.PATH_EXPERIMENTS
     OUTLIERS = 0
 
     with PdfPages('multipage_pdf.pdf') as pdf:
@@ -778,8 +802,8 @@ def plotting_data():
                 plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
                                                                                       config.n_demand_pairs, config.demand_capacity, "*")
 
-            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
             plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
             plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
             plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
 
@@ -788,9 +812,8 @@ def plotting_data():
             plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
             ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
-            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf)
+            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
 
 if __name__ == '__main__':
     plotting_data()
-    # plt_simple()

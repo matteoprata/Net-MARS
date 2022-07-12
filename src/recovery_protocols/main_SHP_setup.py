@@ -393,10 +393,7 @@ def run_shp_multi(config):
 
 
 def run(config):
-    if config.algo_name == co.Algorithm.SHP:
-        return run_shp_multi(config)
-    else:
-        exit()
+    return run_shp_multi(config)
 
 
 def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):

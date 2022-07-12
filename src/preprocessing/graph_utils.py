@@ -36,7 +36,7 @@ def get_supply_graph_diameter(SG):
 
 
 def get_supply_max_capacity(config):
-    return config.supply_capacity[0] * (1 + config.percentage_flow_backbone)
+    return max(config.supply_capacity[1]-1, config.backbone_capacity)   # TODO careful
 
 
 def get_demand_nodes(G, is_residual=False):

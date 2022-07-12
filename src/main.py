@@ -80,12 +80,17 @@ def save_stats_monotonous(stats, fname):
         df["d-" + str(k)] = demand_pairs[k]
 
     print("saving stats > {}".format(fname))
-    df.to_csv("data/experiments/{}".format(fname))
+    if os.path.exists(co.PATH_EXPERIMENTS):
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
+    else:
+        os.makedirs(co.PATH_EXPERIMENTS)
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
     return df
 
 
 def save_stats_NON_monotonous(stats, fname):
     """ saving number of repairs and flow routed """
+
     for i in stats:
         print(i)
 
@@ -144,8 +149,11 @@ def save_stats_NON_monotonous(stats, fname):
     for k in demand_pairs:
         df["d-" + str(k)] = demand_pairs[k]
 
-    print("saving stats > {}".format(fname))
-    df.to_csv("data/experiments/{}".format(fname))
+    if os.path.exists(co.PATH_EXPERIMENTS):
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
+    else:
+        os.makedirs(co.PATH_EXPERIMENTS)
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
     return df
 
 
@@ -198,22 +206,25 @@ def fname_formation():
     return fname
 
 
-def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_parallel=False):
-    rep_mode = algo_name.value[co.AlgoAttributes.REPAIRING_PATH]
-    pick_mode = algo_name.value[co.AlgoAttributes.PICKING_PATH]
-    monitor_placement = algo_name.value[co.AlgoAttributes.MONITOR_PLACEMENT]
-    monitoring_type = algo_name.value[co.AlgoAttributes.MONITORING_TYPE]
+def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_log=False):
+    algo_name_o = co.Algorithm[algo_name]
+    rep_mode = algo_name_o.value[co.AlgoAttributes.REPAIRING_PATH]
+    pick_mode = algo_name_o.value[co.AlgoAttributes.PICKING_PATH]
+    monitor_placement = algo_name_o.value[co.AlgoAttributes.MONITOR_PLACEMENT]
+    monitoring_type = algo_name_o.value[co.AlgoAttributes.MONITORING_TYPE]
 
-    __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_parallel)
+    __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log)
 
 
-def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_parallel=False):
+def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log=False):
     global config
     config = setup_configuration()
 
-    config.algo_name = algo_name
+    algo_name_o = co.Algorithm[algo_name]
+    config.algo_name = algo_name_o
+
     config.experiment_ind_var = indvar
-    config.mute_log = is_parallel
+    config.is_log = is_log
     config.seed = seed
     config.destruction_quantity = dis
 
@@ -224,7 +235,13 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
     config.rand_generator_capacities = np.random.RandomState(config.seed)
     config.rand_generator_path_choice = np.random.RandomState(config.seed)
 
-    config.monitors_budget = budget  # this will be set to the max between budget and number of nodes
+    config.protocol_monitor_placement = monitor_placement
+    if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.ORACLE:
+        config.is_oracle_baseline = True
+    elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE:
+        config.monitors_budget = np.inf  # this will be set to the max between budget and number of nodes
+    else:
+        config.monitors_budget = budget  # this will be set to the max between budget and number of nodes
     config.monitors_budget_residual = config.monitors_budget
 
     if config.is_demand_clique:
@@ -238,37 +255,29 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
     config.repairing_mode = rep_mode
     config.picking_mode = pick_mode
 
-    config.protocol_monitor_placement = monitor_placement
-    if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.ORACLE:
-        config.is_oracle_baseline = True
-
     config.monitoring_type = monitoring_type
     config_details = print_configuration(config)
 
     fname = fname_formation()
 
-    if config.force_recompute or not os.path.exists("data/experiments/" + fname):
+    if config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname):
         print()
         # print("NOW running...\n\n", config_details)
         print("exec name > ", fname)
 
         set_seeds(config.seed)
 
-        if config.mute_log:
+        if not config.is_log:
             disable_print()
 
-        if config.algo_name in [co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]:
-            stats = main_stocedar_setup.run(config)
-        elif config.algo_name == co.Algorithm.CEDAR:
-            stats = main_cedar_setup.run(config)
-        elif config.algo_name == co.Algorithm.SHP:
-            stats = main_shp_setup.run(config)
-        else:
-            stats = main_tomocedar_setup.run(config)
+        # RUNNING
+        stats = config.algo_name.value[co.AlgoAttributes.EXEC].run(config)
+
         enable_print()
 
         if stats is not None:
-            if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
+            if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM,
+                                    co.Algorithm.SHP_MONITOR, co.Algorithm.ISR_MULTICOM_MONITOR]:
                 df = save_stats_NON_monotonous(stats, fname)
             else:
                 df = save_stats_monotonous(stats, fname)
@@ -278,7 +287,7 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
         print("THIS already existed...\n", fname, "\n")
 
 
-def parallel_exec(seeds):
+def parallel_exec(seeds, algorithms, is_log=False):
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .5,
@@ -295,20 +304,17 @@ def parallel_exec(seeds):
               2: [5, 7, 9, 11, 13, 15],
               3: 11}
 
-    monitor_bud = {0: 16,
-                   1: 16,
-                   2: 16,
+    monitor_bud = {0: np.inf, # 16
+                   1: np.inf,
+                   2: np.inf,
                    3: [16, 18, 20, 22, 24, 26]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
                1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
                2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+               # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
-
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-                  co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
     processes = []
     for seed in seeds:
@@ -317,7 +323,7 @@ def parallel_exec(seeds):
             for iv in ind_variable_values:
                 ind_var[k][1][k] = iv
 
-                for algo_bench in BENCHMARKS:
+                for algo_bench in algorithms:
                     exec_config = {
                         co.IndependentVariable.SEED: seed,
                         co.IndependentVariable.PROB_BROKEN: dis_uni[k],
@@ -325,10 +331,9 @@ def parallel_exec(seeds):
                         co.IndependentVariable.N_DEMAND_EDGES: npairs[k],  # or nodes
                         co.IndependentVariable.FLOW_DEMAND: flowpp[k],
                         co.IndependentVariable.IND_VAR: ind_var[k][0],
-                        co.IndependentVariable.ALGORITHM: algo_bench
+                        co.IndependentVariable.ALGORITHM: algo_bench.name
                     }
-                    processes.append(list(exec_config.values()) + [True])
-
+                    processes.append(list(exec_config.values()) + [is_log])
             ind_var[k][1][k] = ind_variable_values  # reset
 
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
@@ -345,18 +350,18 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.CEDAR]
+    BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 1703,
+            co.IndependentVariable.SEED: 702,
             co.IndependentVariable.PROB_BROKEN: 0.5,
-            co.IndependentVariable.MONITOR_BUDGET: 16,
-            co.IndependentVariable.N_DEMAND_EDGES: 8,  # or nodes
-            co.IndependentVariable.FLOW_DEMAND: 15,
-            co.IndependentVariable.IND_VAR: co.IndependentVariable.FLOW_DEMAND,
-            co.IndependentVariable.ALGORITHM: algo
+            co.IndependentVariable.MONITOR_BUDGET: np.inf,
+            co.IndependentVariable.N_DEMAND_EDGES: 5,  # or nodes
+            co.IndependentVariable.FLOW_DEMAND: 11,
+            co.IndependentVariable.IND_VAR: co.IndependentVariable.N_DEMAND_EDGES,
+            co.IndependentVariable.ALGORITHM: algo.name
         }
-        run_single(*exec_config.values(), False)
+        run_single(*exec_config.values(), True)
 
 
 def initializer():
@@ -368,16 +373,22 @@ if __name__ == '__main__':
 
     # STEP = 3
     # s_seed, e_seed = 700, 800
-    #
     # seeds = set(range(s_seed, e_seed))
     # # seeds to ignore
-    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
-    #           758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
+    #           760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
     # seeds = list(seeds)
     #
-    # print(seeds)
+    # # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
+    # #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+    #
+    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
+    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR
+    #               ]
     # for i in range(0, len(seeds), STEP):
-    #     runs = seeds[i:i+STEP]
-    #     parallel_exec(runs)
+    #
+    #     runs = seeds[i: i+STEP]
+    #     print("RUN", runs)
+    #     parallel_exec(runs, BENCHMARKS, is_log=False)
 
     single_exec()

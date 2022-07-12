@@ -1,6 +1,9 @@
 from enum import Enum
 import multiprocessing
-
+import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
+import src.recovery_protocols.main_ISR_setup as main_ISR_setup
+import src.recovery_protocols.main_cedar_setup as main_cedar_setup
+import src.recovery_protocols.main_SHP_setup as main_SHP_setup
 
 class GraphName(Enum):
     PALMETTO = "PALMETTO.gml"
@@ -103,6 +106,7 @@ class ProtocolPickingPath(Enum):
 class ProtocolMonitorPlacement(Enum):
     STEP_BY_STEP = 0
     BUDGET_W_REPLACEMENT = 1
+    STEP_BY_STEP_INFINITE = 6
     BUDGET = 4
     ORACLE = 3
     NONE = 5
@@ -115,6 +119,7 @@ class AlgoAttributes(Enum):
     MONITORING_TYPE = "PriorKnowledge"
     NAME = "name"
     PLOT_MARKER = "marker"
+    EXEC = "exec"
 
 
 class Algorithm(Enum):
@@ -124,7 +129,17 @@ class Algorithm(Enum):
                   AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
                   AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
                   AlgoAttributes.PLOT_MARKER: "D",
+                  AlgoAttributes.EXEC: main_tomocedar_setup
                   }
+
+    TOMO_CEDAR_MONITOR = {AlgoAttributes.NAME: "TOMO_CEDAR_MONITOR",
+                          AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                          AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
+                          AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
+                          AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
+                          AlgoAttributes.PLOT_MARKER: "D",
+                          AlgoAttributes.EXEC: main_tomocedar_setup
+                          }
 
     ORACLE = {AlgoAttributes.NAME: "ORACLE",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
@@ -132,6 +147,7 @@ class Algorithm(Enum):
               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.ORACLE,
               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
               AlgoAttributes.PLOT_MARKER: "o",
+              AlgoAttributes.EXEC: main_tomocedar_setup
               }
 
     ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
@@ -140,26 +156,58 @@ class Algorithm(Enum):
                AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
                AlgoAttributes.MONITORING_TYPE: PriorKnowledge.DUNNY_IP,
                AlgoAttributes.PLOT_MARKER: "v",
+               AlgoAttributes.EXEC: main_tomocedar_setup
                }
 
     _ignore_ = ['_dict']
     _dict = {AlgoAttributes.REPAIRING_PATH: None,
              AlgoAttributes.PICKING_PATH: None,
-             AlgoAttributes.MONITOR_PLACEMENT: None,
              AlgoAttributes.MONITORING_TYPE: None
              }
 
+    #
     CEDAR = {**{AlgoAttributes.NAME: "CEDAR",
-                AlgoAttributes.PLOT_MARKER: "s"}, **_dict}
+                AlgoAttributes.PLOT_MARKER: "s",
+                AlgoAttributes.MONITOR_PLACEMENT: None,
+                AlgoAttributes.EXEC: main_cedar_setup}, **_dict}
 
+    CEDAR_MONITOR = {**{AlgoAttributes.NAME: "CEDAR_MONITOR",
+                        AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
+                        AlgoAttributes.PLOT_MARKER: "s",
+                        AlgoAttributes.EXEC: main_cedar_setup}, **_dict}
+
+    #
     SHP = {**{AlgoAttributes.NAME: "SHP",
-              AlgoAttributes.PLOT_MARKER: "p"}, **_dict}
+              AlgoAttributes.PLOT_MARKER: "p",
+              AlgoAttributes.MONITOR_PLACEMENT: None,
+              AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
 
+    SHP_MONITOR = {**{AlgoAttributes.NAME: "SHP_MONITOR",
+                      AlgoAttributes.PLOT_MARKER: "p",
+                      AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
+                      AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
+
+    #
     ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP",
-                 AlgoAttributes.PLOT_MARKER: ">"}, **_dict}
+                 AlgoAttributes.PLOT_MARKER: ">",
+                 AlgoAttributes.MONITOR_PLACEMENT: None,
+                 AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
+    ISR_SP_MONITOR = {**{AlgoAttributes.NAME: "ISR_SP_MONITOR",
+                         AlgoAttributes.PLOT_MARKER: ">",
+                         AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
+                         AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
+
+    #
     ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM",
-                       AlgoAttributes.PLOT_MARKER: "<"}, **_dict}
+                       AlgoAttributes.PLOT_MARKER: "<",
+                       AlgoAttributes.MONITOR_PLACEMENT: None,
+                       AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
+
+    ISR_MULTICOM_MONITOR = {**{AlgoAttributes.NAME: "ISR_MULTICOM_MONITOR",
+                               AlgoAttributes.PLOT_MARKER: "<",
+                               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
+                               AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
 
 class IndependentVariable(Enum):
@@ -175,6 +223,7 @@ class IndependentVariable(Enum):
 # constants
 PATH_TO_GRAPH = "data/graphs/"
 PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
+PATH_EXPERIMENTS = "data/FINAL/experiments-yebone-nolimit/"
 
 REPAIR_COST = 500
 EPSILON = 10 ** -10

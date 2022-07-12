@@ -128,7 +128,7 @@ def run(config):
                 monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, config)
                 monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)
 
-            elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP:
+            elif config.protocol_monitor_placement in [co.ProtocolMonitorPlacement.STEP_BY_STEP, co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE]:
                 monitors = mon.original_monitoring_add(G, config)
                 stats["monitors"] |= monitors
                 monitors_stats = stats["monitors"]
