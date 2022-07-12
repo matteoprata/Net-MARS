@@ -255,7 +255,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
                 to_handle_pairs.add((p1, p2))  # edges demand not satisfied
-        elif config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
+        elif config.protocol_monitor_placement != co.ProtocolMonitorPlacement.NONE:
             to_handle_pairs.add((p1, p2))  # edges monitoring
 
     # PHASE 1

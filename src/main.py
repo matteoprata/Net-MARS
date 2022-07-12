@@ -236,9 +236,11 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
     config.rand_generator_path_choice = np.random.RandomState(config.seed)
 
     config.protocol_monitor_placement = monitor_placement
-    if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.ORACLE:
+
+    if config.algo_name == co.Algorithm.ORACLE:
         config.is_oracle_baseline = True
-    elif config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE:
+
+    if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE:
         config.monitors_budget = np.inf  # this will be set to the max between budget and number of nodes
     else:
         config.monitors_budget = budget  # this will be set to the max between budget and number of nodes
@@ -292,22 +294,25 @@ def parallel_exec(seeds, algorithms, is_log=False):
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .5,
                2: .5,
-               3: .5}
+               #3: .5
+               }
 
     npairs = {0: 8,
               1: [5, 6, 7, 8, 9, 10],
               2: 8,
-              3: 8}
+              #3: 8
+              }
 
     flowpp = {0: 11,
               1: 11,
               2: [5, 7, 9, 11, 13, 15],
-              3: 11}
+              #3: 11
+              }
 
-    monitor_bud = {0: np.inf, # 16
+    monitor_bud = {0: np.inf,
                    1: np.inf,
                    2: np.inf,
-                   3: [16, 18, 20, 22, 24, 26]
+                   #3: [#16, 18, 20, 22, 24, 26]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
@@ -350,12 +355,12 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
+    BENCHMARKS = [co.Algorithm.CEDAR]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 702,
+            co.IndependentVariable.SEED: 704,
             co.IndependentVariable.PROB_BROKEN: 0.5,
-            co.IndependentVariable.MONITOR_BUDGET: np.inf,
+            co.IndependentVariable.MONITOR_BUDGET: 16,
             co.IndependentVariable.N_DEMAND_EDGES: 5,  # or nodes
             co.IndependentVariable.FLOW_DEMAND: 11,
             co.IndependentVariable.IND_VAR: co.IndependentVariable.N_DEMAND_EDGES,
@@ -371,24 +376,24 @@ def initializer():
 
 if __name__ == '__main__':
 
-    # STEP = 3
-    # s_seed, e_seed = 700, 800
-    # seeds = set(range(s_seed, e_seed))
-    # # seeds to ignore
-    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
-    #           760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
-    # seeds = list(seeds)
-    #
-    # # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-    # #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
-    #
-    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
-    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR
-    #               ]
-    # for i in range(0, len(seeds), STEP):
-    #
-    #     runs = seeds[i: i+STEP]
-    #     print("RUN", runs)
-    #     parallel_exec(runs, BENCHMARKS, is_log=False)
+    STEP = 3
+    s_seed, e_seed = 700, 800
+    seeds = set(range(s_seed, e_seed))
+    # seeds to ignore
+    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
+              760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+    seeds = list(seeds)
 
-    single_exec()
+    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
+    #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
+    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
+
+    BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
+
+    for i in range(0, len(seeds), STEP):
+        runs = seeds[i: i+STEP]
+        print("RUN", runs)
+        parallel_exec(runs, BENCHMARKS, is_log=False)
+
+    # single_exec()

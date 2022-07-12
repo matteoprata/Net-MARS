@@ -83,7 +83,7 @@ def run(config):
     last_repaired_demand = None
 
     # ADD preliminary monitors
-    if config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
+    if config.protocol_monitor_placement != co.ProtocolMonitorPlacement.NONE:
 
         for n1, n2, _ in get_demand_edges(G):
             G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
@@ -160,7 +160,7 @@ def run(config):
             stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp = monitoring
 
             # >>>> PROBABILITY HERE
-            if config.protocol_monitor_placement not in [co.ProtocolMonitorPlacement.NONE, co.ProtocolMonitorPlacement.ORACLE]:
+            if config.protocol_monitor_placement != co.ProtocolMonitorPlacement.NONE:
                 tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
 
         elif config.monitoring_type == co.PriorKnowledge.DUNNY_IP:

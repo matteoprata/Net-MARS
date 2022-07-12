@@ -108,7 +108,6 @@ class ProtocolMonitorPlacement(Enum):
     BUDGET_W_REPLACEMENT = 1
     STEP_BY_STEP_INFINITE = 6
     BUDGET = 4
-    ORACLE = 3
     NONE = 5
 
 
@@ -144,7 +143,7 @@ class Algorithm(Enum):
     ORACLE = {AlgoAttributes.NAME: "ORACLE",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.ORACLE,
+              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
               AlgoAttributes.PLOT_MARKER: "o",
               AlgoAttributes.EXEC: main_tomocedar_setup
