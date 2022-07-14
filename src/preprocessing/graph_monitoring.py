@@ -300,15 +300,15 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                 stats_packet_monitoring += 1
             else:
                 print("Skipped to monitor", n1_mon, n2_mon)
-                st_path_out = None, np.inf, None
+                st_path_out = None, np.inf, None, None
 
             assert st_path_out is not None, "some infeasibility issue"
 
-            path, metric, rc = st_path_out
+            path, metric, rc, is_working = st_path_out
             if path is not None:
                 monitoring_paths.append(path)  # <<< probability
 
-            if metric < len(SG.edges):  # works AND has capacity
+            if is_working:  # works AND has capacity
                 if is_demand_edge_exists(G, n1_mon, n2_mon):
                     if is_bubble(G, path):   # consider removing on paper
                         bubbles.append(path)

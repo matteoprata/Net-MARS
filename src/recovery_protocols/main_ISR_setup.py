@@ -382,9 +382,23 @@ def run_isr_st(config):
                  "demands_sat": demands_sat}
 
         update_graph_probabilities(G)
-        quantity = isr_pruning_demand(G, demand_edges_routed_flow_pp)
-        routed_flow += quantity
-        stats["flow"] = routed_flow
+
+        # ROUTING A-LA IP
+        if config.is_IP_routing:
+            for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
+                SG = get_supply_graph(G)
+                path_prune, _, _, is_working = mxv.protocol_routing_IP(SG, d1, d2)
+                if is_working:
+                    quantity_pruning = do_prune(G, path_prune)
+                    routed_flow += quantity_pruning
+                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    demand_edges_routed_flow_pp[d_edge] += quantity_pruning
+                    stats["flow"] = routed_flow
+                    print("pruned", quantity_pruning, "on", path_prune)
+        else:
+            quantity = isr_pruning_demand(G, demand_edges_routed_flow_pp)
+            routed_flow += quantity
+            stats["flow"] = routed_flow
 
         paths_nodes, paths_edges, paths_tot = isr_srt(G)
         paths_elements = paths_nodes.union(paths_edges)
@@ -448,9 +462,8 @@ def run_isr_st(config):
                 stats["monitors"] |= monitors_stats
 
             # k-discovery
-            K = 2
             SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=K)
+            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=config.k_hop_monitoring)
             for no in reach_k_paths:
                 discover_path_truth_limit_broken(G, reach_k_paths[no])
                 packet_monitor += 1
@@ -491,12 +504,25 @@ def run_isr_multi(config):
                  "packet_monitoring": packet_monitor,
                  "demands_sat": demands_sat}
 
-        # PRUNING
-        quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
-        stats["edge"] += rep_edges
-        stats["node"] += rep_nodes
-        routed_flow += quantity
-        stats["flow"] = routed_flow
+        # PRUNING A LA IP
+        if config.is_IP_routing:
+            for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
+                SG = get_supply_graph(G)
+                path_prune, _, _, is_working = mxv.protocol_routing_IP(SG, d1, d2)
+                if is_working:
+                    quantity_pruning = do_prune(G, path_prune)
+                    routed_flow += quantity_pruning
+                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    demand_edges_routed_flow_pp[d_edge] += quantity_pruning
+                    stats["flow"] = routed_flow
+                    print("pruned", quantity_pruning, "on", path_prune)
+        else:
+            # PRUNING
+            quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
+            stats["edge"] += rep_edges
+            stats["node"] += rep_nodes
+            routed_flow += quantity
+            stats["flow"] = routed_flow
 
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
         reset_supply_edges(G)
@@ -558,9 +584,8 @@ def run_isr_multi(config):
                 stats["monitors"] |= monitors_stats
 
             # k-discovery
-            K = 2
             SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=K)
+            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=config.k_hop_monitoring)
             for no in reach_k_paths:
                 discover_path_truth_limit_broken(G, reach_k_paths[no])
                 packet_monitor += 1

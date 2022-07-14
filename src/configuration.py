@@ -65,6 +65,9 @@ class Configuration:
         self.force_recompute = True
         self.log_execution_details = True
 
+        self.k_hop_monitoring = 1
+        self.is_IP_routing = False  # weather to do IP, or self routing
+
     def n_edges_given_n_nodes(self, n_nodes):
         """ number of edges given pruned clique """
         return int(n_nodes*(n_nodes-1)/2 * self.demand_clique_factor)

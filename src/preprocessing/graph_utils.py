@@ -50,13 +50,15 @@ def get_demand_nodes(G, is_residual=False):
 # ---- MONITORS
 
 def do_k_monitoring(G, monitor, K=2):
-    SG = get_supply_graph(G)
-    reach_k_paths = nx.single_source_shortest_path(SG, monitor, cutoff=K)
-    monitoring_messages = 0
-    for no in reach_k_paths:
-        discover_path_truth_limit_broken(G, reach_k_paths[no])
-        monitoring_messages += 1
-    return monitoring_messages
+    if K > 0:
+        SG = get_supply_graph(G)
+        reach_k_paths = nx.single_source_shortest_path(SG, monitor, cutoff=K)
+        monitoring_messages = 0
+        for no in reach_k_paths:
+            discover_path_truth_limit_broken(G, reach_k_paths[no])
+            monitoring_messages += 1
+        return monitoring_messages
+    return 0
 
 
 def get_monitor_nodes(G):

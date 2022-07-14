@@ -184,7 +184,8 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 path = path_prefix.format(regex_fname)
                 df = pd.read_csv(path)["flow_cum"]
 
-                if not(not algo == "ORACLE" or df.iloc[-1] == MAX_TOTAL_FLOW[j]):
+                if not(not (algo == "ORACLE" or
+                            algo == "CEDAR_MONITOR") or df.iloc[-1] == MAX_TOTAL_FLOW[j]):
                     print("Consider removing seed", ss)
 
                 # assert(not algo == "ORACLE" or df.iloc[-1] == MAX_TOTAL_FLOW[j])
@@ -323,12 +324,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             # exit()
             avg_sum_flows = (datas.sum(axis=0) / (front * MAX_FLOW_STEPS))
             avg_max_flows = (datas / MAX_TOTAL_FLOW).max(axis=0)   # (numero algo, numero rottura)
-
-            std_sum_flows = (RAW_DATA.sum(axis=0)).std(axis=0) / (front * MAX_FLOW_STEPS)
-            std_max_flows = (RAW_DATA.max(axis=0)).std(axis=0) / MAX_TOTAL_FLOW
-
             y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
-            std_y_plot = std_max_flows if plot_type == 1 else std_sum_flows
             ste_y_plot = sem(RAW_DATA.max(axis=0)[:, i, :] / MAX_TOTAL_FLOW) if plot_type == 1 else sem(RAW_DATA.sum(axis=0)[:, i, :] / (front * MAX_FLOW_STEPS))
 
             # plt.plot(X_var, y_plot[i], label=algo_names[i])
@@ -596,6 +592,10 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
     complement = np.zeros(times.shape) + FRONTIER_IND_X
     plot_times = np.sum(complement - times, axis=0) / (FRONTIER_IND_X * data_cum.shape[1])  # SEEDS, ALGO, IND_X
+    # print(np.sum(complement - times, axis=0)[0])
+    # print((FRONTIER_IND_X * data_cum.shape[1]))
+    # print(plot_times[0, :])
+    # exit()
 
     for i, algo_en in enumerate(algos):
         # plt.plot(X_vals, plot_times[i], label=algo_names[i])
@@ -711,7 +711,7 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
 
 def intro_nobud():
     config = ma.setup_configuration()
-    co.PATH_EXPERIMENTS = "data/FINAL/experiments-yebone-nolimit/"
+    co.PATH_EXPERIMENTS = "data/experiments/"
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .5,
@@ -734,17 +734,19 @@ def intro_nobud():
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
                }
 
-    seeds = set(range(700, 790))
+    seeds = set(range(700, 800))
     seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
               758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
-    seeds -= {784, 702, 732, 747, 751, 775, 781, 793}  # no limit budget
+    seeds -= {784, 702, 732, 747, 751, 775, 781, 793, 777}  # no limit budget
     print("Using", len(seeds), seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.SHP_MONITOR,
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_MONITOR,
+                  co.Algorithm.CEDAR_MONITOR,
+                  co.Algorithm.SHP_MONITOR,
                   co.Algorithm.ISR_SP_MONITOR, co.Algorithm.ISR_MULTICOM_MONITOR]
 
     algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
@@ -757,7 +759,7 @@ def intro_nobud():
 
 def intro_bud():
     config = ma.setup_configuration()
-    co.PATH_EXPERIMENTS = "data/FINAL/experiments-nobone-yelimit/"
+    co.PATH_EXPERIMENTS = "data/experiments/"
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .5,
                2: .5,
@@ -805,14 +807,14 @@ def intro_bud():
 def plotting_data():
 
     config, dis_uni, npairs, flowpp, seeds, BENCHMARKS, \
-    monitor_bud, ind_var, algo_names, source, OUTLIERS = intro_bud()
+    monitor_bud, ind_var, algo_names, source, OUTLIERS = intro_nobud()
 
     with PdfPages('multipage_pdf.pdf') as pdf:
         for i, (name, vals) in ind_var.items():
             print("Now varying", name.name, "as", vals[i])
 
             config.supply_capacity = (80, 81)
-            PERC_DESTRUCTION = -1
+            PERC_DESTRUCTION = 2
 
             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
                 config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
@@ -859,12 +861,15 @@ def plotting_data():
             plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
             plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
 
+            ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
+            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0,
+                             algo_names=algo_names, out_fig=pdf, title=plot_title)
+
+
             plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
-            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            # plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
             plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
-            ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
-            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
 
 if __name__ == '__main__':

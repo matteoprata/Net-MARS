@@ -86,7 +86,7 @@ def protocol_routing_IP(SG, src, target):
 
     a = printpath(src, parent, target, target, [])
     metric_out = node_metric[target]
-    return a, metric_out, parent_residual_cap[target]
+    return a, metric_out, parent_residual_cap[target], metric_out < len(SG.edges)
 
 
 def protocol_repair_AVG_COST(SG, src, target, is_oracle=False):

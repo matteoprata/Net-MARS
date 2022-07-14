@@ -292,32 +292,32 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
 def parallel_exec(seeds, algorithms, is_log=False):
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               1: .5,
-               2: .5,
+               # 1: .5,
+               # 2: .5,
                #3: .5
                }
 
     npairs = {0: 8,
-              1: [5, 6, 7, 8, 9, 10],
-              2: 8,
+              # 1: [5, 6, 7, 8, 9, 10],
+              # 2: 8,
               #3: 8
               }
 
     flowpp = {0: 11,
-              1: 11,
-              2: [5, 7, 9, 11, 13, 15],
+              # 1: 11,
+              # 2: [5, 7, 9, 11, 13, 15],
               #3: 11
               }
 
     monitor_bud = {0: np.inf,
-                   1: np.inf,
-                   2: np.inf,
+                   #1: np.inf,
+                   #2: np.inf,
                    #3: [#16, 18, 20, 22, 24, 26]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               #1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               #2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
                # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
@@ -355,7 +355,7 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.CEDAR]
+    BENCHMARKS = [co.Algorithm.SHP]
     for algo in BENCHMARKS:
         exec_config = {
             co.IndependentVariable.SEED: 704,
@@ -386,10 +386,10 @@ if __name__ == '__main__':
 
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
-    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
-    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
+    BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
+                  co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
 
-    BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
+    # BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
 
     for i in range(0, len(seeds), STEP):
         runs = seeds[i: i+STEP]

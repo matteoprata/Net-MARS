@@ -46,14 +46,13 @@ def run(config):
     monitors_stats = set()
     demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
-    K = 2
     # repair demand edges
     demand_node = get_demand_nodes(G)
     for dn in demand_node:
         do_repair_node(G, dn)
         monitors_stats |= {dn}
         G.nodes[dn][co.ElemAttr.IS_MONITOR.value] = True
-        packet_monitor += do_k_monitoring(G, dn, K)
+        packet_monitor += do_k_monitoring(G, dn, config.k_hop_monitoring)
         # INITIAL NODES repairs are not counted in the stats
 
     iter = 0
@@ -89,6 +88,19 @@ def run(config):
 
         # [{ nodes: [1,2,3], flow:50 }, { nodes: [5,6], flow: 55 }]
 
+        # ROUTING A-LA IP
+        if config.is_IP_routing:
+            for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
+                SG = get_supply_graph(G)
+                path_prune, _, _, is_working = mxv.protocol_routing_IP(SG, d1, d2)
+                if is_working:
+                    quantity_pruning = do_prune(G, path_prune)
+                    routed_flow += quantity_pruning
+                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    demand_edges_routed_flow_pp[d_edge] += quantity_pruning
+                    stats["flow"] = routed_flow
+                    print("pruned", quantity_pruning, "on", path_prune)
+
         SG = get_supply_graph(G)
         paths = []
         for d1, d2, _ in get_demand_edges(G, is_check_unsatisfied=True):
@@ -108,13 +120,15 @@ def run(config):
             stats["edge"] += fixed_nodes
             stats["node"] += fixed_edges
 
-            quantity_pruning = do_prune(G, path_to_fix)
-            routed_flow += quantity_pruning  # TODO CHECK MISSING stats["flow"] = routed_flow
-            print("pruned", quantity_pruning, "on", path_to_fix)
+            if not config.is_IP_routing:
+                # THIS IS EXACTLY how CEDAR paper routes flow, which is unfair
+                quantity_pruning = do_prune(G, path_to_fix)
+                routed_flow += quantity_pruning  # TODO CHECK MISSING stats["flow"] = routed_flow
+                print("pruned", quantity_pruning, "on", path_to_fix)
 
-            d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
-            demand_edges_routed_flow_pp[d_edge] += quantity_pruning
-            stats["flow"] = routed_flow
+                d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+                demand_edges_routed_flow_pp[d_edge] += quantity_pruning
+                stats["flow"] = routed_flow
         else:
             if len(get_monitor_nodes(G)) < config.monitors_budget:
                 v = best_centrality_node(G)
@@ -127,7 +141,7 @@ def run(config):
                 stats["monitors"] |= monitors_stats
 
                 # k-discovery
-                packets_monitoring = do_k_monitoring(G, v, K)
+                packets_monitoring = do_k_monitoring(G, v, config.k_hop_monitoring)
                 stats["packet_monitoring"] = packets_monitoring
             else:
                 print("No monitors left.")
@@ -144,3 +158,4 @@ def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
     for ke in demands_sat:
         flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
         stats["demands_sat"][ke].append(flow)
+
