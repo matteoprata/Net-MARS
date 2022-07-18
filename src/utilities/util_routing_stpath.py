@@ -194,11 +194,12 @@ def protocol_repair_min_exp_cost(SG, src, target, residual_demand, max_edge_cap,
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]
 
-            RC = min(min(current_src_info[2], res_cap), residual_demand)
+            RC = min(current_src_info[2], res_cap)  # TODO: OCCHIO, residual_demand)
 
+            # metric, _, RC, _, cost_nodes_sofar
             m = (current_src_info[0] - current_src_info[4]) * (current_src_info[2] if current_src_info[2] != np.inf else 0)
             m = (m + co.REPAIR_COST * prob_n1n2) / RC
-            cost_nodes_sofar = current_src_info[4] + co.REPAIR_COST * prob_n2
+            cost_nodes_sofar = current_src_info[4] + co.REPAIR_COST * prob_n2  # + (co.REPAIR_INTERVENTION * ((1-prob_n2) if prob_n2 > 0 else 0))
             m = m + cost_nodes_sofar
 
             # Relaxation of edge and adding into Priority Queue

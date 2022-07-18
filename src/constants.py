@@ -2,7 +2,9 @@ from enum import Enum
 import multiprocessing
 import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
 import src.recovery_protocols.main_ISR_setup as main_ISR_setup
-import src.recovery_protocols.main_cedar_setup as main_cedar_setup
+# import src.recovery_protocols.main_cedar_setup as main_cedar_setup
+import src.recovery_protocols.main_cedar_setup_FINE_LUGLIO as main_cedar_setup_FL
+
 import src.recovery_protocols.main_SHP_setup as main_SHP_setup
 
 class GraphName(Enum):
@@ -168,12 +170,13 @@ class Algorithm(Enum):
     CEDAR = {**{AlgoAttributes.NAME: "CEDAR",
                 AlgoAttributes.PLOT_MARKER: "s",
                 AlgoAttributes.MONITOR_PLACEMENT: None,
-                AlgoAttributes.EXEC: main_cedar_setup}, **_dict}
+                AlgoAttributes.EXEC: main_cedar_setup_FL  # main_cedar_setup
+                }, **_dict}
 
     CEDAR_MONITOR = {**{AlgoAttributes.NAME: "CEDAR_MONITOR",
                         AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
                         AlgoAttributes.PLOT_MARKER: "s",
-                        AlgoAttributes.EXEC: main_cedar_setup}, **_dict}
+                        AlgoAttributes.EXEC: main_cedar_setup_FL}, **_dict}
 
     #
     SHP = {**{AlgoAttributes.NAME: "SHP",
@@ -225,9 +228,11 @@ PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
 PATH_EXPERIMENTS = "data/experiments/"
 
 REPAIR_COST = 500
+REPAIR_INTERVENTION = 100
+
 EPSILON = 10 ** -10
 
-N_CORES = multiprocessing.cpu_count()
+N_CORES = multiprocessing.cpu_count() - 1
 
 MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320), (186, 188), (186, 320), (79, 349),
                           (349, 125), (78, 72), (1, 320), (1, 319), (125, 652), (652, 559), (559, 564),  # VERT SX

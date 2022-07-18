@@ -53,8 +53,8 @@ def save_stats_monotonous(stats, fname):
         i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
         for k in i_demand_pairs:
             d_flow = [0] * n_vals
-            d_flow[-1] = stats[i]["demands_sat"][k][i]
-            demand_pairs[k] = demand_pairs[k] + d_flow
+            d_flow[0] = stats[i]["demands_sat"][k][i]
+            demand_pairs[k] += d_flow
 
     df = pd.DataFrame()
     df["repairs"] = repairs
@@ -121,7 +121,7 @@ def save_stats_NON_monotonous(stats, fname):
         i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
         for k in i_demand_pairs:  # iterates demand edges
             d_flow = [0] * n_vals
-            d_flow[-1] = stats[i]["demands_sat"][k][i] if i == stopz[k] else 0
+            d_flow[0] = stats[i]["demands_sat"][k][i] if i == stopz[k] else 0
             demand_pairs[k] = demand_pairs[k] + d_flow
 
     df = pd.DataFrame()
@@ -294,31 +294,31 @@ def parallel_exec(seeds, algorithms, is_log=False):
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                # 1: .5,
                # 2: .5,
-               #3: .5
+               3: .8
                }
 
     npairs = {0: 8,
               # 1: [5, 6, 7, 8, 9, 10],
               # 2: 8,
-              #3: 8
+              3: 8
               }
 
     flowpp = {0: 11,
               # 1: 11,
               # 2: [5, 7, 9, 11, 13, 15],
-              #3: 11
+              3: 11
               }
 
-    monitor_bud = {0: np.inf,
+    monitor_bud = {0: 16,
                    #1: np.inf,
                    #2: np.inf,
-                   #3: [#16, 18, 20, 22, 24, 26]
+                   3: [10, 12, 14, 16, 18, 20]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
                #1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
                #2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
     processes = []
@@ -355,15 +355,15 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.SHP]
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 704,
-            co.IndependentVariable.PROB_BROKEN: 0.5,
-            co.IndependentVariable.MONITOR_BUDGET: 16,
-            co.IndependentVariable.N_DEMAND_EDGES: 5,  # or nodes
+            co.IndependentVariable.SEED: 1994,
+            co.IndependentVariable.PROB_BROKEN: 0.8,
+            co.IndependentVariable.MONITOR_BUDGET: 7,
+            co.IndependentVariable.N_DEMAND_EDGES: 5,  # nodes
             co.IndependentVariable.FLOW_DEMAND: 11,
-            co.IndependentVariable.IND_VAR: co.IndependentVariable.N_DEMAND_EDGES,
+            co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
             co.IndependentVariable.ALGORITHM: algo.name
         }
         run_single(*exec_config.values(), True)
@@ -384,10 +384,12 @@ if __name__ == '__main__':
               760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
     seeds = list(seeds)
 
-    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-    #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
-    BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
-                  co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
+                  co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP,
+                  co.Algorithm.ISR_MULTICOM]
+
+    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
+    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
 
     # BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
 

@@ -142,7 +142,8 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, paths, b
     else:
         prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
 
-    T2 = 1 - 1/((P+1)**(prior*10))
+    # T2 = 1 - 1/((P+1)**(prior*10))
+    T2 = prior + (1-prior) * (1 - 1/((P+1)**(prior*10)))
     T1 = np.ceil(sum([np.floor(1/len(p)) for p in new_bp_with_n]) / len(new_bp_with_n))
     C = max(T1, T2)
 
@@ -288,7 +289,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
                       config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP) and not config.is_exhaustive_paths:
 
                     to_monitor = is_edge_to_monitor(n1_mon, n2_mon, monitors_map,
-                                                   monitors_connections, monitors_non_connections, demand_nodes)
+                                                    monitors_connections, monitors_non_connections, demand_nodes)
 
                     # if not to_monitor:
                     #     handled_pairs.add((n1_mon, n2_mon))
@@ -357,6 +358,97 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
     return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp
 
 
+def pruning_monitoring_dummy(G, stats_packet_monitoring_so_far, threshold_monitor_message, monitors_map, monitors_connections, monitors_non_connections, last_repaired_demand, config):
+    """ used for all but our algorithm """
+    demand_edges_to_repair = []
+    demand_edges_routed_flow = []          # total
+
+    # the list of path between demand nodes
+    monitoring_paths = []
+    stats_packet_monitoring = 0
+
+    # monitors from all the monitor pairs n*(n-1)/2
+
+    monitors = get_monitor_nodes(G)
+    demand_nodes = get_demand_nodes(G)
+    demand_nodes_residual = get_demand_nodes(G, is_residual=True)
+    only_monitors = set(monitors) - demand_nodes
+
+    handled_pairs, to_handle_pairs = set(), set()
+    set_useful_monitors = only_monitors.union(demand_nodes_residual)
+
+    if last_repaired_demand:
+        last_m1, last_m2 = last_repaired_demand
+        set_useful_monitors -= {last_m1, last_m2}
+        # gives priority to edges with endpoints are the last repaired
+        set_useful_monitors = [last_m1, last_m2] + list(set_useful_monitors)
+
+    # cretes all possible 2-combinations of useful monitors
+    for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
+        p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
+        if is_demand_edge_exists(G, p1, p2):
+            res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+            if res_cap > 0:
+                to_handle_pairs.add((p1, p2))  # edges demand not satisfied
+        elif config.protocol_monitor_placement != co.ProtocolMonitorPlacement.NONE:
+            to_handle_pairs.add((p1, p2))  # edges monitoring
+
+    # PHASE 1
+    monitors_connections_merge(monitors_connections, monitors_non_connections, last_repaired_demand)
+
+    halt_monitoring = False
+    while len(to_handle_pairs - handled_pairs) > 0:
+        SG = get_supply_graph(G)
+        priority_paths = {}  # k:path, v:priority
+
+        if halt_monitoring:
+            break
+
+        print(len(to_handle_pairs-handled_pairs), to_handle_pairs-handled_pairs)
+
+        still_handle = to_handle_pairs - handled_pairs
+        # still_handle -= last_m1, last_m2
+        # still_handle = list(still_handle)
+
+        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=True):
+            if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:  # halt due to monitoring msg
+                halt_monitoring = True
+                break
+
+            # PRUNING
+            to_monitor = True
+            if not config.is_exhaustive_paths:
+                to_monitor = is_edge_to_monitor(n1_mon, n2_mon, monitors_map, monitors_connections, monitors_non_connections, demand_nodes)
+
+            # if no capacitive path exists, abort, this should not happen
+            if to_monitor:
+                st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+                stats_packet_monitoring += 1
+            else:
+                print("Skipped to monitor", n1_mon, n2_mon)
+                st_path_out = None, np.inf, None, None
+
+            assert st_path_out is not None, "some infeasibility issue"
+
+            path, metric, rc, is_IP_working = st_path_out
+
+            if path is not None:
+                monitoring_paths.append(path)  # <<< probability
+
+            if is_IP_working:  # works AND has capacity
+                # monitors are connected PHASE 0
+                monitors_connections[n1_mon] |= {n2_mon}
+                monitors_connections[n2_mon] |= {n1_mon}
+
+                monitors_non_connections[n1_mon] -= {n2_mon}
+                monitors_non_connections[n2_mon] -= {n1_mon}
+
+            # print(monitors_connections)
+            handled_pairs.add((n1_mon, n2_mon))
+
+    return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths
+
+
 def monitors_connections_merge(monitors_connections, monitors_non_connections, last_repaired_demand):
     if last_repaired_demand is not None:
         m1, m2 = last_repaired_demand
@@ -387,7 +479,7 @@ def is_edge_to_monitor(n1_mon, n2_mon, monitors_map, monitors_connections, monit
             to_handle = True
 
     elif is_n1_only_monitor and not is_n2_only_monitor:
-        if n2_mon in func_flat(monitors_map[n1_mon]):  # n2_mon is demand endpoint, the other is a monitor
+        if n2_mon in func_flat(monitors_map[n1_mon]):  # [(a,b)] > [a,b] # n2_mon is demand endpoint, the other is a monitor
             to_handle = True
 
     elif not is_n1_only_monitor and is_n2_only_monitor:

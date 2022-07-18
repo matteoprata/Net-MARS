@@ -46,17 +46,23 @@ def run(config):
     monitors_stats = set()
     demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
-    # repair demand edges
-    demand_node = get_demand_nodes(G)
-    for dn in demand_node:
-        do_repair_node(G, dn)
-        monitors_stats |= {dn}
-        G.nodes[dn][co.ElemAttr.IS_MONITOR.value] = True
-        packet_monitor += do_k_monitoring(G, dn, config.k_hop_monitoring)
-        # INITIAL NODES repairs are not counted in the stats
+    # set as monitors all the nodes that are demand endpoints
+    rep_demand_nodes = set()
+    for n1, n2, _ in get_demand_edges(G):
+        rep_n1 = do_repair_node(G, n1)
+        rep_n2 = do_repair_node(G, n2)
+        rep_demand_nodes |= {rep_n1, rep_n2}
+
+        G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
+        G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        monitors_stats |= {n1, n2}
+
+        # does not look defined for only monitors
+        # packet_monitor += do_k_monitoring(G, dn, config.k_hop_monitoring)
+
+    config.monitors_budget_residual -= len(monitors_stats)
 
     iter = 0
-
     assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
         "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
 
@@ -108,12 +114,12 @@ def run(config):
             paths.append(path)
 
         # filter paths
-        paths_filter = []
+        paths_filter = []  # PK
         for pa in paths:
             if is_known_path(G, pa):
                 paths_filter.append(pa)
 
-        if len(paths_filter) > 0:
+        if len(paths_filter) > 0:  # Pk ha dei path
             path_to_fix = frpp.find_path_picker(co.ProtocolPickingPath.CEDAR_LIKE_MIN, G, paths_filter, None, False)
             print("Chose to repair", path_to_fix)
             fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
@@ -129,7 +135,8 @@ def run(config):
                 d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
                 demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                 stats["flow"] = routed_flow
-        else:
+
+        else:  # Pk non ha dei path
             if len(get_monitor_nodes(G)) < config.monitors_budget:
                 v = best_centrality_node(G)
                 fixed_node = do_repair_node(G, v)
@@ -144,10 +151,11 @@ def run(config):
                 packets_monitoring = do_k_monitoring(G, v, config.k_hop_monitoring)
                 stats["packet_monitoring"] = packets_monitoring
             else:
-                print("No monitors left.")
-                stats_list.append(stats)
-                demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
-                return stats_list
+                make_components_known_to_state(G, co.NodeState.BROKEN.value)
+                print("No monitors left. All nodes are set to broken.")
+                # stats_list.append(stats)
+                # demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+                # return stats_list
 
         demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
         stats_list.append(stats)
@@ -158,4 +166,3 @@ def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
     for ke in demands_sat:
         flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
         stats["demands_sat"][ke].append(flow)
-

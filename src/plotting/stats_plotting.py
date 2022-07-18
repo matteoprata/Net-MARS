@@ -327,6 +327,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             y_plot = avg_max_flows if plot_type == 1 else avg_sum_flows
             ste_y_plot = sem(RAW_DATA.max(axis=0)[:, i, :] / MAX_TOTAL_FLOW) if plot_type == 1 else sem(RAW_DATA.sum(axis=0)[:, i, :] / (front * MAX_FLOW_STEPS))
 
+            # print(X_var, y_plot[i], ste_y_plot)
             # plt.plot(X_var, y_plot[i], label=algo_names[i])
             plt.errorbar(X_var, y_plot[i], yerr=ste_y_plot, label=algo_names[i],
                          marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
@@ -709,92 +710,96 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
     plt.close()
 
 
-def intro_nobud():
-    config = ma.setup_configuration()
-    co.PATH_EXPERIMENTS = "data/experiments/"
-
-    dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               1: .5,
-               2: .5,
-               }
-
-    npairs = {0: 8,
-              1: [5, 6, 7, 8, 9, 10],
-              2: 8,
-              }
-
-    flowpp = {0: 11,
-              1: 11,
-              2: [5, 7, 9, 11, 13, 15],
-              }
-
-    monitor_bud = {0: np.inf,
-                   1: np.inf,
-                   2: np.inf,
-                   }
-
-    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               }
-
-    seeds = set(range(700, 800))
-    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
-              758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
-    seeds -= {784, 702, 732, 747, 751, 775, 781, 793, 777}  # no limit budget
-    print("Using", len(seeds), seeds)
-
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_MONITOR,
-                  co.Algorithm.CEDAR_MONITOR,
-                  co.Algorithm.SHP_MONITOR,
-                  co.Algorithm.ISR_SP_MONITOR, co.Algorithm.ISR_MULTICOM_MONITOR]
-
-    algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
-
-    source = co.PATH_EXPERIMENTS
-    OUTLIERS = 0
-
-    return config, dis_uni, npairs, flowpp, seeds, BENCHMARKS, monitor_bud, ind_var, algo_names, source, OUTLIERS
+# def intro_nobud():
+#     config = ma.setup_configuration()
+#     co.PATH_EXPERIMENTS = "data/experiments/"
+#
+#     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
+#                1: .5,
+#                2: .5,
+#                }
+#
+#     npairs = {0: 8,
+#               1: [5, 6, 7, 8, 9, 10],
+#               2: 8,
+#               }
+#
+#     flowpp = {0: 11,
+#               1: 11,
+#               2: [5, 7, 9, 11, 13, 15],
+#               }
+#
+#     monitor_bud = {0: np.inf,
+#                    1: np.inf,
+#                    2: np.inf,
+#                    }
+#
+#     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
+#                # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+#                # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+#                }
+#
+#     seeds = set(range(700, 800))
+#     seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
+#               758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
+#     seeds -= {784, 702, 732, 747, 751, 775, 781, 793, 777}  # no limit budget
+#     print("Using", len(seeds), seeds)
+#
+#     BENCHMARKS = [co.Algorithm.TOMO_CEDAR_MONITOR,
+#                   co.Algorithm.CEDAR_MONITOR,
+#                   co.Algorithm.SHP_MONITOR,
+#                   co.Algorithm.ISR_SP_MONITOR, co.Algorithm.ISR_MULTICOM_MONITOR]
+#
+#     algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
+#
+#     source = co.PATH_EXPERIMENTS
+#     OUTLIERS = 0
+#
+#     return config, dis_uni, npairs, flowpp, seeds, BENCHMARKS, monitor_bud, ind_var, algo_names, source, OUTLIERS
 
 
 def intro_bud():
     config = ma.setup_configuration()
     co.PATH_EXPERIMENTS = "data/experiments/"
+
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               1: .5,
-               2: .5,
-               3: .5}
+               # 1: .5,
+               # 2: .5,
+               3: .8
+               }
 
     npairs = {0: 8,
-              1: [5, 6, 7, 8, 9, 10],
-              2: 8,
-              3: 8}
+              # 1: [5, 6, 7, 8, 9, 10],
+              # 2: 8,
+              3: 8
+              }
 
     flowpp = {0: 11,
-              1: 11,
-              2: [5, 7, 9, 11, 13, 15],
-              3: 11}
+              # 1: 11,
+              # 2: [5, 7, 9, 11, 13, 15],
+              3: 11
+              }
 
     monitor_bud = {0: 16,
-                   1: 16,
-                   2: 16,
-                   3: [16, 18, 20, 22, 24, 26]
+                   # 1: np.inf,
+                   # 2: np.inf,
+                   3: [10, 12, 14, 16, 18, 20]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
                3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    seeds = set(range(700, 790))
+    seeds = set(range(700, 725))
     seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
               758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
-    seeds -= {706, 711, 730, 772, 737, 719, 704, 745, 718, 756}
+    seeds -= {706, 711, 730, 772, 737, 719, 704, 745, 718, 756, 716}
     print("Using", len(seeds), seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-                  co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
+                  co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP]  # co.Algorithm.ISR_SP,
 
     algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
 
@@ -807,14 +812,14 @@ def intro_bud():
 def plotting_data():
 
     config, dis_uni, npairs, flowpp, seeds, BENCHMARKS, \
-    monitor_bud, ind_var, algo_names, source, OUTLIERS = intro_nobud()
+    monitor_bud, ind_var, algo_names, source, OUTLIERS = intro_bud()
 
     with PdfPages('multipage_pdf.pdf') as pdf:
         for i, (name, vals) in ind_var.items():
             print("Now varying", name.name, "as", vals[i])
 
             config.supply_capacity = (80, 81)
-            PERC_DESTRUCTION = 2
+            PERC_DESTRUCTION = -2
 
             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
                 config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN

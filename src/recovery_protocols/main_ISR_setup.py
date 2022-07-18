@@ -119,14 +119,12 @@ def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supp
                 if var_value_v1.x > 0 or var_value_v2.x > 0:
                     # print("positive var", h, i, j, var_value_v1.x, var_value_v2.x, "pbro:", G.nodes[i][co.ElemAttr.POSTERIOR_BROKEN.value])
 
-                    # TODO: LIL strong also in SHP
                     n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
                     n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
                     ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
 
-                    if n1bro + n2bro + ebro > 0:  # broken or unk
-
-                        if var_demand_node_pos[i, h] == 0:
+                    if n1bro + n2bro + ebro > 0:  # broken
+                        if var_demand_node_pos[i, h] == 0:  # in or out flow
                             total_flow_node[i] += var_value_v1.x
                         else:  # in any other case
                             total_flow_node[i] += var_value_v2.x
@@ -233,7 +231,7 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
 
     SGOut = get_supply_graph(G)
     for h, (d1, d2, _) in enumerate(get_demand_edges(G, is_check_unsatisfied=False, is_residual=False)):  # enumeration is coherent
-        SG = nx.DiGraph()
+        SG = nx.Graph()
         for i, j, _ in SGOut.edges:
             var_value_v1 = m.getVarByName('flow_var_{}_{}_{}'.format(h, i, j)).x  # edge variable to check if > 0
             var_value_v2 = m.getVarByName('flow_var_{}_{}_{}'.format(h, j, i)).x  # edge variable to check if > 0
@@ -241,20 +239,19 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
             n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
             n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
             ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
+            dem = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
             if var_value_v1 > 0 or var_value_v2 > 0:
                 if n1bro + n2bro + ebro == 0 or force_repair:
                     # print("added", h, d1, d2, i, j, var_value_v1, var_value_v2, n1bro, n2bro, ebro)
-                    if force_repair:  # this because sometimes every node is ok, but some edges of working nodes are not repaired
-                        repn, repe = do_repair_full_edge(G, i, j)
-                        rep_nodes += repn
-                        rep_edges += repe
+                    # if force_repair:  # this because sometimes every node is ok, but some edges of working nodes are not repaired
+                    repn, repe = do_repair_full_edge(G, i, j)
+                    rep_nodes += repn
+                    rep_edges += repe
 
-                    if var_value_v2 > 0:
-                        SG.add_edge(j, i, capacity=var_value_v2)
-
-                    if var_value_v1 > 0:
-                        SG.add_edge(i, j, capacity=var_value_v1)
+                    na, nb = make_existing_edge(G, i, j)
+                    cap = min(G.edges[na, nb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem)
+                    SG.add_edge(na, nb, capacity=cap)
 
         if d1 in SG.nodes and d2 in SG.nodes and nx.has_path(SG, d1, d2):
             pruned_quant, flow_edge = nx.maximum_flow(SG, d1, d2)
@@ -344,8 +341,8 @@ def run_header(config):
     # if config.monitoring_type == co.PriorKnowledge.FULL:
     #     gain_knowledge_all(G)
 
-    assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-        "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
+    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
+    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
 
     if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
         config.monitors_budget = get_demand_nodes(G)

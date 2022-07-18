@@ -315,6 +315,26 @@ def make_existing_edge(G, n1, n2):
 def net_max_degree(G):
     return sorted(G.degree, key=lambda x: x[1], reverse=True)[0][1]
 
+
+def make_components_known_to_state(G, probability_broken: int):
+    """ makes all the components state known to probability_broken"""
+    for n in G.nodes:
+        G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = probability_broken
+
+    for n1, n2, t in G.edges:
+        if t == co.EdgeType.SUPPLY.value:
+            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = probability_broken
+
+
+def make_components_known(G):
+    """ makes all the components state known """
+    for n in G.nodes:
+        G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = G.nodes[n][co.ElemAttr.STATE_TRUTH.value]
+
+    for n1, n2, t in G.edges:
+        if t == co.EdgeType.SUPPLY.value:
+            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
+
 # - - - - - - - - - - REPAIRING - - - - - - - - - -
 
 def do_fix_path(G, path_to_fix):
@@ -343,6 +363,8 @@ def do_fix_path(G, path_to_fix):
 def do_repair_node(G, n):
     """ counts the repairs! """
     did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
+    # did_repair = G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
+
     G.nodes[n][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value  # discover
     print("repairing", n, did_repair)
@@ -352,6 +374,8 @@ def do_repair_node(G, n):
 def do_repair_edge(G, n1, n2):
     """ counts the repairs! """
     did_repair = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value
+    # did_repair = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
+
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.WORKING.value
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = co.NodeState.WORKING.value  # discover
     print("repairing", n1, n2, did_repair)
@@ -415,7 +439,7 @@ def discover_path_truth_limit_broken(G, path):
 
         assert (G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n1][co.ElemAttr.STATE_TRUTH.value])
         assert (G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n2][co.ElemAttr.STATE_TRUTH.value])
-        assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+        assert (G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
 # def discover_path(G, path, p_broken):
@@ -612,7 +636,7 @@ def get_path_cost_cedarlike(G, path_nodes):
 
     cost_broken_els_exp = 0
 
-    print(path_nodes)
+    # print(path_nodes)
     # expected cost of repairing the nodes
     for n1 in path_nodes:
         is_unk_bro = int(G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] > 0)
