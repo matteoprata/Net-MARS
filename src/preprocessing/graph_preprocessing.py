@@ -78,6 +78,15 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
     if config.graph_dataset == co.GraphName.MINNESOTA and config.is_minnesota_backbone_on:
         place_static_backbone(G, co.MINNESOTA_STP_BACKBONE, config.backbone_capacity)
 
+    # ADD probability RESISTANCE_TO_DESTRUCTION:
+    if config.algo_name == co.Algorithm.TOMO_CEDAR_DYN:
+        for n in G.nodes:
+            G.nodes[n][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction
+
+        for n1, n2, ty in G.edges:
+            if ty == co.EdgeType.SUPPLY:
+                G.edges[n1, n2, ty][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction
+
     return G, elements_val_id, elements_id_val
 
 

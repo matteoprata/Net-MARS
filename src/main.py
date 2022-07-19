@@ -355,10 +355,10 @@ def single_exec():
     # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
     #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR]
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_DYN]
     for algo in BENCHMARKS:
         exec_config = {
-            co.IndependentVariable.SEED: 1994,
+            co.IndependentVariable.SEED: 9124,
             co.IndependentVariable.PROB_BROKEN: 0.8,
             co.IndependentVariable.MONITOR_BUDGET: 7,
             co.IndependentVariable.N_DEMAND_EDGES: 5,  # nodes
@@ -376,26 +376,26 @@ def initializer():
 
 if __name__ == '__main__':
 
-    STEP = 3
-    s_seed, e_seed = 700, 800
-    seeds = set(range(s_seed, e_seed))
-    # seeds to ignore
-    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
-              760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
-    seeds = list(seeds)
+    # STEP = 3
+    # s_seed, e_seed = 700, 800
+    # seeds = set(range(s_seed, e_seed))
+    # # seeds to ignore
+    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
+    #           760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+    # seeds = list(seeds)
+    #
+    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
+    #               co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP,
+    #               co.Algorithm.ISR_MULTICOM]
+    #
+    # # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
+    # #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
+    #
+    # # BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
+    #
+    # for i in range(0, len(seeds), STEP):
+    #     runs = seeds[i: i+STEP]
+    #     print("RUN", runs)
+    #     parallel_exec(runs, BENCHMARKS, is_log=False)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
-                  co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP,
-                  co.Algorithm.ISR_MULTICOM]
-
-    # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
-    #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
-
-    # BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
-
-    for i in range(0, len(seeds), STEP):
-        runs = seeds[i: i+STEP]
-        print("RUN", runs)
-        parallel_exec(runs, BENCHMARKS, is_log=False)
-
-    # single_exec()
+    single_exec()

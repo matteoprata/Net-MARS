@@ -304,12 +304,41 @@ def is_demand_edge_exists(G, n1, n2):
     return (n1, n2, co.EdgeType.DEMAND.value) in G.edges
 
 
+def k_hop_discovery(G, source, khop):
+    """ Do k-monitoring """
+    packet_monitor = 0
+    SG = get_supply_graph(G)
+    reach_k_paths = nx.single_source_shortest_path(SG, source, cutoff=khop)  # pi: [path nodes]
+    for no in reach_k_paths:
+        discover_path_truth_limit_broken(G, reach_k_paths[no])
+        packet_monitor += 1
+    return packet_monitor
+
+
+def k_hop_destruction(G, source, khop):
+    """ Do k-destruction for dynamic tomo-cedar """
+    SG = get_supply_graph(G)
+    reach_k_paths = nx.single_source_shortest_path(SG, source, cutoff=khop)  # pi: [path nodes]
+    for no in reach_k_paths:
+        path = reach_k_paths[no]
+        for i in range(len(path)-1):  # iterate over path nodes
+            n1, n2 = make_existing_edge(G, path[i], path[i+1])
+            if np.random.rand() > G.nodes[n1][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
+                G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+
+            if np.random.rand() > G.nodes[n2][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
+                G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+
+            if np.random.rand() > G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
+                G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+
+
 def make_existing_edge(G, n1, n2):
     """ Returns the oriented graph, for undirected graphs """
     for e1, e2, _ in G.edges:
         if (e1, e2) == (n1, n2):
             return n1, n2
-    return n2, n1
+    return n2, n1  # not exist or is inverted
 
 
 def net_max_degree(G):

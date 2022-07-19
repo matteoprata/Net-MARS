@@ -107,6 +107,7 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
 
 
 def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_quantity, config, n_bins=50, mu=-.1, sig=.9, distance_factor=1):
+    """ destruction_quantity: percentage of broken elements """
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
@@ -168,7 +169,7 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
     probs = gaussian(meanw, sig=sig, mu=mu)  # probability of broken elements in each bin
 
     # dt = pd.DataFrame({"probs": probs})
-    # li_bi = [len(bins_dict[k]) for k in bins_dict]
+    # li_bi = [len(bins_dict[k]) for k in bins_dict]  # [numero di elementi rotti in ogni bin]
     # dt["cou"] = np.array(li_bi) / max(li_bi)
     # dt["probs"].plot()
     # plt.bar(x=dt.index, height=dt["cou"])

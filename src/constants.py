@@ -4,6 +4,7 @@ import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
 import src.recovery_protocols.main_ISR_setup as main_ISR_setup
 # import src.recovery_protocols.main_cedar_setup as main_cedar_setup
 import src.recovery_protocols.main_cedar_setup_FINE_LUGLIO as main_cedar_setup_FL
+import src.recovery_protocols.main_reactive_tomocedar_setup as main_reactive_tomocedar_setup
 
 import src.recovery_protocols.main_SHP_setup as main_SHP_setup
 
@@ -68,6 +69,7 @@ class ElemAttr(Enum):
     PRIOR_BROKEN = 'prior_broken'  # prior that component is broken
     POSTERIOR_BROKEN = 'posterior_broken'  # posterior that component is broken
     ID = 'id'
+    RESISTANCE_TO_DESTRUCTION = 'resistence'
 
 
 class GraphElement(Enum):
@@ -133,14 +135,14 @@ class Algorithm(Enum):
                   AlgoAttributes.EXEC: main_tomocedar_setup
                   }
 
-    TOMO_CEDAR_MONITOR = {AlgoAttributes.NAME: "TOMO_CEDAR_MONITOR",
-                          AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                          AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-                          AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
-                          AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
-                          AlgoAttributes.PLOT_MARKER: "D",
-                          AlgoAttributes.EXEC: main_tomocedar_setup
-                          }
+    TOMO_CEDAR_DYN = {AlgoAttributes.NAME: "TOMO_CEDAR_DYN",
+                      AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
+                      AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
+                      AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
+                      AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
+                      AlgoAttributes.PLOT_MARKER: "D",
+                      AlgoAttributes.EXEC: main_reactive_tomocedar_setup
+                      }
 
     ORACLE = {AlgoAttributes.NAME: "ORACLE",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
@@ -172,44 +174,21 @@ class Algorithm(Enum):
                 AlgoAttributes.MONITOR_PLACEMENT: None,
                 AlgoAttributes.EXEC: main_cedar_setup_FL  # main_cedar_setup
                 }, **_dict}
-
-    CEDAR_MONITOR = {**{AlgoAttributes.NAME: "CEDAR_MONITOR",
-                        AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
-                        AlgoAttributes.PLOT_MARKER: "s",
-                        AlgoAttributes.EXEC: main_cedar_setup_FL}, **_dict}
-
     #
     SHP = {**{AlgoAttributes.NAME: "SHP",
               AlgoAttributes.PLOT_MARKER: "p",
               AlgoAttributes.MONITOR_PLACEMENT: None,
               AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
 
-    SHP_MONITOR = {**{AlgoAttributes.NAME: "SHP_MONITOR",
-                      AlgoAttributes.PLOT_MARKER: "p",
-                      AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
-                      AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
-
-    #
     ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP",
                  AlgoAttributes.PLOT_MARKER: ">",
                  AlgoAttributes.MONITOR_PLACEMENT: None,
                  AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
-    ISR_SP_MONITOR = {**{AlgoAttributes.NAME: "ISR_SP_MONITOR",
-                         AlgoAttributes.PLOT_MARKER: ">",
-                         AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
-                         AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
-
-    #
     ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM",
                        AlgoAttributes.PLOT_MARKER: "<",
                        AlgoAttributes.MONITOR_PLACEMENT: None,
                        AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
-
-    ISR_MULTICOM_MONITOR = {**{AlgoAttributes.NAME: "ISR_MULTICOM_MONITOR",
-                               AlgoAttributes.PLOT_MARKER: "<",
-                               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE,
-                               AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
 
 class IndependentVariable(Enum):
