@@ -134,7 +134,7 @@ def run(config):
             routed_flow += quantity_pruning
             print("pruned", quantity_pruning, "on", path)
 
-            d_edge = make_existing_edge(G, d1, d2)
+            d_edge = make_existing_edge(d1, d2)
             demand_edges_routed_flow_pp[d_edge] += quantity_pruning
             stats["flow"] = routed_flow
 
@@ -176,7 +176,7 @@ def run(config):
             stats["edge"] += fixed_nodes
             stats["node"] += fixed_edges
 
-            d1, d2 = last_repaired_demand = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+            d1, d2 = last_repaired_demand = make_existing_edge(path_to_fix[0], path_to_fix[-1])
             # update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections)
 
         else:  # Pk non ha dei path
@@ -218,7 +218,7 @@ def update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections):
 
 def cancel_demand_edge(G, path_to_fix):
     print("Path with capacity 0, happened", path_to_fix)
-    dd1, dd2 = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+    dd1, dd2 = make_existing_edge(path_to_fix[0], path_to_fix[-1])
     G.edges[dd1, dd2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = 0
 
 

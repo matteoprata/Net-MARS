@@ -89,6 +89,11 @@ def read_pickle(fname):
         return data
 
 
+def set_seed(seed):
+    np.random.seed(seed)
+    random.seed(seed)
+
+
 def write_pickle(dictionary, fname):
     with open(fname, 'wb') as handle:
         pickle.dump(dictionary, handle)

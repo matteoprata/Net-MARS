@@ -102,7 +102,7 @@ def run(config):
                 if is_working:
                     quantity_pruning = do_prune(G, path_prune)
                     routed_flow += quantity_pruning
-                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    d_edge = make_existing_edge(path_prune[0], path_prune[-1])
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)
@@ -132,7 +132,7 @@ def run(config):
                 routed_flow += quantity_pruning  # TODO CHECK MISSING stats["flow"] = routed_flow
                 print("pruned", quantity_pruning, "on", path_to_fix)
 
-                d_edge = make_existing_edge(G, path_to_fix[0], path_to_fix[-1])
+                d_edge = make_existing_edge(path_to_fix[0], path_to_fix[-1])
                 demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                 stats["flow"] = routed_flow
 

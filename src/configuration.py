@@ -12,7 +12,7 @@ class Configuration:
         self.graph_dataset = co.GraphName.MINNESOTA
         self.graph_path = self.graph_dataset.value
 
-        self.destruction_show_plot = True
+        self.destruction_show_plot = False
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
@@ -67,7 +67,8 @@ class Configuration:
 
         self.k_hop_monitoring = 1
         self.is_IP_routing = False  # weather to do IP, or self routing
-        self.uniform_resistance_destruction = 0.2
+        self.uniform_resistance_destruction_init = 0.2    # at the beginning
+        self.uniform_resistance_destruction_reset = 0.7     # at reset
 
     def n_edges_given_n_nodes(self, n_nodes):
         """ number of edges given pruned clique """

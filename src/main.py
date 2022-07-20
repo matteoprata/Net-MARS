@@ -33,12 +33,12 @@ parser.add_argument('-gn', '--graph_name', type=str, default=original_config.gra
 config = None
 
 
-def save_stats_monotonous(stats, fname):
+def save_stats_monotonous(stats, fname, algon):
     """ saving number of repairs and flow routed """
     for i in stats:
         print(i)
 
-    repairs, iter, flow_cum = [], [], []
+    repairs, iter, flow_cum, is_forced_tot = [], [], [], []
     n_repairs = 0
     demand_pairs = {k: [] for k in stats[-1]["demands_sat"].keys()}
     for i, dic in enumerate(stats):  # iteration index
@@ -50,11 +50,17 @@ def save_stats_monotonous(stats, fname):
         flow_cum += [stats[i]["flow"]] * n_vals
         n_repairs += len(vals)
 
-        i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
-        for k in i_demand_pairs:
+        if algon != co.Algorithm.TOMO_CEDAR_DYN:
+            i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
+            for k in i_demand_pairs:
+                d_flow = [0] * n_vals
+                d_flow[0] = stats[i]["demands_sat"][k][i]
+                demand_pairs[k] += d_flow
+        else:
+            is_forced = stats[i]["forced_destr"]
             d_flow = [0] * n_vals
-            d_flow[0] = stats[i]["demands_sat"][k][i]
-            demand_pairs[k] += d_flow
+            d_flow[0] = 1 if is_forced else 0
+            is_forced_tot += d_flow
 
     df = pd.DataFrame()
     df["repairs"] = repairs
@@ -76,8 +82,11 @@ def save_stats_monotonous(stats, fname):
     n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
     df["n_monitor_msg"] = n_monitor_msg_messages
 
-    for k in demand_pairs:
-        df["d-" + str(k)] = demand_pairs[k]
+    if algon != co.Algorithm.TOMO_CEDAR_DYN:
+        for k in demand_pairs:
+            df["d-" + str(k)] = demand_pairs[k]
+    else:
+        df["forced_destr"] = is_forced_tot
 
     print("saving stats > {}".format(fname))
     if os.path.exists(co.PATH_EXPERIMENTS):
@@ -278,18 +287,17 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
         enable_print()
 
         if stats is not None:
-            if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM,
-                                    co.Algorithm.SHP_MONITOR, co.Algorithm.ISR_MULTICOM_MONITOR]:
+            if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
                 df = save_stats_NON_monotonous(stats, fname)
             else:
-                df = save_stats_monotonous(stats, fname)
+                df = save_stats_monotonous(stats, fname, config.algo_name)
             print(df.to_string())
     else:
         print()
         print("THIS already existed...\n", fname, "\n")
 
 
-def parallel_exec(seeds, algorithms, is_log=False):
+def parallel_exec_0(seeds, algorithms, is_log=False):
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                # 1: .5,
@@ -352,21 +360,72 @@ def parallel_exec(seeds, algorithms, is_log=False):
 
 
 def single_exec():
-    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.ST_PATH,
-    #               co.Algorithm.CEDAR, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR_DYN]
-    for algo in BENCHMARKS:
+    SEEDS = [0]
+    for ss in SEEDS:
+        for algo in BENCHMARKS:
+            exec_config = {
+                co.IndependentVariable.SEED: ss,
+                co.IndependentVariable.PROB_BROKEN: 0.5,
+                co.IndependentVariable.MONITOR_BUDGET: 8,
+                co.IndependentVariable.N_DEMAND_EDGES: 6,  # nodes
+                co.IndependentVariable.FLOW_DEMAND: 10,
+                co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
+                co.IndependentVariable.ALGORITHM: algo.name
+            }
+            run_single(*exec_config.values(), True)
+
+
+def parallel_exec_launch():
+    STEP = 3
+    s_seed, e_seed = 700, 800
+    seeds = set(range(s_seed, e_seed))
+
+    # seeds to ignore
+    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
+              760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
+    seeds = list(seeds)
+
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
+                  co.Algorithm.ORACLE,
+                  co.Algorithm.CEDAR,
+                  co.Algorithm.ST_PATH,
+                  co.Algorithm.SHP,
+                  co.Algorithm.ISR_SP,
+                  # co.Algorithm.ISR_MULTICOM
+                  ]
+
+    for i in range(0, len(seeds), STEP):
+        runs = seeds[i: i+STEP]
+        print("RUN", runs)
+        parallel_exec_0(runs, BENCHMARKS, is_log=False)
+
+
+def parallel_exec_1():
+
+    seeds = range(200, 400)
+    processes = []
+    for seed in seeds:
         exec_config = {
-            co.IndependentVariable.SEED: 9124,
-            co.IndependentVariable.PROB_BROKEN: 0.8,
-            co.IndependentVariable.MONITOR_BUDGET: 7,
-            co.IndependentVariable.N_DEMAND_EDGES: 5,  # nodes
-            co.IndependentVariable.FLOW_DEMAND: 11,
+            co.IndependentVariable.SEED: seed,
+            co.IndependentVariable.PROB_BROKEN: .5,
+            co.IndependentVariable.MONITOR_BUDGET: 8,
+            co.IndependentVariable.N_DEMAND_EDGES: 6,  # or nodes
+            co.IndependentVariable.FLOW_DEMAND: 10,
             co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
-            co.IndependentVariable.ALGORITHM: algo.name
+            co.IndependentVariable.ALGORITHM: co.Algorithm.TOMO_CEDAR_DYN.name
         }
-        run_single(*exec_config.values(), True)
+        processes.append(list(exec_config.values()) + [False])
+
+    with Pool(initializer=initializer, processes=co.N_CORES) as pool:
+        try:
+            pool.starmap(safe_run, processes)
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.join()
+
+    print("COMPLETED SUCCESSFULLY")
 
 
 def initializer():
@@ -375,27 +434,5 @@ def initializer():
 
 
 if __name__ == '__main__':
-
-    # STEP = 3
-    # s_seed, e_seed = 700, 800
-    # seeds = set(range(s_seed, e_seed))
-    # # seeds to ignore
-    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
-    #           760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
-    # seeds = list(seeds)
-    #
-    # BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
-    #               co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP,
-    #               co.Algorithm.ISR_MULTICOM]
-    #
-    # # BENCHMARKS = [co.Algorithm.SHP_MONITOR, co.Algorithm.CEDAR_MONITOR, co.Algorithm.TOMO_CEDAR_MONITOR,
-    # #               co.Algorithm.ISR_MULTICOM_MONITOR, co.Algorithm.ISR_SP_MONITOR]
-    #
-    # # BENCHMARKS = [co.Algorithm.CEDAR_MONITOR]
-    #
-    # for i in range(0, len(seeds), STEP):
-    #     runs = seeds[i: i+STEP]
-    #     print("RUN", runs)
-    #     parallel_exec(runs, BENCHMARKS, is_log=False)
-
-    single_exec()
+    parallel_exec_1()
+    # single_exec()

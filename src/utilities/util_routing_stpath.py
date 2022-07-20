@@ -51,7 +51,7 @@ def protocol_routing_IP(SG, src, target):
             if neigh not in container.keys():
                 continue
 
-            n1_st, n2_st = grau.make_existing_edge(SG, current_src, neigh)
+            n1_st, n2_st = grau.make_existing_edge(current_src, neigh)
 
             cap = SG.edges[n1_st, n2_st, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
             res_cap = SG.edges[n1_st, n2_st, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
@@ -115,7 +115,7 @@ def protocol_repair_AVG_COST(SG, src, target, is_oracle=False):
             if neigh not in container.keys():  # avoids loops, no going back, it was already met
                 continue
 
-            n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
+            n1, n2 = grau.make_existing_edge(current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
             if res_cap == 0:
@@ -180,7 +180,7 @@ def protocol_repair_min_exp_cost(SG, src, target, residual_demand, max_edge_cap,
             if neigh not in container.keys():  # avoids loops, no going back, it was already met
                 continue
 
-            n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
+            n1, n2 = grau.make_existing_edge(current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             res_cap = util.min_max_normalizer(res_cap, 0, max_edge_cap, 0, 1)
 
@@ -245,7 +245,7 @@ def protocol_stpath_capacity(SG, src, target):
             if neigh not in container.keys():  # avoids loops, no going back, it was already met
                 continue
 
-            n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
+            n1, n2 = grau.make_existing_edge(current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
             if res_cap == 0:
@@ -341,7 +341,7 @@ def protocol_repair_cedarlike(SG, src, target):
             if neigh not in container.keys():  # avoids loops, no going back, it was already met
                 continue
 
-            n1, n2 = grau.make_existing_edge(SG, current_src, neigh)
+            n1, n2 = grau.make_existing_edge(current_src, neigh)
             res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
             if res_cap == 0:

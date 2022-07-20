@@ -190,7 +190,7 @@ def isr_srt(G):
 
         for i in range(len(path)-1):
             n1, n2 = path[i], path[i+1]
-            n1, n2 = make_existing_edge(G, n1, n2)
+            n1, n2 = make_existing_edge(n1, n2)
             if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:  # edges broken or unk
                 edges |= {(n1, n2)}
                 is_unk_bro_path = True
@@ -249,7 +249,7 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
                     rep_nodes += repn
                     rep_edges += repe
 
-                    na, nb = make_existing_edge(G, i, j)
+                    na, nb = make_existing_edge(i, j)
                     cap = min(G.edges[na, nb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem)
                     SG.add_edge(na, nb, capacity=cap)
 
@@ -287,7 +287,7 @@ def isr_pruning_demand(G, demand_edges_routed_flow_pp):
 def remaining_demand_endpoints(G, d_edges):
     cap = 0
     for e1, e2 in d_edges:
-        e1, e2 = make_existing_edge(G, e1, e2)
+        e1, e2 = make_existing_edge(e1, e2)
         cap += G.edges[e1, e2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
     return cap
 
@@ -388,7 +388,7 @@ def run_isr_st(config):
                 if is_working:
                     quantity_pruning = do_prune(G, path_prune)
                     routed_flow += quantity_pruning
-                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    d_edge = make_existing_edge(path_prune[0], path_prune[-1])
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)
@@ -509,7 +509,7 @@ def run_isr_multi(config):
                 if is_working:
                     quantity_pruning = do_prune(G, path_prune)
                     routed_flow += quantity_pruning
-                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    d_edge = make_existing_edge(path_prune[0], path_prune[-1])
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)

@@ -29,7 +29,7 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
             # check if path broken, suffices one single element broken
             for i in range(len(path_nodes) - 1):
                 n1, n2 = path_nodes[i], path_nodes[i + 1]
-                n1, n2 = make_existing_edge(G, n1, n2)
+                n1, n2 = make_existing_edge(n1, n2)
                 is_path_broken = n1 in broken_nodes_T or n2 in broken_nodes_T or (n1, n2, co.EdgeType.SUPPLY.value) in broken_edges_T
                 if is_path_broken:
                     mom_broken.append(path_nodes)
@@ -49,7 +49,7 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
             broken_unk_path_edge = []
             for i in range(len(p) - 1):
                 n1, n2 = p[i], p[i + 1]
-                n1, n2 = make_existing_edge(G, n1, n2)
+                n1, n2 = make_existing_edge(n1, n2)
                 if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
                     broken_unk_path_edge.append((n1, n2))
 
@@ -59,11 +59,11 @@ def broken_paths_without_n(G, paths, broken_paths, broken_edges_T, broken_nodes_
                     discover_node(G, bun, co.NodeState.BROKEN.value)
                 else:
                     bue = broken_unk_path_edge[0]
-                    n1, n2 = make_existing_edge(G, bue[0], bue[1])
+                    n1, n2 = make_existing_edge(bue[0], bue[1])
                     discover_edge(G, n1, n2, co.NodeState.BROKEN.value)  # bool
 
             path_els =  [elements_val_id[n] for n in p]
-            path_els += [elements_val_id[make_existing_edge(G, p[i], p[i + 1])] for i in range(len(p) - 1)]
+            path_els += [elements_val_id[make_existing_edge(p[i], p[i + 1])] for i in range(len(p) - 1)]
             broken_paths.append(path_els)  # [[n1, e1], []]
 
     paths_out = broken_paths[:]
@@ -92,10 +92,10 @@ def gain_knowledge_of_n_APPROX(SG, element, element_type, broken_paths, paths, b
 
     working_edges_P = get_element_by_state_KT(SG, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW)
     working_nodes_P = get_element_by_state_KT(SG, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW)
-    working_elements_ids = [elements_val_id[make_existing_edge(SG, n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
+    working_elements_ids = [elements_val_id[make_existing_edge(n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
 
     if element_type == co.GraphElement.EDGE:
-        n1, n2 = make_existing_edge(SG, element[0], element[1])
+        n1, n2 = make_existing_edge(element[0], element[1])
         ide = elements_val_id[(n1, n2)]
     else:
         ide = elements_val_id[element]
@@ -169,10 +169,10 @@ def gain_knowledge_of_n_EXACT(SG, element, element_type, broken_paths, broken_pa
     working_edges_P = get_element_by_state_KT(SG, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW)
     working_nodes_P = get_element_by_state_KT(SG, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW)
 
-    working_elements_ids = [elements_val_id[make_existing_edge(SG, n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
+    working_elements_ids = [elements_val_id[make_existing_edge(n1, n2)] for n1, n2, _ in working_edges_P] + [elements_val_id[n] for n in working_nodes_P]
 
     if element_type == co.GraphElement.EDGE:
-        n1, n2 = make_existing_edge(SG, element[0], element[1])
+        n1, n2 = make_existing_edge(element[0], element[1])
         a_prior = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.PRIOR_BROKEN.value]
     else:
         a_prior = SG.nodes[element][co.ElemAttr.PRIOR_BROKEN.value]
@@ -251,7 +251,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
 
     # cretes all possible 2-combinations of useful monitors
     for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
-        p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
+        p1, p2 = make_existing_edge(pair[0], pair[1])  # demand edges or monitoring edges
         if is_demand_edge_exists(G, p1, p2):
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
@@ -346,7 +346,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
 
         if path_to_prune is not None:
             assert get_path_residual_capacity(G, path_to_prune) > 0
-            d1, d2 = make_existing_edge(G, path_to_prune[0], path_to_prune[-1])
+            d1, d2 = make_existing_edge(path_to_prune[0], path_to_prune[-1])
             pruned_quant = do_prune(G, path_to_prune)
             demand_edges_routed_flow.append(pruned_quant)
             demand_edges_routed_flow_pp[(d1, d2)] = pruned_quant
@@ -362,7 +362,7 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
     demand_edges_to_repair = []
     demand_edges_routed_flow = []          # total
     demand_edges_routed_flow_pp = dict()   # (): 10
-
+    pruned_paths = []
     # the list of path between demand nodes
     monitoring_paths = []
     stats_packet_monitoring = 0
@@ -389,8 +389,18 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
 
     # cretes all possible 2-combinations of useful monitors
     for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
-        p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
+        p1, p2 = make_existing_edge(pair[0], pair[1])  # demand edges or monitoring edges
+        if is_demand_edge(G, p1, p2) and G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
+            continue
         to_handle_pairs.add((p1, p2))
+
+    to_hand = False  # if all demand edges are handled, then ignore handling monitoring paths
+    for p1, p2 in to_handle_pairs:
+        if is_demand_edge(G, p1, p2):
+            to_hand = True
+            break
+
+    to_handle_pairs = set() if not to_hand else to_handle_pairs
 
     # PHASE 1
     monitors_connections_merge(monitors_connections, monitors_non_connections, last_repaired_demand)
@@ -410,31 +420,10 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
         # still_handle -= last_m1, last_m2
         # still_handle = list(still_handle)
 
-        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=True):
-            if stats_packet_monitoring_so_far + stats_packet_monitoring > threshold_monitor_message:  # halt due to monitoring msg
-                halt_monitoring = True
-                break
+        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=False):
 
-            # PRUNING
-            to_monitor = True
-            if config.protocol_monitor_placement in [co.ProtocolMonitorPlacement.BUDGET_W_REPLACEMENT, co.ProtocolMonitorPlacement.BUDGET]:
-                if (config.repairing_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP or
-                      config.picking_mode == co.ProtocolPickingPath.MIN_COST_BOT_CAP) and not config.is_exhaustive_paths:
-
-                    to_monitor = is_edge_to_monitor(n1_mon, n2_mon, monitors_map,
-                                                    monitors_connections, monitors_non_connections, demand_nodes)
-
-                    # if not to_monitor:
-                    #     handled_pairs.add((n1_mon, n2_mon))
-                    #     continue
-
-            # if no capacitive path exists, abort, this should not happen
-            if to_monitor:
-                st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
-                stats_packet_monitoring += 1
-            else:
-                print("Skipped to monitor", n1_mon, n2_mon)
-                st_path_out = None, np.inf, None, None
+            st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+            stats_packet_monitoring += 1
 
             assert st_path_out is not None, "some infeasibility issue"
 
@@ -479,7 +468,7 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
 
         if path_to_prune is not None:
             assert get_path_residual_capacity(G, path_to_prune) > 0
-            d1, d2 = make_existing_edge(G, path_to_prune[0], path_to_prune[-1])
+            d1, d2 = make_existing_edge(path_to_prune[0], path_to_prune[-1])
             pruned_quant = do_prune(G, path_to_prune)
             demand_edges_routed_flow.append(pruned_quant)
             demand_edges_routed_flow_pp[(d1, d2)] = pruned_quant
@@ -488,7 +477,11 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
             if G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
                 handled_pairs.add((n1, n2))
 
-    return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp
+            if pruned_quant > 0:
+                pruned_paths.append((path_to_prune, pruned_quant))
+
+    return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp, pruned_paths
+
 
 def pruning_monitoring_dummy(G, stats_packet_monitoring_so_far, threshold_monitor_message, monitors_map, monitors_connections, monitors_non_connections, last_repaired_demand, config):
     """ used for all but our algorithm """
@@ -517,7 +510,7 @@ def pruning_monitoring_dummy(G, stats_packet_monitoring_so_far, threshold_monito
 
     # cretes all possible 2-combinations of useful monitors
     for pair in set(combinations(set_useful_monitors, r=2)):   # pure monitor, and demand nodes (only if exists at least 1 non saturated demand)
-        p1, p2 = make_existing_edge(G, pair[0], pair[1])  # demand edges or monitoring edges
+        p1, p2 = make_existing_edge(pair[0], pair[1])  # demand edges or monitoring edges
         if is_demand_edge_exists(G, p1, p2):
             res_cap = G.edges[p1, p2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if res_cap > 0:
@@ -549,16 +542,16 @@ def pruning_monitoring_dummy(G, stats_packet_monitoring_so_far, threshold_monito
 
             # PRUNING
             to_monitor = True
-            if not config.is_exhaustive_paths:
+            if not config.is_exhaustive_paths: # Viviana: bisogna mettere questa a true, oppure togliere questo if e il rispettivo to_monitor
                 to_monitor = is_edge_to_monitor(n1_mon, n2_mon, monitors_map, monitors_connections, monitors_non_connections, demand_nodes)
 
             # if no capacitive path exists, abort, this should not happen
-            if to_monitor:
+            if to_monitor: # Viviana: togli qui
                 st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
                 stats_packet_monitoring += 1
-            else:
-                print("Skipped to monitor", n1_mon, n2_mon)
-                st_path_out = None, np.inf, None, None
+            else: # Viviana: togli qui
+                print("Skipped to monitor", n1_mon, n2_mon) # Viviana: togli qui
+                st_path_out = None, np.inf, None, None # Viviana: togli qui
 
             assert st_path_out is not None, "some infeasibility issue"
 

@@ -72,7 +72,7 @@ def new_monitoring_add(G, config):
                 for path in paths:
                     if n in path:
                         candidate_monitors[n] += 1
-                        nn1, nn2 = gu.make_existing_edge(G, path[0], path[-1])  # demand edge
+                        nn1, nn2 = gu.make_existing_edge(path[0], path[-1])  # demand edge
                         candidate_monitors_dem[n].add((nn1, nn2))
 
         # candidate_monitors_keys = list(candidate_monitors.keys())[:]

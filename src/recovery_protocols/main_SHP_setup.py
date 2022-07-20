@@ -217,7 +217,7 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
                         rep_nodes += repn
                         rep_edges += repe
 
-                    na, nb = make_existing_edge(G, i, j)
+                    na, nb = make_existing_edge(i, j)
                     cap = min(G.edges[na, nb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem)
                     SG.add_edge(na, nb, capacity=cap)
 
@@ -331,7 +331,7 @@ def run_shp_multi(config):
                 if is_working:
                     quantity_pruning = do_prune(G, path_prune)
                     routed_flow += quantity_pruning
-                    d_edge = make_existing_edge(G, path_prune[0], path_prune[-1])
+                    d_edge = make_existing_edge(path_prune[0], path_prune[-1])
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)

@@ -121,7 +121,7 @@ def is_there_working_path(G, n1o, n2o):
 def is_known_path(G, path):
     """ Return True iff the path is fully known. """
     for i in range(len(path) - 1):
-        n1, n2 = make_existing_edge(G, path[i], path[i + 1])
+        n1, n2 = make_existing_edge(path[i], path[i + 1])
         pun_e = 1 > G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
         pun_n1 = 1 > G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
         pun_n2 = 1 > G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] > 0
@@ -140,11 +140,11 @@ def heuristic_priority_pruning(G, d1, d2):
     demand_res_cap = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
     for ne in SG.neighbors(d1):
-        ns, nd = make_existing_edge(G, ne, d1)
+        ns, nd = make_existing_edge(ne, d1)
         res_d1 += G.edges[ns, nd, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
     for ne in SG.neighbors(d2):
-        ns, nd = make_existing_edge(G, ne, d2)
+        ns, nd = make_existing_edge(ne, d2)
         res_d2 += G.edges[ns, nd, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
     priority = (demand_res_cap/res_d1 + demand_res_cap/res_d2) / 2    # TODO remove / 2, choose min
@@ -167,7 +167,7 @@ def is_bubble(G, path):
 
     SG = get_supply_graph(G)
     d1, d2 = path[0], path[-1]
-    d1, d2 = make_existing_edge(SG, d1, d2)
+    d1, d2 = make_existing_edge(d1, d2)
     dem_nodes = get_demand_nodes(SG, is_residual=True)
 
     tuple_is_unique = len(set(path).intersection(dem_nodes - {d1, d2})) == 0
@@ -175,7 +175,7 @@ def is_bubble(G, path):
     for i in range(len(path)-2):
         node = path[i+1]
         for ne in SG.neighbors(node):
-            n1, n2 = make_existing_edge(G, node, ne)
+            n1, n2 = make_existing_edge(node, ne)
             cap = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             # TODO check if broken, if so, not a bubble
             if ne not in path and cap > 0:
@@ -186,7 +186,7 @@ def is_bubble(G, path):
 def do_prune(G, path, is_log=True):
     """ Assumes that the path is working! """
     d1, d2 = path[0], path[-1]
-    d1, d2 = make_existing_edge(G, d1, d2)
+    d1, d2 = make_existing_edge(d1, d2)
 
     st_path_cap = get_path_residual_capacity(G, path)
     demand_residual = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
@@ -202,7 +202,7 @@ def is_worcap_path(G, path):
 
     for i in range(len(path) - 1):
         n1, n2 = path[i], path[i + 1]
-        n1, n2 = make_existing_edge(G, n1, n2)
+        n1, n2 = make_existing_edge(n1, n2)
         state_n1 = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value]
         state_n2 = G.nodes[n2][co.ElemAttr.STATE_TRUTH.value]
         state_n1n2 = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
@@ -216,7 +216,7 @@ def get_node_degree_working_edges(G, node, is_fake_fixed):
     """ Degree of a node excluding the demand edges."""
     count = 0
     for neig in G.neighbors(node):
-        n1, n2 = make_existing_edge(G, neig, node)
+        n1, n2 = make_existing_edge(neig, node)
         if not is_demand_edge(G, n1, n2):
             is_working_n1 = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.WORKING.value
             is_working_n2 = G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.WORKING.value
@@ -229,7 +229,7 @@ def get_node_degree_working_edges(G, node, is_fake_fixed):
 def is_path_working(G, path):
     for i in range(len(path)-1):
         n1, n2 = path[i], path[i+1]
-        n1, n2 = make_existing_edge(G, n1, n2)
+        n1, n2 = make_existing_edge(n1, n2)
         if G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] == 1 or G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] == 1 or \
                 G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]:
             return False
@@ -319,26 +319,28 @@ def k_hop_destruction(G, source, khop):
     """ Do k-destruction for dynamic tomo-cedar """
     SG = get_supply_graph(G)
     reach_k_paths = nx.single_source_shortest_path(SG, source, cutoff=khop)  # pi: [path nodes]
+    destr_nodes, destr_edges = set(), set()
     for no in reach_k_paths:
         path = reach_k_paths[no]
         for i in range(len(path)-1):  # iterate over path nodes
-            n1, n2 = make_existing_edge(G, path[i], path[i+1])
+            n1, n2 = make_existing_edge(path[i], path[i + 1])
             if np.random.rand() > G.nodes[n1][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
                 G.nodes[n1][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+                destr_nodes.add(n1)
 
             if np.random.rand() > G.nodes[n2][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
                 G.nodes[n2][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+                destr_nodes.add(n2)
 
             if np.random.rand() > G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value]:
                 G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.BROKEN.value
+                destr_edges.add((n1, n2))
+    return destr_nodes, destr_edges
 
 
-def make_existing_edge(G, n1, n2):
-    """ Returns the oriented graph, for undirected graphs """
-    for e1, e2, _ in G.edges:
-        if (e1, e2) == (n1, n2):
-            return n1, n2
-    return n2, n1  # not exist or is inverted
+def make_existing_edge(n1, n2):
+    """ returns the oriented edge, for undirected graphs, assumes that first endpoint is lower. """
+    return (n1, n2) if n1 <= n2 else (n2, n1)
 
 
 def net_max_degree(G):
@@ -381,7 +383,7 @@ def do_fix_path(G, path_to_fix):
         # EDGES
         for i in range(len(path_to_fix) - 1):
             n1, n2 = path_to_fix[i], path_to_fix[i + 1]
-            n1, n2 = make_existing_edge(G, n1, n2)
+            n1, n2 = make_existing_edge(n1, n2)
             did_repair = do_repair_edge(G, n1, n2)
             if did_repair:
                 fixed_edges.append((n1, n2))
@@ -429,19 +431,19 @@ def do_repair_full_edge(G, n1, n2):
 def discover_edge(G, n1, n2, p_broken):
     """  Sets the posterior probability according to the actual state of the element. """
     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
-    assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+    # assert(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
 
 
 def discover_node(G, n, p_broken):
     """  Sets the posterior probability according to the actual state of the element. """
     G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
-    assert(G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n][co.ElemAttr.STATE_TRUTH.value])
+    # assert(G.nodes[n][co.ElemAttr.POSTERIOR_BROKEN.value] == G.nodes[n][co.ElemAttr.STATE_TRUTH.value])
 
 
 def discover_path(G, path, p_broken):
     """  Sets the posterior probability according to the actual state of the path. """
     for i in range(len(path)-1):
-        n1, n2 = make_existing_edge(G, path[i], path[i+1])
+        n1, n2 = make_existing_edge(path[i], path[i + 1])
         G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
         G.nodes[n2][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
         G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] = p_broken
@@ -453,7 +455,7 @@ def discover_path(G, path, p_broken):
 def discover_path_truth_limit_broken(G, path):
     """  Sets the posterior probability according to the actual state of the path. """
     for i in range(len(path)-1):
-        n1, n2 = make_existing_edge(G, path[i], path[i+1])
+        n1, n2 = make_existing_edge(path[i], path[i + 1])
         ed_truth = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
 
         G.nodes[n1][co.ElemAttr.POSTERIOR_BROKEN.value] = G.nodes[n1][co.ElemAttr.STATE_TRUTH.value]
@@ -646,7 +648,7 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
-        n1, n2 = make_existing_edge(G, n1, n2)
+        n1, n2 = make_existing_edge(n1, n2)
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge / cap
         # print(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value], posterior_broken_edge, n1, n2, cost_broken_els_exp)
@@ -675,7 +677,7 @@ def get_path_cost_cedarlike(G, path_nodes):
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
-        n1, n2 = make_existing_edge(G, n1, n2)
+        n1, n2 = make_existing_edge(n1, n2)
         is_unk_bro = int(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0)
         cost_broken_els_exp += co.REPAIR_COST * is_unk_bro / cap + (1-is_unk_bro) / cap
 
@@ -708,7 +710,7 @@ def broken_elements_in_path_T(G, path_nodes):
     n_broken = 0
     for i in range(len(path_nodes) - 1):
         n1, n2 = path_nodes[i], path_nodes[i + 1]
-        n1, n2 = make_existing_edge(G, n1, n2)
+        n1, n2 = make_existing_edge(n1, n2)
 
         if G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == 1:
             n_broken += 1

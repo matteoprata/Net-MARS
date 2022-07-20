@@ -211,7 +211,7 @@ REPAIR_INTERVENTION = 100
 
 EPSILON = 10 ** -10
 
-N_CORES = multiprocessing.cpu_count() - 1
+N_CORES = multiprocessing.cpu_count()
 
 MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320), (186, 188), (186, 320), (79, 349),
                           (349, 125), (78, 72), (1, 320), (1, 319), (125, 652), (652, 559), (559, 564),  # VERT SX

@@ -40,7 +40,7 @@ def __pick_max_intersection(G, paths, repair_mode, is_oracle):
     for pid, pp in enumerate(paths):
         elements = set()
         for i in range(len(pp)-1):
-            n1, n2 = gu.make_existing_edge(G, pp[i], pp[i+1])
+            n1, n2 = gu.make_existing_edge(pp[i], pp[i + 1])
             elements.add(n1)
             elements.add(n2)
             elements.add((n1, n2))

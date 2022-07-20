@@ -57,6 +57,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
 
     # every edge will work by default
     for n1, n2, gt in raw_graph.edges:
+        assert n1 <= n2
         if not (n1 in ignore_nodes or n2 in ignore_nodes):
             element_id += 1
             elements_val_id[(n1, n2)] = element_id
@@ -81,11 +82,11 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
     # ADD probability RESISTANCE_TO_DESTRUCTION:
     if config.algo_name == co.Algorithm.TOMO_CEDAR_DYN:
         for n in G.nodes:
-            G.nodes[n][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction
+            G.nodes[n][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_init
 
         for n1, n2, ty in G.edges:
-            if ty == co.EdgeType.SUPPLY:
-                G.edges[n1, n2, ty][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction
+            if ty == co.EdgeType.SUPPLY.value:
+                G.edges[n1, n2, ty][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_init
 
     return G, elements_val_id, elements_id_val
 
@@ -95,7 +96,7 @@ def place_static_backbone(G, path_edges, backbone_capacity):
     for na, nb in path_edges:
         path = nx.shortest_path(SG, na, nb)
         for i in range(len(path)-1):
-            ea, eb = grau.make_existing_edge(G, path[i], path[i+1])
+            ea, eb = grau.make_existing_edge(path[i], path[i + 1])
             G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_capacity
             G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_capacity
 
@@ -111,7 +112,7 @@ def place_backbone(G, config):
         path = nx.shortest_path(G, p1, p2)
         for i in range(len(path) - 1):
             e1, e2 = path[i], path[i + 1]
-            e1, e2 = grau.make_existing_edge(G, e1, e2)
+            e1, e2 = grau.make_existing_edge(e1, e2)
             backbone_flow = config.supply_capacity[0] * (1 + config.percentage_flow_backbone)
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_flow
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_flow
