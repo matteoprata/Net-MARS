@@ -286,12 +286,19 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         front = int(FRONTIER[PERC_DESTRUCTION])
         dyn = np.average(datas_ali, axis=1)
         avg_flow = datas[:front, :, PERC_DESTRUCTION] / MAX_TOTAL_FLOW[PERC_DESTRUCTION] if not is_dynamic else dyn
-        for i, _ in enumerate(algos):
-            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[i])
+        if not is_dynamic:
+            for i, _ in enumerate(algos):
+                plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names[i])
 
         if is_dynamic:
+            st = np.std(datas_ali, axis=1)[:, 0, 0]
+            ub = avg_flow[:, 0, 0]+st
+            ub[ub > MAX_TOTAL_FLOW] = MAX_TOTAL_FLOW
+            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], ub, color='green', alpha=0.2)
+            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], avg_flow[:, 0, 0]-st, color='green', alpha=0.2)
+            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], label=algo_names[0])
             for x in v_bars:
-                plt.axvline(x, alpha=.2, color='red')
+                plt.axvline(x, alpha=.1, color='red')
 
         plt.ylabel("Flow")
         plt.xlabel("Repair Steps")
@@ -771,7 +778,7 @@ def plotting_dyn():
     monitor_bud = {0: 8}
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni]}
 
-    seeds = [0]  # range(200, 300)
+    seeds = range(200, 400)
     print("Using", len(seeds), seeds)
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR_DYN]

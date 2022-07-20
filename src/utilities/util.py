@@ -40,11 +40,6 @@ def min_max_normalizer(value, startLB, startUB, endLB=0, endUB=1):
     return new_value
 
 
-def set_seeds(seed):
-    np.random.seed(seed)
-    random.seed(seed)
-
-
 def detuple_list(li):
     """ li: [(el1, el2, el3...), ] -> [el1, el2, el3..., ]"""
     nuli = set()

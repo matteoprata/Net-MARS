@@ -420,7 +420,7 @@ def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_moni
         # still_handle -= last_m1, last_m2
         # still_handle = list(still_handle)
 
-        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=False):
+        for n1_mon, n2_mon in tqdm.tqdm(still_handle, disable=True):
 
             st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
             stats_packet_monitoring += 1

@@ -268,8 +268,8 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     # is_biased = False
 
     # choose n_demand_nodes randomly in the graph
-    if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
-        np.random.seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
+    # if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
+    #     util.set_seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
     # ----> FIXING DEMAND NODES and EDGES
     nv_index = None  # read from file the edges in the graph
@@ -289,7 +289,6 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
         dict_edges = defaultdict(lambda: defaultdict(set))
 
     prev_edges = dict_edges[config.seed][nv_index] if nv_index is not None else set()
-    print("Previous edges", prev_edges)
 
     list_nodes_tot = select_demand(G, max_comp, config.n_demand_clique, is_nodes=True)  # ndn demand nodes
     list_nodes = list_nodes_tot[:n_demand_nodes]  # all clique nodes
@@ -303,7 +302,6 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
 
     total_edges = prev_edges | new_edges
     dict_edges[config.seed][config.n_demand_clique] = total_edges
-    print(config.seed, dict_edges)
 
     # needed to serialize...
     ser_dict = dict({int(k): dict({int(k1): set((int(li[0]), int(li[1])) for li in dict_edges[k][k1]) for k1 in dict_edges[k]}) for k in dict_edges})
@@ -313,8 +311,8 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
         pass
     util.write_pickle(ser_dict, config.edges_list_path)
 
-    if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
-        np.random.seed(config.seed)
+    # if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
+    # util.set_seed(config.seed)
 
     # print("\nDegrees")
     demand_edges = set()

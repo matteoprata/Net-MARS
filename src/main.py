@@ -1,6 +1,5 @@
 
 import numpy as np
-import itertools
 import argparse
 from multiprocessing import Pool
 import os
@@ -9,12 +8,8 @@ import traceback
 import signal
 import src.constants as co
 import src.configuration as configuration
-import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
-import src.recovery_protocols.main_ISR_setup as main_stocedar_setup
-import src.recovery_protocols.main_cedar_setup as main_cedar_setup
-import src.recovery_protocols.main_SHP_setup as main_shp_setup
 
-from src.utilities.util import set_seeds, disable_print, enable_print
+from src.utilities.util import set_seed, disable_print, enable_print
 import src.utilities.util as util
 import time
 
@@ -113,7 +108,6 @@ def save_stats_NON_monotonous(stats, fname):
             stop -= 1
         stopz[k] = stop+1
         # print("ECCO", k, i_demand_pairs[k], stop)
-
 
     repairs, iter, flow_cum = [], [], []
     n_repairs = 0
@@ -276,7 +270,7 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
         # print("NOW running...\n\n", config_details)
         print("exec name > ", fname)
 
-        set_seeds(config.seed)
+        set_seed(config.seed)
 
         if not config.is_log:
             disable_print()
@@ -297,35 +291,35 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
         print("THIS already existed...\n", fname, "\n")
 
 
-def parallel_exec_0(seeds, algorithms, is_log=False):
+def parallel_2_setup(seeds, algorithms, is_log=False):
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               # 1: .5,
-               # 2: .5,
-               3: .8
+               1: .7,
+               2: .7,
+               3: .7
                }
 
-    npairs = {0: 8,
-              # 1: [5, 6, 7, 8, 9, 10],
-              # 2: 8,
-              3: 8
+    npairs = {0: 6,
+              1: [4, 5, 6, 7, 8, 9],
+              2: 6,
+              3: 6
               }
 
-    flowpp = {0: 11,
-              # 1: 11,
-              # 2: [5, 7, 9, 11, 13, 15],
-              3: 11
+    flowpp = {0: 10,
+              1: 10,
+              2: [4, 6, 8, 10, 12, 14],
+              3: 10
               }
 
-    monitor_bud = {0: 16,
-                   #1: np.inf,
-                   #2: np.inf,
-                   3: [10, 12, 14, 16, 18, 20]
+    monitor_bud = {0: 10,
+                   1: 10,
+                   2: 10,
+                   3: [7, 8, 9, 10, 11, 12]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               #1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               #2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
                3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
@@ -335,7 +329,7 @@ def parallel_exec_0(seeds, algorithms, is_log=False):
             ind_variable_values = ind_var[k][1][k].copy()  # [list of x axis values]
             for iv in ind_variable_values:
                 ind_var[k][1][k] = iv
-
+                # print(iv, seed, k, ind_variable_values, ind_var[k][0])
                 for algo_bench in algorithms:
                     exec_config = {
                         co.IndependentVariable.SEED: seed,
@@ -360,26 +354,33 @@ def parallel_exec_0(seeds, algorithms, is_log=False):
 
 
 def single_exec():
+    BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
+                  co.Algorithm.ORACLE,
+                  co.Algorithm.CEDAR,
+                  co.Algorithm.ST_PATH,
+                  co.Algorithm.SHP,
+                  co.Algorithm.ISR_SP,
+                  co.Algorithm.ISR_MULTICOM
+                  ]
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_DYN]
-    SEEDS = [0]
+    SEEDS = [1246]
     for ss in SEEDS:
         for algo in BENCHMARKS:
             exec_config = {
                 co.IndependentVariable.SEED: ss,
-                co.IndependentVariable.PROB_BROKEN: 0.5,
-                co.IndependentVariable.MONITOR_BUDGET: 8,
-                co.IndependentVariable.N_DEMAND_EDGES: 6,  # nodes
-                co.IndependentVariable.FLOW_DEMAND: 10,
-                co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
+                co.IndependentVariable.PROB_BROKEN: 0.7,
+                co.IndependentVariable.MONITOR_BUDGET: 16,
+                co.IndependentVariable.N_DEMAND_EDGES: 5,  # nodes
+                co.IndependentVariable.FLOW_DEMAND: 11,
+                co.IndependentVariable.IND_VAR: co.IndependentVariable.N_DEMAND_EDGES,
                 co.IndependentVariable.ALGORITHM: algo.name
             }
             run_single(*exec_config.values(), True)
 
 
-def parallel_exec_launch():
+def parallel_exec_2():
     STEP = 3
-    s_seed, e_seed = 700, 800
+    s_seed, e_seed = 700, 900
     seeds = set(range(s_seed, e_seed))
 
     # seeds to ignore
@@ -393,13 +394,13 @@ def parallel_exec_launch():
                   co.Algorithm.ST_PATH,
                   co.Algorithm.SHP,
                   co.Algorithm.ISR_SP,
-                  # co.Algorithm.ISR_MULTICOM
+                  co.Algorithm.ISR_MULTICOM
                   ]
 
     for i in range(0, len(seeds), STEP):
         runs = seeds[i: i+STEP]
         print("RUN", runs)
-        parallel_exec_0(runs, BENCHMARKS, is_log=False)
+        parallel_2_setup(runs, BENCHMARKS, is_log=False)
 
 
 def parallel_exec_1():
@@ -434,5 +435,5 @@ def initializer():
 
 
 if __name__ == '__main__':
-    parallel_exec_1()
+    parallel_exec_2()
     # single_exec()

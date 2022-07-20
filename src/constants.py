@@ -1,12 +1,14 @@
 from enum import Enum
 import multiprocessing
-import src.recovery_protocols.main_tomocedar_setup as main_tomocedar_setup
-import src.recovery_protocols.main_ISR_setup as main_ISR_setup
+import src.recovery_protocols.TOMO_CEDAR as main_tomocedar_setup
+import src.recovery_protocols.ISR as main_ISR_setup
 # import src.recovery_protocols.main_cedar_setup as main_cedar_setup
-import src.recovery_protocols.main_cedar_setup_FINE_LUGLIO as main_cedar_setup_FL
-import src.recovery_protocols.main_reactive_tomocedar_setup as main_reactive_tomocedar_setup
+import src.recovery_protocols.CEDAR as main_cedar_setup_FL
+import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
+import src.recovery_protocols.ORACLE as main_tomoracle_setup
+import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
 
-import src.recovery_protocols.main_SHP_setup as main_SHP_setup
+import src.recovery_protocols.SHP as main_SHP_setup
 
 class GraphName(Enum):
     PALMETTO = "PALMETTO.gml"
@@ -150,7 +152,7 @@ class Algorithm(Enum):
               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
               AlgoAttributes.PLOT_MARKER: "o",
-              AlgoAttributes.EXEC: main_tomocedar_setup
+              AlgoAttributes.EXEC: main_tomoracle_setup
               }
 
     ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
@@ -159,7 +161,7 @@ class Algorithm(Enum):
                AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
                AlgoAttributes.MONITORING_TYPE: PriorKnowledge.DUNNY_IP,
                AlgoAttributes.PLOT_MARKER: "v",
-               AlgoAttributes.EXEC: main_tomocedar_setup
+               AlgoAttributes.EXEC: main_stpath_dummy_setup
                }
 
     _ignore_ = ['_dict']

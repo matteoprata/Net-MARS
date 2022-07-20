@@ -86,6 +86,7 @@ def protocol_routing_IP(SG, src, target):
 
     a = printpath(src, parent, target, target, [])
     metric_out = node_metric[target]
+    # last element is True if it works and has capacity
     return a, metric_out, parent_residual_cap[target], metric_out < len(SG.edges)
 
 

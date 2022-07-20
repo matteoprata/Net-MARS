@@ -391,6 +391,46 @@ def do_fix_path(G, path_to_fix):
     return fixed_nodes, fixed_edges
 
 
+def do_fix_path_smart(G, path_to_fix):
+    """ Fixes the edges and nodes and returns them only until there is no path, otherwise it stops, efficient version of the previous. """
+    fixed_edges, fixed_nodes = [], []
+
+    def check_path_IP(G, ds, dd):
+        SG = get_supply_graph(G)
+        path, _, _, is_working = mxv.protocol_routing_IP(SG, ds, dd)
+        return is_working
+
+    if path_to_fix is not None:
+
+        ds, dd = path_to_fix[0], path_to_fix[-1]
+
+        path_elements = [path_to_fix[0]]  # nodes alternated with edges
+        for i in range(len(path_to_fix) - 1):
+            n1, n2 = path_to_fix[i], path_to_fix[i+1]
+            path_elements.append((n1, n2))
+            path_elements.append(n2)
+
+        for e in path_elements:
+            if type(e) is int:
+                did_repair = do_repair_node(G, e)
+                if did_repair:
+                    fixed_nodes.append(e)
+
+                if check_path_IP(G, ds, dd):
+                    return fixed_nodes, fixed_edges
+
+            elif type(e) is tuple:
+                n1, n2 = make_existing_edge(e[0], e[1])
+                did_repair = do_repair_edge(G, n1, n2)
+                if did_repair:  # REPAIR EDGE
+                    fixed_edges.append((n1, n2))
+
+                if check_path_IP(G, ds, dd):  # CHECK PATH
+                    return fixed_nodes, fixed_edges
+
+    return fixed_nodes, fixed_edges
+
+
 def do_repair_node(G, n):
     """ counts the repairs! """
     did_repair = G.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value

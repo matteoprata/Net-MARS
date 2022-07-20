@@ -106,7 +106,7 @@ def launch(config):
     rate = 1 / 15          # tempo medio fra due rotture dinamiche
     num_arrivals = MISSION_DURATION   # numero di arrivi totali. Ne mettiamo uno alto per fare esperimenti lunghi a piacimento
     # ma non ci interessano tutti.
-    arrival_time = 20
+    arrival_time = 30
 
     destroy_times = np.array(poisson_process_dynamic_distruction(rate, num_arrivals, arrival_time, config))
     destroy_times = destroy_times[destroy_times < (MISSION_DURATION - 15)]

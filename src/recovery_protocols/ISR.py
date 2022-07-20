@@ -73,9 +73,13 @@ def relaxed_LP_multicom(G, demand_edges, supply_nodes, broken_supply_edges, supp
                     G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] * rep_edge_var[i, j],
                     'wor_%s_%s' % (i, j))
 
-    for e0, e1, _ in supply_edges:  # repairing an edge requires reparing the nodes and viceversa
-        m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e1])
-        m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e0])
+    # for e0, e1, _ in supply_edges:  # repairing an edge requires reparing the nodes and viceversa
+    #     m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e1])
+    #     m.addConstr(rep_edge_var[e0, e1] <= rep_node_var[e0])
+
+    # for e0, e1, _ in supply_edges:  # repairing an edge requires reparing the nodes and viceversa
+    for i in supply_nodes:  # broken_supply_edges
+        m.addConstr(rep_node_var[i] * net_max_degree(G) >= quicksum(rep_edge_var[e1, e2] for e1, e2, _ in broken_supply_edges if i in [e1, e2]))
 
     # 2 add: flow conservation constraints
     for h, dem_val in var_demand_flows:  # [(d1, f1)]
@@ -152,28 +156,6 @@ def derive_from_optimum_max_flow_node(G, demand_flows, var_demand_node_pos, supp
     # broken_flow_nodes = total_flow_node.keys()
     # print("broken to choose", max_flow_node, max_flow, broken_flow_nodes)
     return max_flow_node, path_nodes, path_edges
-
-
-def derive_from_optimum_repairs(G, m):
-    path_nodes, path_edges = set(), set()
-    for v in m.getVars():
-        if v.X >= .5:  # means repair_node, repair_edge
-            if str(v.VarName).startswith("rep_node_var_"):
-                node = int(str(v.VarName).split("_")[-1])
-                # print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_nodes.add(node)
-
-            elif str(v.VarName).startswith("rep_edge_var_"):
-                edge = str(v.VarName).split("_")[-1].split(",")
-                edd = (int(edge[0]), int(edge[1]))
-                # print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_edges.add(edd)
-
-    path_nodes |= set([e1 for e1, _ in path_edges]) | set([e2 for e2, _ in path_edges])
-    return path_nodes, path_edges
-
 
 def isr_srt(G):
     """ ISR policy assumes that weights on the graph are updated.
@@ -406,7 +388,7 @@ def run_isr_st(config):
 
         if len(paths_elements) == 0:  # it may be all working elements, do not return!, rather go on
             print("Process completed!", get_residual_demand(G), get_demand_edges(G, True, True, True))
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
             stats_list.append(stats)
             return stats_list
         else:
@@ -419,7 +401,7 @@ def run_isr_st(config):
                 rep_edges = [rp for rp in rep_edges if rp is not None]
                 stats["edge"] += rep_edges
 
-                demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+                demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
                 stats_list.append(stats)
                 continue
 
@@ -466,7 +448,7 @@ def run_isr_st(config):
                 packet_monitor += 1
                 stats["packet_monitoring"] = packet_monitor
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
 
     return stats_list
@@ -528,7 +510,7 @@ def run_isr_multi(config):
         print(len(res_demand_edges), res_demand_edges)
 
         if len(res_demand_edges) == 0:
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
             stats_list.append(stats)
             return stats_list
 
@@ -588,21 +570,24 @@ def run_isr_multi(config):
                 packet_monitor += 1
                 stats["packet_monitoring"] = packet_monitor
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
     return stats_list
 
 
 def run(config):
-    if config.algo_name in [co.Algorithm.ISR_SP, co.Algorithm.ISR_SP_MONITOR]:
+    if config.algo_name in [co.Algorithm.ISR_SP]:
         return run_isr_st(config)
-    elif config.algo_name in [co.Algorithm.ISR_MULTICOM, co.Algorithm.ISR_MULTICOM_MONITOR]:
+    elif config.algo_name in [co.Algorithm.ISR_MULTICOM]:
         return run_isr_multi(config)
     else:
         exit()
 
 
-def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
-    for ke in demands_sat:
-        flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+def demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config):
+    for ke in demands_sat:  # every demand edge
+        if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
+            flow = demand_edges_routed_flow_pp[ke]
+        else:
+            flow = 0
         stats["demands_sat"][ke].append(flow)

@@ -32,7 +32,6 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
 
     m = Model('netflow')
 
-
     # m.setObjective(1, GRB.MAXIMIZE)
     m.params.OutputFlag = 0
     m.params.LogToConsole = 0
@@ -62,9 +61,9 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
 
     epsS = 0
     for i, j, _ in supply_edges:
-        n1bro = G.nodes[i][co.ElemAttr.POSTERIOR_BROKEN.value]
-        n2bro = G.nodes[j][co.ElemAttr.POSTERIOR_BROKEN.value]
-        ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value]
+        n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
+        n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
+        ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
 
         if n1bro + n2bro + ebro == 0:  # WORKING
             m.addConstr(rep_edge_var[i, j] == 1)
@@ -90,12 +89,15 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
             elif var_demand_node_pos[j, h] == 1:  # intermediate
                 m.addConstr(flow_in_j == flow_out_j, 'node_%s_%s' % (h, j))
 
+    # R = wor + 10
     # m.addConstr(quicksum(rep_edge_var[n1, n2] for n1, n2, _ in broken_unk_edges) <= R)
+    # for h, flow in var_demand_flows:
+    #     m.addConstr(alpha_var[h] == 1)
 
     # OBJECTIVE
-    epsB = 10**-8.7  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
+    epsB = 10**-3  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
     p0 = quicksum(flow * alpha_var[h] for h, flow in var_demand_flows)
-    p1 = quicksum(rep_edge_var[n1, n2] * co.REPAIR_COST * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] for n1, n2, _ in broken_unk_edges)
+    p1 = quicksum(rep_edge_var[n1, n2] for n1, n2, _ in broken_unk_edges)
     m.setObjective(p0 - epsB * p1, GRB.MAXIMIZE)
 
     print("OPTIMIZING...")
@@ -120,16 +122,21 @@ def debug(m, G, var_demand_flows, broken_unk_edges):
 
             if var_value_v1 > 0:
                 SG.add_edge(i, j, capacity=var_value_v1)
-                print("flow on", d1, d2, i, j, var_value_v1)
+                shp = m.getConstrByName('cap_{}_{}'.format(i, j)).Pi
+                vl = m.getVarByName('rep_edge_var_{}_{}'.format(i, j)).x
+                print("flow on", d1, d2, i, j, var_value_v1, "shp", shp, "val", vl)
 
             if var_value_v2 > 0:
                 SG.add_edge(j, i, capacity=var_value_v2)
-                print("flow on", d1, d2, j, i, var_value_v1)
+                shp = m.getConstrByName('cap_{}_{}'.format(i, j)).Pi
+                vl = m.getVarByName('rep_edge_var_{}_{}'.format(i, j)).x
+                print("flow on", d1, d2, j, i, var_value_v2, "shp", shp, "val", vl)
 
         poz = nx.spring_layout(SG)
         edge_labels = nx.draw_networkx_edge_labels(SG, pos=poz)
         nx.draw(SG, with_labels=True, pos=poz)
         plt.show()
+        print()
 
     for i, j, _ in get_supply_edges(G):
         repa = m.getVarByName('rep_edge_var_{}_{}'.format(i, j)).x
@@ -166,28 +173,28 @@ def derive_from_optimum_max_shadow_edge(G, demand_flows, var_demand_node_pos, su
         return None
 
 
-def derive_from_optimum_repairs(G, m):
-    path_nodes, path_edges = set(), set()
-    for v in m.getVars():
-        if v.X >= .5:  # means repair_node, repair_edge
-            if str(v.VarName).startswith("rep_node_var_"):
-                node = int(str(v.VarName).split("_")[-1])
-                # print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_nodes.add(node)
+# def derive_from_optimum_repairs(G, m):
+#     path_nodes, path_edges = set(), set()
+#     for v in m.getVars():
+#         if v.X >= .5:  # means repair_node, repair_edge
+#             if str(v.VarName).startswith("rep_node_var_"):
+#                 node = int(str(v.VarName).split("_")[-1])
+#                 # print(node, G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value])
+#                 if G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+#                     path_nodes.add(node)
+#
+#             elif str(v.VarName).startswith("rep_edge_var_"):
+#                 edge = str(v.VarName).split("_")[-1].split(",")
+#                 edd = (int(edge[0]), int(edge[1]))
+#                 # print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
+#                 if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
+#                     path_edges.add(edd)
+#
+#     path_nodes |= set([e1 for e1, _ in path_edges]) | set([e2 for e2, _ in path_edges])
+#     return path_nodes, path_edges
 
-            elif str(v.VarName).startswith("rep_edge_var_"):
-                edge = str(v.VarName).split("_")[-1].split(",")
-                edd = (int(edge[0]), int(edge[1]))
-                # print(edd, G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value])
-                if G.edges[edd[0], edd[1], co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] > 0:
-                    path_edges.add(edd)
 
-    path_nodes |= set([e1 for e1, _ in path_edges]) | set([e2 for e2, _ in path_edges])
-    return path_nodes, path_edges
-
-
-def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
+def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp, config):
     # set the infinite weight for the 0 capacity edges
 
     print("Inizio pruning")
@@ -336,7 +343,7 @@ def run_shp_multi(config):
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)
         else:
-            quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
+            quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp, config)
             stats["edge"] += rep_edges
             stats["node"] += rep_nodes
             routed_flow += quantity
@@ -350,7 +357,7 @@ def run_shp_multi(config):
         print(len(res_demand_edges), res_demand_edges)
 
         if len(res_demand_edges) == 0:
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
             stats_list.append(stats)
             return stats_list
 
@@ -397,7 +404,7 @@ def run_shp_multi(config):
                 packet_monitor += 1
                 stats["packet_monitoring"] = packet_monitor
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
+        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
     return stats_list
 
@@ -406,7 +413,10 @@ def run(config):
     return run_shp_multi(config)
 
 
-def demand_log(demands_sat, demand_edges_routed_flow_pp, stats):
-    for ke in demands_sat:
-        flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+def demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config):
+    for ke in demands_sat:  # every demand edge
+        if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
+            flow = demand_edges_routed_flow_pp[ke]
+        else:
+            flow = 0
         stats["demands_sat"][ke].append(flow)
