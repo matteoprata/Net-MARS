@@ -21,7 +21,7 @@ GUROBI_STATUS = {1: 'LOADED', 2: 'OPTIMAL', 3: 'INFEASIBLE', 4: 'INF_OR_UNBD', 5
 
 
 # demand edges // supply edges // nodes // nodes (broken, unk) // supply edges (broken) // supply edges (broken, unk)
-def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_edges, broken_unk_nodes, broken_unk_edges):
+def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_edges, broken_unk_nodes, broken_unk_edges, config):
     var_demand_flows = [(i, f) for i, (_, _, f) in enumerate(demand_edges)]   # [(d1, f1), ...]
 
     # for endpoint source 0, mid 1, destination 2
@@ -59,7 +59,7 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
 
     # CONSTRAINTS
 
-    epsS = 0
+    epsS = 10**-3
     for i, j, _ in supply_edges:
         n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
         n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
@@ -94,8 +94,9 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
     # for h, flow in var_demand_flows:
     #     m.addConstr(alpha_var[h] == 1)
 
-    # OBJECTIVE
-    epsB = 10**-3  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
+    # OBJECTIV
+    pvec = {0.3: -7, 0.4: -6, 0.5: -5, 0.6: -4, 0.7: -3, 0.8: -2}
+    epsB = 10**pvec[config.destruction_quantity] # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
     p0 = quicksum(flow * alpha_var[h] for h, flow in var_demand_flows)
     p1 = quicksum(rep_edge_var[n1, n2] for n1, n2, _ in broken_unk_edges)
     m.setObjective(p0 - epsB * p1, GRB.MAXIMIZE)
@@ -239,6 +240,7 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp, con
             for n1 in flow_edge:
                 for n2 in flow_edge[n1]:
                     G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= flow_edge[n1][n2]
+
     print("Fine pruning")
     return quantity, rep_nodes, rep_edges
 
@@ -284,20 +286,22 @@ def run_header(config):
     # true ruotability
 
     routed_flow = 0
-    packet_monitor = 0
     monitors_stats = set()
     demands_sat = {d: [] for d in
                    get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
-    # if config.monitoring_type == co.PriorKnowledge.FULL:
-    #     gain_knowledge_all(G)
+    # add monitors
+    packet_monitor = 0
+    for n1, n2, _ in get_demand_edges(G):
+        G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
+        G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        monitors_stats |= {n1, n2}
+        packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
+        packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
-    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
-
-    if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
-        config.monitors_budget = get_demand_nodes(G)
-
+    # config.monitors_budget_residual -= len(monitors_stats)
+    print("DEMAND EDGES", get_demand_edges(G))
+    print("DEMAND NODES", get_demand_nodes(G))
     return G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter
 
 
@@ -349,7 +353,6 @@ def run_shp_multi(config):
             routed_flow += quantity
             stats["flow"] = routed_flow
 
-
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
         reset_supply_edges(G)
 
@@ -373,7 +376,7 @@ def run_shp_multi(config):
         bro_unk_edge = list(set(unk_supply_edges).union(set(broken_supply_edges)))
 
         # demand edges // supply edges // nodes // nodes (broken, unk) // supply edges (broken) // supply edges (broken, unk)
-        opt = relaxed_LP_SHP(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
+        opt = relaxed_LP_SHP(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge, config)
         var_demand_flows, var_demand_node_pos, supply_edges, m = opt
 
         # GET THE EDGE WITH MAX SHP
@@ -389,20 +392,18 @@ def run_shp_multi(config):
 
         if len(rep_nodes) > 0:
             # add monitor to v_rep
-            monitor_nodes = gu.get_monitor_nodes(G)
-            if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+            if len(res_demand_edges) > 0 and config.monitors_budget_residual > 0:
+                print("adding monitor", rep_nodes[0])
                 moni = rep_nodes[0]
                 G.nodes[moni][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {moni}
                 stats["monitors"] |= monitors_stats
+                config.monitors_budget_residual -= 1
 
             # k-discovery
-            SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, rep_nodes[0], cutoff=config.k_hop_monitoring)
-            for no in reach_k_paths:
-                discover_path_truth_limit_broken(G, reach_k_paths[no])
-                packet_monitor += 1
-                stats["packet_monitoring"] = packet_monitor
+            n_mm = k_hop_discovery(G, rep_nodes[0], config.k_hop_monitoring)
+            packet_monitor += n_mm
+            stats["packet_monitoring"] = n_mm
 
         demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)

@@ -84,6 +84,12 @@ def read_pickle(fname):
         return data
 
 
+def read_file(fname):
+    with open(fname, 'r') as handle:
+        lis = [l.strip() for l in handle.readlines()]
+    return lis
+
+
 def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)

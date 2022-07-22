@@ -183,15 +183,25 @@ def print_configuration(config):
 
 
 def safe_run(*args):
+    global config
     try:
         return run_single(*args)
     except Exception:
         enable_print()
         exec_details = fname_formation()
         util.write_file(exec_details + "\n", co.PATH_TO_FAILED_TESTS.format(time_batch_exec), is_append=True)
+
+        # writes the infeasible seed only once
+        if os.path.exists(co.PATH_TO_FAILED_SEEDS):
+            fs = util.read_file(co.PATH_TO_FAILED_SEEDS)
+            if not str(config.seed) in fs:
+                util.write_file(str(config.seed) + "\n", co.PATH_TO_FAILED_SEEDS, is_append=True)
+        else:
+            util.write_file(str(config.seed) + "\n", co.PATH_TO_FAILED_SEEDS, is_append=True)
+
         print("error due to", exec_details)
         print(traceback.format_exc())
-        print("stopped.")
+        print("printed traceback but ignored.")
         disable_print()
 
 
@@ -221,14 +231,15 @@ def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_log=Fals
 
 def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log=False):
     global config
-    config = setup_configuration()
+
+    config = setup_configuration()  # MUST BE ON TOP
+    config.seed = seed
 
     algo_name_o = co.Algorithm[algo_name]
     config.algo_name = algo_name_o
 
     config.experiment_ind_var = indvar
     config.is_log = is_log
-    config.seed = seed
     config.destruction_quantity = dis
 
     # the prior probability that the node is broke is higher when the actual destruction is high
@@ -265,6 +276,12 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
 
     fname = fname_formation()
 
+    # check if seed is ok
+    if os.path.exists(co.PATH_TO_FAILED_SEEDS):
+        fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
+        if str(config.seed) in fs:
+            raise Exception()
+
     if config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname):
         print()
         # print("NOW running...\n\n", config_details)
@@ -294,27 +311,27 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
 def parallel_2_setup(seeds, algorithms, is_log=False):
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               1: .7,
-               2: .7,
-               3: .7
+               1: .8,
+               2: .8,
+               3: .8
                }
 
-    npairs = {0: 6,
-              1: [4, 5, 6, 7, 8, 9],
-              2: 6,
-              3: 6
+    npairs = {0: 9,
+              1: [5, 6, 7, 8, 9, 10],
+              2: 9,
+              3: 9
               }
 
     flowpp = {0: 10,
               1: 10,
-              2: [4, 6, 8, 10, 12, 14],
+              2: [10, 12, 14, 16, 18],
               3: 10
               }
 
-    monitor_bud = {0: 10,
-                   1: 10,
-                   2: 10,
-                   3: [7, 8, 9, 10, 11, 12]
+    monitor_bud = {0: 4,
+                   1: 4,
+                   2: 4,
+                   3: [4, 6, 8, 10, 12]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
@@ -353,39 +370,75 @@ def parallel_2_setup(seeds, algorithms, is_log=False):
     print("COMPLETED SUCCESSFULLY")
 
 
+def parallel_3_setup(seeds, algorithms, is_log=False):
+
+    dis_uni = {0: [.3, .4, .5, .6, .7, .8]}
+
+    npairs = {0: 9}
+    flowpp = {0: 10}
+    monitor_bud = {0: 4}
+
+    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni] }
+
+    processes = []
+    for seed in seeds:
+        for k in ind_var:
+            ind_variable_values = ind_var[k][1][k].copy()  # [list of x axis values]
+            for iv in ind_variable_values:
+                ind_var[k][1][k] = iv
+                # print(iv, seed, k, ind_variable_values, ind_var[k][0])
+                for algo_bench in algorithms:
+                    exec_config = {
+                        co.IndependentVariable.SEED: seed,
+                        co.IndependentVariable.PROB_BROKEN: dis_uni[k],
+                        co.IndependentVariable.MONITOR_BUDGET: monitor_bud[k],
+                        co.IndependentVariable.N_DEMAND_EDGES: npairs[k],  # or nodes
+                        co.IndependentVariable.FLOW_DEMAND: flowpp[k],
+                        co.IndependentVariable.IND_VAR: ind_var[k][0],
+                        co.IndependentVariable.ALGORITHM: algo_bench.name
+                    }
+                    processes.append(list(exec_config.values()) + [is_log])
+            ind_var[k][1][k] = ind_variable_values  # reset
+
+    with Pool(initializer=initializer, processes=co.N_CORES) as pool:
+        try:
+            pool.starmap(safe_run, processes)
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.join()
+
+    print("COMPLETED SUCCESSFULLY")
+
+
 def single_exec():
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
-                  co.Algorithm.ORACLE,
-                  co.Algorithm.CEDAR,
-                  co.Algorithm.ST_PATH,
+    BENCHMARKS = [# co.Algorithm.TOMO_CEDAR,
+                  # co.Algorithm.ORACLE,
+                  # co.Algorithm.CEDAR,
+                  # co.Algorithm.ST_PATH,
                   co.Algorithm.SHP,
-                  co.Algorithm.ISR_SP,
-                  co.Algorithm.ISR_MULTICOM
+                  # co.Algorithm.ISR_SP,
+                  # co.Algorithm.ISR_MULTICOM
                   ]
 
-    SEEDS = [1246]
+    SEEDS = [1494]
     for ss in SEEDS:
         for algo in BENCHMARKS:
             exec_config = {
                 co.IndependentVariable.SEED: ss,
-                co.IndependentVariable.PROB_BROKEN: 0.7,
-                co.IndependentVariable.MONITOR_BUDGET: 16,
-                co.IndependentVariable.N_DEMAND_EDGES: 5,  # nodes
-                co.IndependentVariable.FLOW_DEMAND: 11,
-                co.IndependentVariable.IND_VAR: co.IndependentVariable.N_DEMAND_EDGES,
+                co.IndependentVariable.PROB_BROKEN: 0.3,
+                co.IndependentVariable.MONITOR_BUDGET: 4,
+                co.IndependentVariable.N_DEMAND_EDGES: 6,  # nodes
+                co.IndependentVariable.FLOW_DEMAND: 5,
+                co.IndependentVariable.IND_VAR: co.IndependentVariable.FLOW_DEMAND,
                 co.IndependentVariable.ALGORITHM: algo.name
             }
-            run_single(*exec_config.values(), True)
+            safe_run(*exec_config.values(), True)
 
 
 def parallel_exec_2():
     STEP = 3
-    s_seed, e_seed = 700, 900
+    s_seed, e_seed = 200, 400
     seeds = set(range(s_seed, e_seed))
-
-    # seeds to ignore
-    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748, 758, 759, 752,
-              760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792}
     seeds = list(seeds)
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
@@ -410,7 +463,7 @@ def parallel_exec_1():
     for seed in seeds:
         exec_config = {
             co.IndependentVariable.SEED: seed,
-            co.IndependentVariable.PROB_BROKEN: .5,
+            co.IndependentVariable.PROB_BROKEN: .8,
             co.IndependentVariable.MONITOR_BUDGET: 8,
             co.IndependentVariable.N_DEMAND_EDGES: 6,  # or nodes
             co.IndependentVariable.FLOW_DEMAND: 10,

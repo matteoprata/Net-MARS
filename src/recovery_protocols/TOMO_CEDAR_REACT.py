@@ -71,15 +71,6 @@ def launch(config):
     monitors_stats = set()
     demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
-    # if config.monitoring_type == co.PriorKnowledge.FULL:
-    #     gain_knowledge_all(G)
-
-    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
-
-    if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
-        config.monitors_budget = get_demand_nodes(G)
-
     # set as monitors all the nodes that are demand endpoints
     monitors_map = defaultdict(set)
     monitors_connections = defaultdict(set)
@@ -88,18 +79,17 @@ def launch(config):
     last_repaired_demand = None
 
     # ADD preliminary monitors
-    if config.protocol_monitor_placement != co.ProtocolMonitorPlacement.NONE:
 
-        for n1, n2, _ in get_demand_edges(G):
-            G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
-            G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
-            monitors_stats |= {n1, n2}
+    for n1, n2, _ in get_demand_edges(G):
+        G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
+        G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        monitors_stats |= {n1, n2}
 
-            # does not look defined for only monitors
-            monitors_map[n1] |= {(n1, n2)}
-            monitors_map[n2] |= {(n1, n2)}
+        # does not look defined for only monitors
+        monitors_map[n1] |= {(n1, n2)}
+        monitors_map[n2] |= {(n1, n2)}
 
-        config.monitors_budget_residual -= len(monitors_stats)
+    # config.monitors_budget_residual -= len(monitors_stats)
 
     MISSION_DURATION = 500
     # Viviana: con un processo di Poisson decidiamo gli "arrival time" delle distruzioni dinamiche

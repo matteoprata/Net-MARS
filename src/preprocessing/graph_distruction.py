@@ -111,14 +111,12 @@ def gaussian_progressive_destruction(graph, density, dims_ratio, destruction_qua
     x_density = round(dims_ratio["x"]*density)
     y_density = round(dims_ratio["y"]*density)
 
-    # the epicenter is a randomly picked node
-    # if config.experiment_ind_var != co.IndependentVariable.PROB_BROKEN:
-    #     np.random.seed(config.fixed_unvarying_seed)
+    if config.experiment_ind_var in [co.IndependentVariable.FLOW_DEMAND, co.IndependentVariable.N_DEMAND_EDGES]:
+        util.set_seed(config.fixed_unvarying_seed)
 
     epicenter = np.array([np.random.randint(0, x_density, 1), np.random.randint(0, y_density, 1)])  # coords of the epicenter
-
-    # if config.experiment_ind_var != co.IndependentVariable.PROB_BROKEN:
-    #     np.random.seed(config.seed)
+    print("EPICENTER:", epicenter)
+    util.set_seed(config.seed)
 
     # list the distance of every node to the epicenter
     node_distances = []

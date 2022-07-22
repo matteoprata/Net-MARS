@@ -272,14 +272,19 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     #     util.set_seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
 
     # ----> FIXING DEMAND NODES and EDGES
+    vasi = config.seed
+    if config.fix_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
+        util.set_seed(config.fixed_unvarying_seed)
+        vasi = config.fixed_unvarying_seed
+
     nv_index = None  # read from file the edges in the graph
     if os.path.exists(config.edges_list_path):
         while not os.access(config.edges_list_path, os.R_OK):
             pass
         dict_edges_r = util.read_pickle(config.edges_list_path)
 
-        if config.seed in dict_edges_r.keys():
-            dict_edges_s = dict_edges_r[config.seed]
+        if vasi in dict_edges_r.keys():
+            dict_edges_s = dict_edges_r[vasi]
             nv_index = util.nearest_value_index(value=config.n_demand_clique, list_values=list(dict_edges_s.keys()))
 
         dict_edges = defaultdict(lambda: defaultdict(set))
@@ -288,7 +293,7 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     else:
         dict_edges = defaultdict(lambda: defaultdict(set))
 
-    prev_edges = dict_edges[config.seed][nv_index] if nv_index is not None else set()
+    prev_edges = dict_edges[vasi][nv_index] if nv_index is not None else set()
 
     list_nodes_tot = select_demand(G, max_comp, config.n_demand_clique, is_nodes=True)  # ndn demand nodes
     list_nodes = list_nodes_tot[:n_demand_nodes]  # all clique nodes
@@ -301,7 +306,7 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     # print(prev_edges, new_edges)  # new_edges is empty if before it was set and store on file
 
     total_edges = prev_edges | new_edges
-    dict_edges[config.seed][config.n_demand_clique] = total_edges
+    dict_edges[vasi][config.n_demand_clique] = total_edges
 
     # needed to serialize...
     ser_dict = dict({int(k): dict({int(k1): set((int(li[0]), int(li[1])) for li in dict_edges[k][k1]) for k1 in dict_edges[k]}) for k in dict_edges})
@@ -309,10 +314,9 @@ def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
     while os.path.exists(config.edges_list_path) and not os.access(config.edges_list_path, os.W_OK):
         print("waiting")
         pass
-    util.write_pickle(ser_dict, config.edges_list_path)
 
-    # if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
-    # util.set_seed(config.seed)
+    util.write_pickle(ser_dict, config.edges_list_path)
+    util.set_seed(config.seed)
 
     # print("\nDegrees")
     demand_edges = set()

@@ -206,6 +206,7 @@ class IndependentVariable(Enum):
 # constants
 PATH_TO_GRAPH = "data/graphs/"
 PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
+PATH_TO_FAILED_SEEDS = "data/failed_seeds.txt"
 PATH_EXPERIMENTS = "data/experiments/"
 
 REPAIR_COST = 500

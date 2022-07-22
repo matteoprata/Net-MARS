@@ -315,19 +315,17 @@ def run_header(config):
     # true ruotability
 
     routed_flow = 0
-    packet_monitor = 0
     monitors_stats = set()
     demands_sat = {d: [] for d in
                    get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
 
-    # if config.monitoring_type == co.PriorKnowledge.FULL:
-    #     gain_knowledge_all(G)
-
-    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
-
-    if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
-        config.monitors_budget = get_demand_nodes(G)
+    packet_monitor = 0
+    for n1, n2, _ in get_demand_edges(G):
+        G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
+        G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        monitors_stats |= {n1, n2}
+        packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
+        packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
     return G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter
 
@@ -434,19 +432,15 @@ def run_isr_st(config):
             print(len(res_demand_edges), res_demand_edges)
 
             # add monitor to v_rep
-            monitor_nodes = gu.get_monitor_nodes(G)
-            if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+            if len(res_demand_edges) > 0 and config.monitors_budget_residual > 0:
                 G.nodes[node_rep][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {node_rep}
                 stats["monitors"] |= monitors_stats
+                config.monitors_budget_residual -= 1
 
             # k-discovery
-            SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=config.k_hop_monitoring)
-            for no in reach_k_paths:
-                discover_path_truth_limit_broken(G, reach_k_paths[no])
-                packet_monitor += 1
-                stats["packet_monitoring"] = packet_monitor
+            packet_monitor += k_hop_discovery(G, node_rep, config.k_hop_monitoring)
+            stats["packet_monitoring"] = packet_monitor
 
         demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
@@ -556,19 +550,15 @@ def run_isr_multi(config):
 
         if node_rep is not None:
             # add monitor to v_rep
-            monitor_nodes = gu.get_monitor_nodes(G)
-            if len(res_demand_edges) > 0 and len(monitor_nodes) < config.monitors_budget:
+            if len(res_demand_edges) > 0 and config.monitors_budget_residual > 0:
                 G.nodes[node_rep][co.ElemAttr.IS_MONITOR.value] = True
                 monitors_stats |= {node_rep}
                 stats["monitors"] |= monitors_stats
+                config.monitors_budget_residual -= 1
 
             # k-discovery
-            SG = get_supply_graph(G)
-            reach_k_paths = nx.single_source_shortest_path(SG, node_rep, cutoff=config.k_hop_monitoring)
-            for no in reach_k_paths:
-                discover_path_truth_limit_broken(G, reach_k_paths[no])
-                packet_monitor += 1
-                stats["packet_monitoring"] = packet_monitor
+            packet_monitor += k_hop_discovery(G, node_rep, config.k_hop_monitoring)
+            stats["packet_monitoring"] = packet_monitor
 
         demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)

@@ -83,7 +83,7 @@ def run(config):
         monitors_map[n1] |= {(n1, n2)}
         monitors_map[n2] |= {(n1, n2)}
 
-    config.monitors_budget_residual -= len(monitors_stats)
+    # config.monitors_budget_residual -= len(monitors_stats)
 
     print("DEMAND NODES", get_demand_nodes(G))
     print("DEMAND EDGES", get_demand_edges(G))

@@ -103,7 +103,9 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
     for i, algo_en in enumerate(algos):
         avg_val = datas.mean(axis=0)  # ALGO, VAR
-        plt.errorbar(X_vals, avg_val[i, :], yerr=sem(datas[:, i, :]), label=algo_names[i],
+        stemp = sem(datas[:, i, :])
+        stemp = stemp if np.nan not in stemp else None
+        plt.errorbar(X_vals, avg_val[i, :], yerr=stemp, label=algo_names[i],
                      marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
 
     plt.legend()
@@ -162,6 +164,30 @@ def fname_out(x_position, X_var, config, ss, algo, x):
     return MAX_TOTAL_FLOW, MAX_FLOW_STEPS, regex_fname
 
 
+def check_good_seeds(X_var, algos, seeds_values, x_position, path_prefix, MAX_STEPS, config, is_dynamic):
+    good_seeds = set()
+    bad_seeds = set()
+    for j, x in enumerate(X_var):
+        for i, algo in enumerate(algos):
+            algo = algo.value[co.AlgoAttributes.NAME]
+            for k, ss in enumerate(seeds_values):
+
+                _, _, regex_fname = fname_out(x_position, X_var, config, ss, algo, x)
+                path = path_prefix.format(regex_fname)
+
+                try:
+                    df = pd.read_csv(path)
+                    assert not is_dynamic or df.shape[0] <= MAX_STEPS
+                except:
+                    bad_seeds.add(ss)
+                    continue
+                # print("GOOD SEED", ss)
+                good_seeds.add(ss)
+    seeds = good_seeds - bad_seeds
+    print("OK", seeds)
+    return seeds
+
+
 def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_position, outliers:float=0, algo_names=None,
                   out_fig=None, title=None, PERC_DESTRUCTION=None, fixed_x=None, is_dynamic=False):
     """
@@ -182,35 +208,13 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     MAX_STEPS = 500
 
-    # datas fill
-    good_seeds = []
-
-    for j, x in enumerate(X_var):
-        for i, algo in enumerate(algos):
-            algo = algo.value[co.AlgoAttributes.NAME]
-            for k, ss in enumerate(seeds_values):
-                # varying probability
-
-                _, _, regex_fname = fname_out(x_position, X_var, config, ss, algo, x)
-                path = path_prefix.format(regex_fname)
-
-                try:
-                    df = pd.read_csv(path)
-                    df_len = df.shape[0]
-                    assert df_len <= MAX_STEPS and is_dynamic
-                except:
-                    print("seed discarded", ss)
-                    continue
-
-                good_seeds.append(ss)
-
-    datas = np.empty(shape=(MAX_STEPS, len(good_seeds), len(algos), len(X_var)))
+    datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
     datas[:] = np.nan
 
     for j, x in enumerate(X_var):
         for i, algo in enumerate(algos):
             algo = algo.value[co.AlgoAttributes.NAME]
-            for k, ss in enumerate(good_seeds):
+            for k, ss in enumerate(seeds_values):
                 # varying probability
 
                 MAX_TOTAL_FLOW, MAX_FLOW_STEPS, regex_fname = fname_out(x_position, X_var, config, ss, algo, x)
@@ -233,13 +237,15 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
                 # df_len = df.shape[0]
                 # assert (df_len <= MAX_STEPS)
-                datas[:MAX_STEPS, k, i, j] = list(df.values)[:MAX_STEPS]
-                datas_ali = datas.copy()
+                len_sh = min(df.shape[0], MAX_STEPS) if not is_dynamic else MAX_STEPS
+                datas[:len_sh, k, i, j] = list(df.values)[:len_sh]
 
                 if is_dynamic:
+                    datas_ali = datas.copy()
                     isd = np.where(file_df["forced_destr"] > 0)
                     v_bars = isd[0][isd[0] < MAX_STEPS]
 
+    print("Filled.")
     # integral extension
     if not is_dynamic:
         for j, x in enumerate(X_var):
@@ -284,7 +290,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     if plot_type == 2:
         # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
         front = int(FRONTIER[PERC_DESTRUCTION])
-        dyn = np.average(datas_ali, axis=1)
+        dyn = np.average(datas_ali, axis=1) if is_dynamic else None
         avg_flow = datas[:front, :, PERC_DESTRUCTION] / MAX_TOTAL_FLOW[PERC_DESTRUCTION] if not is_dynamic else dyn
         if not is_dynamic:
             for i, _ in enumerate(algos):
@@ -300,9 +306,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             for x in v_bars:
                 plt.axvline(x, alpha=.1, color='red')
 
+        print("Plotting flow")
         plt.ylabel("Flow")
         plt.xlabel("Repair Steps")
-
 
     elif plot_type == 3:
         ALGO_OUR = 0
@@ -315,8 +321,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 label_out = "{} - {}".format(algo_names[ALGO_OUR], algo_names[i])
                 plt.plot(np.arange(out.shape[0]), out, label=label_out)
                 plt.axhline(y=0, color='r', linestyle=':')
-                plt.ylabel("Flow Difference")
-                plt.xlabel("Repair Steps")
+        plt.ylabel("Flow Difference")
+        plt.xlabel("Repair Steps")
+        print("Plotting flow difference")
 
     elif plot_type == 0:
         for i, algo_en in enumerate(algos):
@@ -324,10 +331,12 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             avg_sum_flows = (datas.sum(axis=0) / (front * MAX_FLOW_STEPS))
             y_plot = avg_sum_flows
             ste_y_plot = sem(RAW_DATA.sum(axis=0)[:, i, :] / (front * MAX_FLOW_STEPS))
+            ste_y_plot = ste_y_plot if np.nan not in ste_y_plot else None
             plt.errorbar(X_var, y_plot[i], yerr=ste_y_plot, label=algo_names[i],
                          marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
             plt.xticks(X_var)
 
+        print("Plotting cumulative flow")
         plt.ylabel("Cumulative Flow")
         plt.xlabel(Xlabels[x_position])
 
@@ -336,18 +345,19 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             avg_max_flows = (datas / MAX_TOTAL_FLOW).max(axis=0)   # (numero algo, numero rottura)
             y_plot = avg_max_flows
             ste_y_plot = sem(RAW_DATA.max(axis=0)[:, i, :] / MAX_TOTAL_FLOW)
+            ste_y_plot = ste_y_plot if np.nan not in ste_y_plot else None
             plt.errorbar(X_var, y_plot[i], yerr=ste_y_plot, label=algo_names[i],
                          marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')
             plt.xticks(X_var)
 
+        print("Plotting total flow")
         plt.ylabel("Total Flow")
         plt.xlabel(Xlabels[x_position])
 
     plt.title(title.replace("*", str(fixed_x)) if fixed_x is not None else title)
     plt.legend()
     plt.grid(alpha=.4)
-    # plt.savefig("flow" + str(time.time()) + ".png")
-    # plt.show()
+
     plt.tight_layout()
     out_fig.savefig()  # saves the current figure into a pdf page
     plt.close()
@@ -510,7 +520,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
     path_prefix = source + "{}"
     Xlabels = {0: "Probability Broken", 1: "Number Demand Pairs", 2: "Demand Flow", 3: "Monitors"}
 
-    MAX_N_REPAIRS = 200
+    MAX_N_REPAIRS = 500
     MAX_N_DEMANDS = max(n_dem_edges)
     FRONTIER_IND_X = np.ones(len(X_vals)) * -np.inf
 
@@ -522,6 +532,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
             for si, ss in enumerate(seeds_values):
                 if x_position == 0:
                     # varying probs
+                    N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
@@ -535,6 +546,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
                 elif x_position == 1:
                     # vary pairs
+                    N_DEMANDS = X_vals
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
                         config.graph_dataset.name,
@@ -547,6 +559,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                         config.experiment_ind_var.value[0])
 
                 elif x_position == 2:
+                    N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
@@ -560,6 +573,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                         config.experiment_ind_var.value[0])
 
                 elif x_position == 3:
+                    N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
                     regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
                         ss,
@@ -595,11 +609,14 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
     plt.ylabel("Cumulated Time")
     sum_flow = np.max(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
     times = np.argmax(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
-    times = times + (sum_flow == 0) * FRONTIER_IND_X
     times = times + (sum_flow > 0) * 1
+    times = times + (sum_flow == 0) * FRONTIER_IND_X   # sum_flow == 0 demande not satisifed
 
     complement = np.zeros(times.shape) + FRONTIER_IND_X
-    plot_times = np.sum(complement - times, axis=0) / (FRONTIER_IND_X * data_cum.shape[1])  # SEEDS, ALGO, IND_X
+    # print(np.sum(complement - times, axis=0)[0,:])
+    # print((FRONTIER_IND_X * data_cum.shape[1]))
+    plot_times = np.sum(complement - times, axis=0) / (FRONTIER_IND_X * N_DEMANDS)  # SEEDS, ALGO, IND_X
+
     # print(np.sum(complement - times, axis=0)[0])
     # print((FRONTIER_IND_X * data_cum.shape[1]))
     # print(plot_times[0, :])
@@ -607,7 +624,9 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
     for i, algo_en in enumerate(algos):
         # plt.plot(X_vals, plot_times[i], label=algo_names[i])
-        plt.errorbar(X_vals, np.mean(plot_times[:, i, :], axis=0), yerr=sem(plot_times[:, i, :]), label=algo_names[i],
+        stemp = sem(plot_times[:, i, :])
+        stemp = stemp if np.nan not in stemp else None
+        plt.errorbar(X_vals, np.mean(plot_times[:, i, :], axis=0), yerr=stemp, label=algo_names[i],
                      marker=algo_en.value[co.AlgoAttributes.PLOT_MARKER], fillstyle='none')  # front: SEEDS, ALGO, IND_X
         plt.xticks(X_vals)
 
@@ -719,46 +738,46 @@ def plot_Xflow_Yrepair(source, config, seeds_values, X_var, algos, x_position, f
 
 def intro_bud():
     config = ma.setup_configuration()
-    co.PATH_EXPERIMENTS = "data/experiments/"
+    co.PATH_EXPERIMENTS = "data/ok_exp_fixed/"
 
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
-               # 1: .5,
-               # 2: .5,
+               1: .8,
+               2: .8,
                3: .8
                }
 
-    npairs = {0: 8,
-              # 1: [5, 6, 7, 8, 9, 10],
-              # 2: 8,
-              3: 8
+    npairs = {0: 9,
+              1: [5, 6, 7, 8, 9, 10],
+              2: 9,
+              3: 9
               }
 
-    flowpp = {0: 11,
-              # 1: 11,
-              # 2: [5, 7, 9, 11, 13, 15],
-              3: 11
+    flowpp = {0: 10,
+              1: 10,
+              2: [10, 12, 14, 16, 18],
+              3: 10
               }
 
-    monitor_bud = {0: 16,
-                   # 1: np.inf,
-                   # 2: np.inf,
-                   3: [10, 12, 14, 16, 18, 20]
+    monitor_bud = {0: 4,
+                   1: 4,
+                   2: 4,
+                   3: [4, 6, 8, 10, 12]
                    }
 
     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
                3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
-    seeds = set(range(700, 725))
-    seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
-              758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
-    seeds -= {706, 711, 730, 772, 737, 719, 704, 745, 718, 756, 716}
+    seeds = [205, 208]  # set(range(700, 800))
+    # seeds -= {700, 701, 703, 705, 714, 717, 721, 720, 722, 724, 726, 731, 736, 738, 740, 741, 744, 748,
+    #           758, 759, 752, 760, 749, 761, 755, 783, 787, 794, 770, 765, 769, 774, 778, 782, 791, 792, 709, 715, 713}
+    # seeds -= {706, 711, 730, 772, 737, 719, 704, 745, 718, 756, 716}
     print("Using", len(seeds), seeds)
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR, co.Algorithm.ORACLE, co.Algorithm.CEDAR,
-                  co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP]  # co.Algorithm.ISR_SP,
+                  co.Algorithm.ST_PATH, co.Algorithm.SHP, co.Algorithm.ISR_SP, co.Algorithm.ISR_MULTICOM]
 
     algo_names = [al.value[co.AlgoAttributes.NAME] for al in BENCHMARKS]
 
@@ -821,7 +840,7 @@ def plotting_data():
             print("Now varying", name.name, "as", vals[i])
 
             config.supply_capacity = (80, 81)
-            PERC_DESTRUCTION = -2
+            PERC_DESTRUCTION = -1
 
             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
                 config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
@@ -863,20 +882,23 @@ def plotting_data():
                 plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format(config.destruction_quantity, config.n_demand_clique,
                                                                                       config.n_demand_pairs, config.demand_capacity, "*")
 
-            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
-            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
-            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
-            plot_integral(source, config, seeds, vals[i], BENCHMARKS, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
+            path_prefix = source + "{}"  # "data/experiments/{}"
+            good_seeds = check_good_seeds(vals[i], BENCHMARKS, seeds, i, path_prefix, 500, config, False)
+
+            plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+            plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=3, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+            plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=1, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
+            plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=0, x_position=i, outliers=OUTLIERS, algo_names=algo_names, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION)
 
             ndmp = vals[i] if i == 1 else [config.n_demand_pairs]
-            plot_Xvar_Ydems2(source, config, seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0,
+            plot_Xvar_Ydems2(source, config, good_seeds, vals[i], BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0,
                              algo_names=algo_names, out_fig=pdf, title=plot_title)
 
-            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, good_seeds, vals[i], BENCHMARKS, typep="n_repairs", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
             # plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitor_msg", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
-            plot_monitors_stuff(source, config, seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
+            plot_monitors_stuff(source, config, good_seeds, vals[i], BENCHMARKS, typep="n_monitors", x_position=i, algo_names=algo_names, out_fig=pdf, title=plot_title)
 
 
 if __name__ == '__main__':
-    # plotting_data()
-    plotting_dyn()
+    plotting_data()
+    # plotting_dyn()

@@ -51,7 +51,7 @@ class Configuration:
 
         # self.is_adaptive_prior = True
         self.is_oracle_baseline = False  # baseline TOMOCEDAR
-        self.fixed_unvarying_seed = 0
+        self.fixed_unvarying_seed = 10
         self.experiment_ind_var = None
         self.edges_list_var = None  # a dictionary containing the demand edges in the previous runs if the demand pairs vary
         self.edges_list_path = "data/demand_edges/edges_list"
@@ -69,6 +69,7 @@ class Configuration:
         self.is_IP_routing = False  # weather to do IP, or self routing
         self.uniform_resistance_destruction_init = 0.2    # at the beginning
         self.uniform_resistance_destruction_reset = 0.7     # at reset
+        self.fix_mode = True  # fix demand edges or epicenters
 
     def n_edges_given_n_nodes(self, n_nodes):
         """ number of edges given pruned clique """

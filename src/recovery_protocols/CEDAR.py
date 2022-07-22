@@ -59,21 +59,10 @@ def run(config):
         # INITIAL NODES repairs are not counted in the stats
 
     iter = 0
-    # true ruotability
-
     routed_flow = 0
     packet_monitor = 0
     monitors_stats = set()
     demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
-
-    # if config.monitoring_type == co.PriorKnowledge.FULL:
-    #     gain_knowledge_all(G)
-
-    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
-
-    if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
-        config.monitors_budget = get_demand_nodes(G)
 
     # set as monitors all the nodes that are demand endpoints
     monitors_map = defaultdict(set)
@@ -95,10 +84,10 @@ def run(config):
         monitors_map[n1] |= {(n1, n2)}
         monitors_map[n2] |= {(n1, n2)}
 
-        do_k_monitoring(G, n1, config.k_hop_monitoring)
-        do_k_monitoring(G, n2, config.k_hop_monitoring)
+        packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
+        packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
-    config.monitors_budget_residual -= len(monitors_stats)  # TODO CHECK
+    # config.monitors_budget_residual -= len(monitors_stats)
 
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -192,8 +181,8 @@ def run(config):
                 stats["monitors"] |= monitors_stats
 
                 # k-discovery
-                packets_monitoring = do_k_monitoring(G, v, config.k_hop_monitoring)
-                stats["packet_monitoring"] = packets_monitoring
+                packet_monitor += do_k_monitoring(G, v, config.k_hop_monitoring)
+                stats["packet_monitoring"] = packet_monitor
             else:
                 force_state = co.NodeState.WORKING
                 make_components_known_to_state(G, force_state.value)

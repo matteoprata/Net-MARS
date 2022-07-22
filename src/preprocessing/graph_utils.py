@@ -70,11 +70,6 @@ def get_monitor_nodes(G):
             monitors.append(n)
     return monitors
 
-
-
-
-
-
 def is_demand_edge(G, n1, n2):
     return (n1, n2) in get_demand_edges(G, is_capacity=False)
 
