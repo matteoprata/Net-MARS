@@ -33,9 +33,9 @@ def launch(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                                    config.demand_capacity, config.destruction_quantity,
@@ -89,7 +89,7 @@ def launch(config):
         monitors_map[n1] |= {(n1, n2)}
         monitors_map[n2] |= {(n1, n2)}
 
-    # config.monitors_budget_residual -= len(monitors_stats)
+    config.monitors_budget_residual -= len(monitors_stats)
 
     MISSION_DURATION = 500
     # Viviana: con un processo di Poisson decidiamo gli "arrival time" delle distruzioni dinamiche
@@ -171,6 +171,11 @@ def launch(config):
                                                 last_repaired_demand,
                                                 config)
 
+        if monitoring is None:
+            stats_list.append(stats)
+            print(stats)
+            return stats_list
+
         stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp, pruned_paths = monitoring
         tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
         fixed_paths += pruned_paths
@@ -180,9 +185,14 @@ def launch(config):
         stats["packet_monitoring"] += stats_packet_monitoring
         packet_monitor = stats["packet_monitoring"]
 
-        for ke in demands_sat:
-            flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
-            stats["demands_sat"][ke][-1] = flow
+        # for ke in demands_sat:
+        #     flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
+        #     stats["demands_sat"][ke][-1] = flow
+
+        # for ke in demands_sat:  # every demand edge
+        #     is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+        #     flow = config.demand_capacity if is_new_routing else 0
+        #     stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", len(demand_edges), demand_edges)
@@ -192,7 +202,8 @@ def launch(config):
         no_rep_no_cum = 0
         if len(demand_edges) > 0:
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
-            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, config,
+                                                is_oracle=config.is_oracle_baseline)
 
             # assert path_to_fix is not None
             do_increase_resistance(G, path_to_fix, config)

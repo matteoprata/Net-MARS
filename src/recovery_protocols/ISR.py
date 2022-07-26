@@ -206,7 +206,7 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
     # set the infinite weight for the 0 capacity edges
 
     quantity = 0
-    rep_nodes, rep_edges = [], []
+    rep_nodes, rep_edges = set(), set()
 
     if m is None:
         return quantity, rep_nodes, rep_edges
@@ -214,6 +214,8 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
     SGOut = get_supply_graph(G)
     for h, (d1, d2, _) in enumerate(get_demand_edges(G, is_check_unsatisfied=False, is_residual=False)):  # enumeration is coherent
         SG = nx.Graph()
+        dem = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+
         for i, j, _ in SGOut.edges:
             var_value_v1 = m.getVarByName('flow_var_{}_{}_{}'.format(h, i, j)).x  # edge variable to check if > 0
             var_value_v2 = m.getVarByName('flow_var_{}_{}_{}'.format(h, j, i)).x  # edge variable to check if > 0
@@ -221,22 +223,28 @@ def flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp):
             n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
             n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
             ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
-            dem = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
 
             if var_value_v1 > 0 or var_value_v2 > 0:
                 if n1bro + n2bro + ebro == 0 or force_repair:
                     # print("added", h, d1, d2, i, j, var_value_v1, var_value_v2, n1bro, n2bro, ebro)
                     # if force_repair:  # this because sometimes every node is ok, but some edges of working nodes are not repaired
                     repn, repe = do_repair_full_edge(G, i, j)
-                    rep_nodes += repn
-                    rep_edges += repe
+                    rep_nodes |= set(repn)
+                    rep_edges |= set(repe)
 
                     na, nb = make_existing_edge(i, j)
                     cap = min(G.edges[na, nb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem)
+                    # print(na, nb, cap, [d1, d2], (dem))
                     SG.add_edge(na, nb, capacity=cap)
+
+        # poz = nx.spring_layout(SG)
+        # nx.draw_networkx_edge_labels(SG, pos=poz)
+        # nx.draw(SG, with_labels=True, pos=poz)
+        # plt.show()
 
         if d1 in SG.nodes and d2 in SG.nodes and nx.has_path(SG, d1, d2):
             pruned_quant, flow_edge = nx.maximum_flow(SG, d1, d2)
+            pruned_quant = 0 if pruned_quant < dem else min(dem, pruned_quant)
             demand_edges_routed_flow_pp[(d1, d2)] += pruned_quant
             quantity += pruned_quant
             G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= pruned_quant
@@ -295,9 +303,9 @@ def run_header(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
@@ -327,6 +335,7 @@ def run_header(config):
         packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
         packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
+    config.monitors_budget_residual -= len(monitors_stats)
     return G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter
 
 
@@ -386,7 +395,7 @@ def run_isr_st(config):
 
         if len(paths_elements) == 0:  # it may be all working elements, do not return!, rather go on
             print("Process completed!", get_residual_demand(G), get_demand_edges(G, True, True, True))
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
+            demand_log(G, demands_sat, stats, config)
             stats_list.append(stats)
             return stats_list
         else:
@@ -399,7 +408,7 @@ def run_isr_st(config):
                 rep_edges = [rp for rp in rep_edges if rp is not None]
                 stats["edge"] += rep_edges
 
-                demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
+                demand_log(G, demands_sat, stats, config)
                 stats_list.append(stats)
                 continue
 
@@ -442,7 +451,7 @@ def run_isr_st(config):
             packet_monitor += k_hop_discovery(G, node_rep, config.k_hop_monitoring)
             stats["packet_monitoring"] = packet_monitor
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
+        demand_log(G, demands_sat, stats, config)
         stats_list.append(stats)
 
     return stats_list
@@ -489,6 +498,7 @@ def run_isr_multi(config):
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)
+            demand_log(G, demands_sat, stats, config, is_monotonous=False)
         else:
             # PRUNING
             quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp)
@@ -497,14 +507,24 @@ def run_isr_multi(config):
             routed_flow += quantity
             stats["flow"] = routed_flow
 
+            TOTAL_FLOW = config.demand_capacity * config.n_edges_demand
+            # no repair was done and no total flow routed
+            demand_log(G, demands_sat, stats, config, is_monotonous=False)
+
+            print("DEB", force_repair, len(rep_edges) + len(rep_nodes), quantity, TOTAL_FLOW)
+            if force_repair and len(rep_edges) + len(rep_nodes) == 0 and quantity != TOTAL_FLOW:
+                print("Cap-ISOLATED node. Infeasibility.")
+                stats_list.append(stats)
+                return stats_list
+
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
+        print("PERO HO", res_demand_edges)
         reset_supply_edges(G)
 
         print("These are the residual demand edges:")
         print(len(res_demand_edges), res_demand_edges)
 
         if len(res_demand_edges) == 0:
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
             stats_list.append(stats)
             return stats_list
 
@@ -560,7 +580,6 @@ def run_isr_multi(config):
             packet_monitor += k_hop_discovery(G, node_rep, config.k_hop_monitoring)
             stats["packet_monitoring"] = packet_monitor
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
     return stats_list
 
@@ -574,10 +593,12 @@ def run(config):
         exit()
 
 
-def demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config):
+def demand_log(G, demands_sat, stats, config, is_monotonous=True):
     for ke in demands_sat:  # every demand edge
-        if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-            flow = demand_edges_routed_flow_pp[ke]
-        else:
-            flow = 0
+        is_monotonous_ckeck = not is_monotonous or sum(stats["demands_sat"][ke]) == 0
+        is_new_routing = is_monotonous_ckeck and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+        flow = config.demand_capacity if is_new_routing else 0
         stats["demands_sat"][ke].append(flow)
+
+
+

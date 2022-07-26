@@ -5,7 +5,7 @@ import src.recovery_protocols.ISR as main_ISR_setup
 # import src.recovery_protocols.main_cedar_setup as main_cedar_setup
 import src.recovery_protocols.CEDAR as main_cedar_setup_FL
 import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
-import src.recovery_protocols.ORACLE as main_tomoracle_setup
+import src.recovery_protocols.ORACLE as main_oracle
 import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
 
 import src.recovery_protocols.SHP as main_SHP_setup
@@ -55,6 +55,7 @@ class ElemAttr(Enum):
     TYPE = 'type'  # demand/supply
     WEIGHT = 'weight'
     WEIGHT_UNIT = 'weight_unit'
+    IS_BACKBONE = 'backbone'
 
     SAT_DEM = 'sat_dem'  # a map for every supply edge: demand edge, percentage of satisfiability
     SAT_SUP = 'sat_sup'  # a list of edges that satisfy the demand
@@ -149,10 +150,10 @@ class Algorithm(Enum):
     ORACLE = {AlgoAttributes.NAME: "ORACLE",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
+              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
               AlgoAttributes.PLOT_MARKER: "o",
-              AlgoAttributes.EXEC: main_tomoracle_setup
+              AlgoAttributes.EXEC: main_oracle
               }
 
     ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
@@ -197,7 +198,7 @@ class IndependentVariable(Enum):
     PROB_BROKEN = 0, "Percentage Broken Elements"
     N_DEMAND_EDGES = 1, "Number Demand Edges"
     FLOW_DEMAND = 2, "Flow Demand Pair"
-    MONITOR_BUDGET = 3, "Flow Demand Pair"
+    MONITOR_BUDGET = 3, "Monitor Total Budget"
     SEED = 4, "Seed"
     ALGORITHM = 5, "Algorithm"
     IND_VAR = 6, "Independent Variable"
@@ -223,3 +224,6 @@ MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320)
                           (320, 106), (106, 652), (652, 349),  # MID-LOW HOR
                           (319, 312), (312, 559), (559, 349)   # MI-DUP HOR
                           ]
+
+# in minnesota they are the highest degree nodes, from which backbone may start
+FIXED_DEMAND_NODES = [320, 78, 1, 349, 124, 564, 315, 186]

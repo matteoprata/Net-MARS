@@ -6,6 +6,7 @@ import networkx as nx
 import src.utilities.util_routing_stpath as mxv
 import src.preprocessing.graph_routability as grout
 import tqdm
+import src.utilities.util as util
 
 
 # utilities requiring computation
@@ -297,6 +298,10 @@ def get_incident_edges_of_node(node, edges):
 
 def is_demand_edge_exists(G, n1, n2):
     return (n1, n2, co.EdgeType.DEMAND.value) in G.edges
+
+
+def is_demand_edge_saturated(G, d1, d2):
+    return G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0
 
 
 def k_hop_discovery(G, source, khop):
@@ -662,14 +667,13 @@ def get_path_elements(path):
     return nodes, edges
 
 
-def get_path_cost_VN(G, path_nodes, is_oracle=False):
+def get_path_cost_VN(G, path_nodes, is_oracle=False, config=None):
     """ VERSIONE NUOVA: returns the expected repair cost. """
     cap = get_path_residual_capacity(G, path_nodes)
+    cap = util.min_max_normalizer(cap, 0, get_supply_max_capacity(config), 0, 1)
 
     if cap == 0:
         return np.inf
-
-    cap = min(cap, get_residual_demand(G))
 
     cost_broken_els_exp = 0
     attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
@@ -679,6 +683,7 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
         posterior_broken_node = G.nodes[n1][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_node
         # print(G.nodes[n1][co.ElemAttr.STATE_TRUTH.value], posterior_broken_node, n1, cost_broken_els_exp)
+        print(n1, posterior_broken_node)
 
     # expected cost of repairing the edges
     for i in range(len(path_nodes) - 1):
@@ -687,6 +692,7 @@ def get_path_cost_VN(G, path_nodes, is_oracle=False):
         posterior_broken_edge = G.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
         cost_broken_els_exp += co.REPAIR_COST * posterior_broken_edge / cap
         # print(G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value], posterior_broken_edge, n1, n2, cost_broken_els_exp)
+        print(n1, n2, posterior_broken_edge, "cap", cap)
 
     # exp_inutility = cost_broken_els_exp   # [d1, d2, d3] d1=(n1, n2) -- [(p1, m1), p2, p3] -> arg min
     # exp_inutility = exp_inutility + (np.inf if cap == 0 else 0)

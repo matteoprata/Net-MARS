@@ -28,9 +28,9 @@ def run(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                                    config.demand_capacity, config.destruction_quantity,
@@ -75,6 +75,9 @@ def run(config):
 
     # ADD preliminary monitors
     for n1, n2, _ in get_demand_edges(G):
+        do_repair_node(G, n1)
+        do_repair_node(G, n2)
+
         G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
         G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
         monitors_stats |= {n1, n2}
@@ -83,7 +86,7 @@ def run(config):
         monitors_map[n1] |= {(n1, n2)}
         monitors_map[n2] |= {(n1, n2)}
 
-    # config.monitors_budget_residual -= len(monitors_stats)
+    config.monitors_budget_residual -= len(monitors_stats)
 
     print("DEMAND NODES", get_demand_nodes(G))
     print("DEMAND EDGES", get_demand_edges(G))
@@ -131,7 +134,6 @@ def run(config):
             monitors_stats = stats["monitors"]
 
         # -------------- 1. Tomography, Pruning, Probability --------------
-
         monitoring = pruning_monitoring(G,
                                         stats["packet_monitoring"],
                                         config.monitoring_messages_budget,
@@ -140,6 +142,11 @@ def run(config):
                                         monitors_non_connections,
                                         last_repaired_demand,
                                         config)
+
+        if monitoring is None:
+            stats_list.append(stats)
+            print(stats)
+            return stats_list
 
         stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, \
         demand_edges_routed_flow_pp = monitoring
@@ -153,11 +160,10 @@ def run(config):
         packet_monitor += stats_packet_monitoring
         stats["packet_monitoring"] = packet_monitor
 
+        print("DEM-SAT", demands_sat)
         for ke in demands_sat:  # every demand edge
-            if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-                flow = demand_edges_routed_flow_pp[ke]
-            else:
-                flow = 0
+            is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+            flow = config.demand_capacity if is_new_routing else 0
             stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
@@ -167,7 +173,8 @@ def run(config):
 
             # -------------- 2. Repairing --------------
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
-            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, config,
+                                                is_oracle=config.is_oracle_baseline)
 
             print(paths_proposed)
             assert path_to_fix is not None

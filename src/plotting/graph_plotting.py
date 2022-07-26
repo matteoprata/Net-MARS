@@ -15,8 +15,8 @@ def hovering_info_edges(n1, n2, id, capacity, post, wight=None, state=None, sat=
     return "<br><b>e({},{})({})</b> <br>- cap: {} <br>- post broken: {} <br>- weight: {} <br>- state_T: {} <br>- sat:{}".format(n1, n2, id, capacity, post, wight, state, sat)
 
 
-def hovering_info_nodes(n1, id, post, state):
-    return "<br><b>v({})({})</b> <br>- post broken: {} <br>- state_T: {}".format(n1, id, post, state)
+def hovering_info_nodes(n1, id, post, state, degree):
+    return "<br><b>v({})({})</b> <br>- post broken: {} <br>- state_T: {} <br>- degree: {}".format(n1, id, post, state, degree)
 
 
 def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map2, demand_edges):
@@ -46,14 +46,16 @@ def node_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
     for node in G.nodes:
 
         is_epicenter = co.ElemAttr.IS_EPICENTER.value in G.nodes[node].keys() and G.nodes[node][co.ElemAttr.IS_EPICENTER.value] == 1
-        nodesize = 10 if not is_epicenter else 40
-        node_sizes.append(nodesize)
+
 
         prob = round(G.nodes[node][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
         state_T = G.nodes[node][co.ElemAttr.STATE_TRUTH.value]
         ide = G.nodes[node][co.ElemAttr.ID.value]
+        deg = len(list(nx.neighbors(G, node)))
+        nodesize = max(1, len(list(nx.neighbors(G, node)))*2)
+        node_sizes.append(nodesize)
 
-        text = hovering_info_nodes(node, ide, prob, state_T)
+        text = hovering_info_nodes(node, ide, prob, state_T, deg)
         node_text.append(text)
 
         if plot_type == co.PlotType.TRU:
@@ -102,6 +104,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
             text = hovering_info_edges(n1, n2, 'D', capacity, prob, sat=sat)
             dash = 'dash'
             color = 'blue'
+            wid = 2
         else:
             dash = None
             prob = round(G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value], 3)
@@ -117,6 +120,13 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
                 probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
             else:
                 probability = 1-G.edges[n1, n2, gt_ori][co.ElemAttr.POSTERIOR_BROKEN.value]
+
+            if G.edges[n1, n2, gt_ori][co.ElemAttr.IS_BACKBONE.value]:
+                # color = "green"
+                wid = 5
+            else:
+                # color = "black"
+                wid = 2
 
             color_rgb = scalar_map1.to_rgba(probability)
             color = ('rgb(%4.2f,%4.2f,%4.2f)' % (color_rgb[0], color_rgb[1], color_rgb[2]))
@@ -142,7 +152,7 @@ def edge_trace_make(G, scale_visual, density, plot_type, scalar_map1, scalar_map
 
         edge_trace = go.Scatter(
             x=edge_x, y=edge_y, opacity=res_cap_perc,
-            line=dict(width=2, color=color, dash=dash),
+            line=dict(width=wid, color=color, dash=dash),
             mode='lines'
         )
 

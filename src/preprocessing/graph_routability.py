@@ -18,7 +18,6 @@ def is_feasible(G, is_fake_fixed=True):
 
 # DO NOT USE THIS
 def is_routable(G, knowledge, is_fake_fixed=False):
-
     """ Returns True if the system of linear equations and inequalities has at least one solution. """
 
     demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)

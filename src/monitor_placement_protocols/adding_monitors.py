@@ -52,7 +52,14 @@ def __monitor_placement_ours(G, demand_edges, config):
         return set()
 
 
-def new_monitoring_add(G, config):
+def new_monitoring_add(G, config, is_set_monitor=True):
+    # print("EDGES", gu.get_element_by_state_KT(G, co.GraphElement.EDGE, co.NodeState.WORKING, co.Knowledge.KNOW))
+    # print("NODES", gu.get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW))
+
+    if config.monitors_budget_residual <= 0:
+        print("There is no monitor to add. Repair paths 0 or monitors budget saturated.")
+        return set(), [], dict()
+
     demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
     candidate_monitors = {n: 0 for n in G.nodes}
     candidate_monitors_dem = {n: set() for n in G.nodes}
@@ -61,10 +68,11 @@ def new_monitoring_add(G, config):
     # for each demand pair a path according to our metric
     for n1, n2, _ in demand_edges:
         residual_demand = gu.get_residual_demand(G)
-        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, gu.get_supply_max_capacity(config), config.is_oracle_baseline)
+        # CAREFUL! no oracle, never
+        path, _, _ = mxv.protocol_repair_min_exp_cost(gu.get_supply_graph(G), n1, n2, residual_demand, gu.get_supply_max_capacity(config), False)
         paths.append(path)
 
-    if len(paths) > 0 and config.monitors_budget_residual > 0:
+    if len(paths) > 0:
         # between all nodes that aren't monitors
         # the new monitor is the one that resides on most recovery paths
         for n in G.nodes:  # gu.get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.WORKING, co.Knowledge.KNOW):
@@ -75,16 +83,15 @@ def new_monitoring_add(G, config):
                         nn1, nn2 = gu.make_existing_edge(path[0], path[-1])  # demand edge
                         candidate_monitors_dem[n].add((nn1, nn2))
 
-        # candidate_monitors_keys = list(candidate_monitors.keys())[:]
-
-        # for k in candidate_monitors_keys:
-        #     if candidate_monitors[k] < 1:
-        #         del candidate_monitors[k]
-        #         del candidate_monitors_dem[k]
+        # REMOVE monitors
+        candidate_monitors_keys = list(candidate_monitors.keys())[:]
+        for k in candidate_monitors_keys:
+            if candidate_monitors[k] < 1:
+                del candidate_monitors[k]
+                del candidate_monitors_dem[k]
 
         candidate_monitors_li = sorted(candidate_monitors.items(), key=lambda x: x[1], reverse=True)
         monitors = set([id for id, _ in candidate_monitors_li][0:config.monitors_budget_residual])
-        # print("presi", config.monitors_budget_residual, monitors)
 
         monitors_repaired = []
         for bc in monitors:
@@ -92,7 +99,8 @@ def new_monitoring_add(G, config):
             if did_repair:
                 monitors_repaired.append(bc)
 
-            G.nodes[bc][co.ElemAttr.IS_MONITOR.value] = True
+            if is_set_monitor:  # (false) used for oracle
+                G.nodes[bc][co.ElemAttr.IS_MONITOR.value] = True
             print("Highest centrality node is", bc)
 
         config.monitors_budget_residual -= len(monitors)

@@ -1,3 +1,4 @@
+import numpy as np
 
 import src.plotting.graph_plotting as pg
 from src.preprocessing.graph_preprocessing import *
@@ -28,9 +29,9 @@ def run(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                                    config.demand_capacity, config.destruction_quantity,
@@ -87,12 +88,11 @@ def run(config):
         packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
         packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
-    # config.monitors_budget_residual -= len(monitors_stats)
+    config.monitors_budget_residual -= len(monitors_stats)
 
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
         # go on if there are demand edges to satisfy, and still is_feasible
-        demand_edges_routed_flow_pp = defaultdict(int)  # (d_edge): flow
         print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
 
         # check if the graph is still routbale on tot graph,
@@ -124,27 +124,9 @@ def run(config):
             print("pruned", quantity_pruning, "on", path)
 
             d_edge = make_existing_edge(d1, d2)
-            demand_edges_routed_flow_pp[d_edge] += quantity_pruning
             stats["flow"] = routed_flow
 
-        # -------------- 0. Monitor placement --------------
-        # # # TODO: REMEMBER SHIT
-        # _, _, candidate_monitors_dem = mon.new_monitoring_add(G, config)
-        # monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
-        #
-        # # >>>> PRUNING HERE
-        # monitoring = pruning_monitoring_dummy(G,
-        #                                       stats["packet_monitoring"],
-        #                                       config.monitoring_messages_budget,
-        #                                       monitors_map,
-        #                                       monitors_connections,
-        #                                       monitors_non_connections,
-        #                                       last_repaired_demand,
-        #                                       config)
-        #
-        # stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths = monitoring
-        # tomography_over_paths(G, elements_val_id, elements_id_val, config.UNK_prior, monitoring_paths)
-        # make_components_known(G)
+        demand_log(G, demands_sat, stats, config)
 
         SG = get_supply_graph(G)
         paths = []
@@ -159,7 +141,7 @@ def run(config):
                 PK.append(pa)
 
         if len(PK) > 0:  # Pk ha dei path
-            path_to_fix = frpp.find_path_picker(co.ProtocolPickingPath.CEDAR_LIKE_MIN, G, PK, None, False)
+            path_to_fix = frpp.find_path_picker(co.ProtocolPickingPath.CEDAR_LIKE_MIN, G, PK, None, config, False)
             print("Chose to repair", path_to_fix)
             fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
             stats["edge"] += fixed_nodes
@@ -190,8 +172,6 @@ def run(config):
                 # stats_list.append(stats)
                 # demand_log(demands_sat, demand_edges_routed_flow_pp, stats)
                 # return stats_list
-
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
     return stats_list
 
@@ -211,10 +191,8 @@ def cancel_demand_edge(G, path_to_fix):
     G.edges[dd1, dd2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = 0
 
 
-def demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config):
+def demand_log(G, demands_sat, stats, config):
     for ke in demands_sat:  # every demand edge
-        if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-            flow = demand_edges_routed_flow_pp[ke]
-        else:
-            flow = 0
+        is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+        flow = config.demand_capacity if is_new_routing else 0
         stats["demands_sat"][ke].append(flow)

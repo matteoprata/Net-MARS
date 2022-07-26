@@ -160,8 +160,8 @@ def protocol_repair_min_exp_cost(SG, src, target, residual_demand, max_edge_cap,
 
     # metric, cap, res_cap, delay, node_id | min su metric, min is in position 0
     container = dict()
-
-    initial_m_cost = co.REPAIR_COST * SG.nodes[src][co.ElemAttr.POSTERIOR_BROKEN.value]
+    attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
+    initial_m_cost = co.REPAIR_COST * SG.nodes[src][attribute]
 
     container[src] = (initial_m_cost, None, np.inf, 0, initial_m_cost)
     for nid in SG.nodes:
@@ -181,16 +181,16 @@ def protocol_repair_min_exp_cost(SG, src, target, residual_demand, max_edge_cap,
             if neigh not in container.keys():  # avoids loops, no going back, it was already met
                 continue
 
-            n1, n2 = grau.make_existing_edge(current_src, neigh)
-            res_cap = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
+            n1, n2 = current_src, neigh
+            n1o, n2o = grau.make_existing_edge(current_src, neigh)
+            res_cap = SG.edges[n1o, n2o, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
             res_cap = util.min_max_normalizer(res_cap, 0, max_edge_cap, 0, 1)
 
             if res_cap == 0:
                 continue  # 0/eps cannot be 0! or loops would happen! if RC == 0, the path cannot be chosen
 
-            attribute = co.ElemAttr.STATE_TRUTH.value if is_oracle else co.ElemAttr.POSTERIOR_BROKEN.value
             prob_n2 = SG.nodes[n2][attribute]
-            prob_n1n2 = SG.edges[n1, n2, co.EdgeType.SUPPLY.value][attribute]
+            prob_n1n2 = SG.edges[n1o, n2o, co.EdgeType.SUPPLY.value][attribute]
 
             current_neigh_info = tuple()
             current_neigh_info += container[neigh]

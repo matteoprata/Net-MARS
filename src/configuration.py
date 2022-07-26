@@ -1,5 +1,5 @@
 import numpy as np
-
+import multiprocessing
 import src.constants as co
 
 
@@ -27,11 +27,11 @@ class Configuration:
 
         # clique world
         self.is_demand_clique = True
-        self.demand_clique_factor = 0.5
-        self.n_demand_clique = None
+        self.demand_clique_factor = 0.5    # unused
+        self.n_nodes_demand_clique = None  # number of nodes of the clique CONSTANT (July)
 
         # Edges world
-        self.n_demand_pairs = None
+        self.n_edges_demand = None
 
         self.rand_generator_capacities = None
         self.rand_generator_path_choice = None
@@ -42,7 +42,7 @@ class Configuration:
         self.monitoring_messages_budget = np.inf
 
         self.is_minnesota_backbone_on = True
-        self.backbone_capacity = 320
+        self.backbone_capacity = 160  # 320
         # self.n_backbone_pairs = 0
         self.percentage_flow_backbone = 1  # increase in flow quantity
 
@@ -69,7 +69,9 @@ class Configuration:
         self.is_IP_routing = False  # weather to do IP, or self routing
         self.uniform_resistance_destruction_init = 0.2    # at the beginning
         self.uniform_resistance_destruction_reset = 0.7     # at reset
-        self.fix_mode = True  # fix demand edges or epicenters
+        self.fix_withseed_mode = False  # fix demand edges or epicenters
+        self.is_cluster_execution = multiprocessing.cpu_count() > 10
+
 
     def n_edges_given_n_nodes(self, n_nodes):
         """ number of edges given pruned clique """

@@ -32,9 +32,9 @@ def run(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
@@ -120,7 +120,7 @@ def run(config):
                 paths_filter.append(pa)
 
         if len(paths_filter) > 0:  # Pk ha dei path
-            path_to_fix = frpp.find_path_picker(co.ProtocolPickingPath.CEDAR_LIKE_MIN, G, paths_filter, None, False)
+            path_to_fix = frpp.find_path_picker(co.ProtocolPickingPath.CEDAR_LIKE_MIN, G, paths_filter, None, config, False)
             print("Chose to repair", path_to_fix)
             fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
             stats["edge"] += fixed_nodes

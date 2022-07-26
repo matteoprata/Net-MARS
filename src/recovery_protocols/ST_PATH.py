@@ -28,9 +28,9 @@ def run(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(config.seed, config.graph_dataset.name, config.n_demand_clique,
     #                                                                                    config.demand_capacity, config.destruction_quantity,
@@ -103,10 +103,8 @@ def run(config):
         stats["packet_monitoring"] = packet_monitor
 
         for ke in demands_sat:  # every demand edge
-            if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-                flow = demand_edges_routed_flow_pp[ke]
-            else:
-                flow = 0
+            is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+            flow = config.demand_capacity if is_new_routing else 0
             stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
@@ -116,10 +114,13 @@ def run(config):
 
             # -------------- 2. Repairing --------------
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
-            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, config,
+                                                is_oracle=config.is_oracle_baseline)
 
-            print(paths_proposed)
-            assert path_to_fix is not None
+            if path_to_fix is None:
+                stats_list.append(stats)
+                print(stats)
+                return stats_list
 
             # if the protocol SHORTEST_MINUS proposes a 0 capacity edge
             if get_path_residual_capacity(G, path_to_fix) == 0:
@@ -131,7 +132,6 @@ def run(config):
 
         stats_list.append(stats)
         print(stats)
-
     return stats_list
 
 

@@ -25,9 +25,9 @@ def run(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     pg.plot(G, config.graph_path, distribution, config.destruction_precision, dim_ratio,
             config.destruction_show_plot, config.destruction_save_plot, config.seed, "TRU", co.PlotType.TRU, config.destruction_quantity)
@@ -51,21 +51,26 @@ def run(config):
     monitors_stats = set()
     demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 0, 0, 0] // instantaneous, entire
 
-    # if config.monitoring_type == co.PriorKnowledge.FULL:
-    #     gain_knowledge_all(G)
-
-    # assert config.monitors_budget == -1 or config.monitors_budget >= len(get_demand_nodes(G)), \
-    #     "budget is {}, demand nodes are {}".format(config.monitors_budget, len(get_demand_nodes(G)))
-
-    # if config.monitors_budget == -1:  # -1 budget means to set automatically as get_demand_nodes(G)
-    #     config.monitors_budget = get_demand_nodes(G)
-
     # set as monitors all the nodes that are demand endpoints
     monitors_map = defaultdict(set)
     monitors_connections = defaultdict(set)
     monitors_non_connections = defaultdict(set)
 
     last_repaired_demand = None
+
+    # repair preliminary monitors
+    temporary_monitors = set()
+    for n1, n2, _ in get_demand_edges(G):
+        do_repair_node(G, n1)
+        do_repair_node(G, n2)
+        G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
+        G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+        temporary_monitors.add(n1)
+        temporary_monitors.add(n2)
+        monitors_stats |= {n1, n2}
+
+    config.monitors_budget_residual -= len(monitors_stats)
+    monitors_stats = {}
 
     # start of the protocol
     while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -93,8 +98,11 @@ def run(config):
                  "demands_sat": demands_sat}
 
         # -------------- 0. Monitor placement --------------
+        # repair some nodes on which original tomo-cedar would route flow
+        mon.new_monitoring_add(G, config, is_set_monitor=False)
+        remove_monitors(G, temporary_monitors)
 
-        if config.is_oracle_baseline:
+        if iter == 1:
             make_components_known(G)
 
         # -------------- 1. Tomography, Pruning, Probability --------------
@@ -107,6 +115,11 @@ def run(config):
                                         last_repaired_demand,
                                         config)
 
+        if monitoring is None:
+            stats_list.append(stats)
+            print(stats)
+            return stats_list
+
         stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, \
         monitoring_paths, demand_edges_routed_flow_pp = monitoring
 
@@ -117,10 +130,8 @@ def run(config):
         stats["packet_monitoring"] = packet_monitor
 
         for ke in demands_sat:  # every demand edge
-            if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-                flow = demand_edges_routed_flow_pp[ke]
-            else:
-                flow = 0
+            is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+            flow = config.demand_capacity if is_new_routing else 0
             stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
@@ -130,7 +141,7 @@ def run(config):
 
             # -------------- 2. Repairing --------------
             paths_proposed = frp.find_paths_to_repair(config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(config), is_oracle=config.is_oracle_baseline)
-            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, is_oracle=config.is_oracle_baseline)
+            path_to_fix = frpp.find_path_picker(config.picking_mode, G, paths_proposed, config.repairing_mode, config, is_oracle=config.is_oracle_baseline)
 
             print(paths_proposed)
             assert path_to_fix is not None
@@ -154,3 +165,8 @@ def update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections):
 
     monitors_connections[d1] -= {d2}
     monitors_connections[d2] -= {d1}
+
+
+def remove_monitors(G, temporary_monitors):
+    for n in temporary_monitors:
+        G.nodes[n][co.ElemAttr.IS_MONITOR.value] = False

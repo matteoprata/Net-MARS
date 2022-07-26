@@ -72,7 +72,8 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
                                                                   co.ElemAttr.PRIOR_BROKEN.value: config.UNK_prior,
                                                                   co.ElemAttr.POSTERIOR_BROKEN.value: config.UNK_prior,
                                                                   co.ElemAttr.ID.value: element_id,
-                                                                  co.ElemAttr.SAT_DEM.value: defaultdict(int)
+                                                                  co.ElemAttr.SAT_DEM.value: defaultdict(int),
+                                                                  co.ElemAttr.IS_BACKBONE.value: False
                                                                   })])
 
     # ADD the backbones!
@@ -99,6 +100,7 @@ def place_static_backbone(G, path_edges, backbone_capacity):
             ea, eb = grau.make_existing_edge(path[i], path[i + 1])
             G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_capacity
             G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_capacity
+            G.edges[ea, eb, co.EdgeType.SUPPLY.value][co.ElemAttr.IS_BACKBONE.value] = True
 
 
 def place_backbone(G, config):
@@ -257,76 +259,30 @@ def get_max_component(G):
     return max_comp
 
 
-def add_demand_clique(G, n_demand_nodes, demand_capacity, config):
-    """ Add edges as a clique. """
-    max_comp = list(get_max_component(G))  # biggest connected component in G
+def add_demand_clique(G, config):
+    """ Add edges as a clique. SAMPLES N (input) edges from the clique. """
 
-    # pick higher degree nodes with higher probability
-    # degs = G.degree()
-    # max_comp_degs = np.array([degs[n] for n in max_comp])
-    # max_comp_degs = max_comp_degs / np.sum(max_comp_degs)
-    # is_biased = False
+    # SEED 1 - [28, 23, 4, 5 ...]
+    # SEED 2 - [3, 1, 22, 11 ...]
 
-    # choose n_demand_nodes randomly in the graph
-    # if config.experiment_ind_var == co.IndependentVariable.N_DEMAND_EDGES:
-    #     util.set_seed(config.fixed_unvarying_seed)  # do not vary the positions of the demands
-
-    # ----> FIXING DEMAND NODES and EDGES
-    vasi = config.seed
-    if config.fix_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
+    if config.fix_withseed_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
         util.set_seed(config.fixed_unvarying_seed)
-        vasi = config.fixed_unvarying_seed
 
-    nv_index = None  # read from file the edges in the graph
-    if os.path.exists(config.edges_list_path):
-        while not os.access(config.edges_list_path, os.R_OK):
-            pass
-        dict_edges_r = util.read_pickle(config.edges_list_path)
+    list_nodes = co.FIXED_DEMAND_NODES  # all clique nodes
+    clique_edges = np.asarray(list(combinations(list_nodes, r=2)))
+    np.random.shuffle(clique_edges)
+    total_edges = clique_edges[:config.n_edges_demand]
 
-        if vasi in dict_edges_r.keys():
-            dict_edges_s = dict_edges_r[vasi]
-            nv_index = util.nearest_value_index(value=config.n_demand_clique, list_values=list(dict_edges_s.keys()))
-
-        dict_edges = defaultdict(lambda: defaultdict(set))
-        for k in dict_edges_r:
-            dict_edges[k] = dict_edges_r[k]
-    else:
-        dict_edges = defaultdict(lambda: defaultdict(set))
-
-    prev_edges = dict_edges[vasi][nv_index] if nv_index is not None else set()
-
-    list_nodes_tot = select_demand(G, max_comp, config.n_demand_clique, is_nodes=True)  # ndn demand nodes
-    list_nodes = list_nodes_tot[:n_demand_nodes]  # all clique nodes
-
-    clique_edges = np.asarray(list(combinations(list_nodes, r=2)))                       # all clique edges
-    clique_edges_available = list(set([tuple(se) for se in clique_edges]) - prev_edges)  # removes edges used before
-    n_new_edges = config.n_demand_pairs - len(prev_edges)                                # how many new edges to add
-    clique_edges_idxs = np.random.choice(np.arange(len(clique_edges_available)), size=n_new_edges, replace=False)
-    new_edges = {clique_edges_available[ind] for ind in clique_edges_idxs}
-    # print(prev_edges, new_edges)  # new_edges is empty if before it was set and store on file
-
-    total_edges = prev_edges | new_edges
-    dict_edges[vasi][config.n_demand_clique] = total_edges
-
-    # needed to serialize...
-    ser_dict = dict({int(k): dict({int(k1): set((int(li[0]), int(li[1])) for li in dict_edges[k][k1]) for k1 in dict_edges[k]}) for k in dict_edges})
-
-    while os.path.exists(config.edges_list_path) and not os.access(config.edges_list_path, os.W_OK):
-        print("waiting")
-        pass
-
-    util.write_pickle(ser_dict, config.edges_list_path)
     util.set_seed(config.seed)
 
-    # print("\nDegrees")
     demand_edges = set()
     demand_nodes = set()
     for i, edge in enumerate(total_edges):
         n1, n2 = edge
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = config.demand_capacity
+        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = config.demand_capacity
         G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
 
         demand_edges.add((n1, n2))

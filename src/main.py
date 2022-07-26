@@ -8,6 +8,7 @@ import traceback
 import signal
 import src.constants as co
 import src.configuration as configuration
+import warnings
 
 from src.utilities.util import set_seed, disable_print, enable_print
 import src.utilities.util as util
@@ -130,6 +131,7 @@ def save_stats_NON_monotonous(stats, fname):
     df = pd.DataFrame()
     df["repairs"] = repairs
     df["iter"] = iter
+    # df["flow_cum"] = flow_cum
 
     flows = np.array([i for i in demand_pairs.values()]).T
     df["flow_cum"] = np.sum(np.cumsum(flows, axis=0), axis=1)
@@ -189,7 +191,8 @@ def safe_run(*args):
     except Exception:
         enable_print()
         exec_details = fname_formation()
-        util.write_file(exec_details + "\n", co.PATH_TO_FAILED_TESTS.format(time_batch_exec), is_append=True)
+        trace = traceback.format_exc()
+        util.write_file(exec_details + "\n" + trace + "\n\n", co.PATH_TO_FAILED_TESTS.format(time_batch_exec), is_append=True)
 
         # writes the infeasible seed only once
         if os.path.exists(co.PATH_TO_FAILED_SEEDS):
@@ -200,7 +203,7 @@ def safe_run(*args):
             util.write_file(str(config.seed) + "\n", co.PATH_TO_FAILED_SEEDS, is_append=True)
 
         print("error due to", exec_details)
-        print(traceback.format_exc())
+        print(trace)
         print("printed traceback but ignored.")
         disable_print()
 
@@ -209,7 +212,7 @@ def fname_formation():
     global config
     fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(config.seed,
                                                                                 config.graph_dataset.name,
-                                                                                config.n_demand_pairs,
+                                                                                config.n_edges_demand,
                                                                                 int(config.demand_capacity),
                                                                                 config.supply_capacity,
                                                                                 config.algo_name.value[co.AlgoAttributes.NAME],
@@ -229,7 +232,7 @@ def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_log=Fals
     __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log)
 
 
-def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log=False):
+def __run_single(seed, dis, budget, n_dedges, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log=False):
     global config
 
     config = setup_configuration()  # MUST BE ON TOP
@@ -261,12 +264,13 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
     config.monitors_budget_residual = config.monitors_budget
 
     if config.is_demand_clique:
-        config.n_demand_clique = nnodes
-        config.n_demand_pairs = int(nnodes * (nnodes-1) / 2 * config.demand_clique_factor)
+        config.n_nodes_demand_clique = len(co.FIXED_DEMAND_NODES)  # is CONSTANT
+        assert n_dedges <= config.n_nodes_demand_clique * (config.n_nodes_demand_clique - 1) / 2, "add more more demand nodes in co.FIXED_DEMAND_NODES to work with {} demand edges.".format(n_dedges)
+        config.n_edges_demand = n_dedges  # int(nnodes * (nnodes-1) / 2 * config.demand_clique_factor)
     else:
-        config.n_demand_pairs = nnodes
+        config.n_edges_demand = n_dedges
 
-    config.edges_list_path += str(config.n_demand_clique) + ".data"
+    config.edges_list_path += str(config.n_nodes_demand_clique) + ".data"
     config.demand_capacity = flowpp
     config.repairing_mode = rep_mode
     config.picking_mode = pick_mode
@@ -278,9 +282,12 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
 
     # check if seed is ok
     if os.path.exists(co.PATH_TO_FAILED_SEEDS):
-        fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
-        if str(config.seed) in fs:
-            raise Exception()
+        if config.is_cluster_execution:
+            fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
+            if str(config.seed) in fs:
+                raise Exception()
+        else:
+            warnings.warn("CAREFUL! Running local, but this seed is marked as BAD. Check {}".format(co.PATH_TO_FAILED_SEEDS))
 
     if config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname):
         print()
@@ -309,35 +316,35 @@ def __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor
 
 
 def parallel_2_setup(seeds, algorithms, is_log=False):
-
     dis_uni = {0: [.3, .4, .5, .6, .7, .8],
                1: .8,
                2: .8,
                3: .8
                }
 
-    npairs = {0: 9,
-              1: [5, 6, 7, 8, 9, 10],
-              2: 9,
-              3: 9
+    npairs = {0: 8,
+              1: [4, 5, 6, 7, 8],
+              2: 8,
+              3: 8
               }
 
-    flowpp = {0: 10,
-              1: 10,
-              2: [10, 12, 14, 16, 18],
-              3: 10
+    flowpp = {0: 30,
+              1: 30,
+              2: [10, 15, 20, 25, 30],
+              3: 30
               }
 
-    monitor_bud = {0: 4,
-                   1: 4,
-                   2: 4,
-                   3: [4, 6, 8, 10, 12]
+    monitor_bud = {0: 20,
+                   1: 20,
+                   2: 20,
+                   3: [10, 12, 14, 16, 18, 20, 25, 30]
                    }
 
-    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
+    ind_var = {
+               0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
+               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
+               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
+               # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
                }
 
     processes = []
@@ -411,34 +418,35 @@ def parallel_3_setup(seeds, algorithms, is_log=False):
 
 
 def single_exec():
-    BENCHMARKS = [# co.Algorithm.TOMO_CEDAR,
+    BENCHMARKS = [
+                  # co.Algorithm.TOMO_CEDAR,
                   # co.Algorithm.ORACLE,
-                  # co.Algorithm.CEDAR,
-                  # co.Algorithm.ST_PATH,
                   co.Algorithm.SHP,
+                  # co.Algorithm.ST_PATH,
+                  # co.Algorithm.SHP,
                   # co.Algorithm.ISR_SP,
                   # co.Algorithm.ISR_MULTICOM
                   ]
 
-    SEEDS = [1494]
+    SEEDS = [940]
     for ss in SEEDS:
         for algo in BENCHMARKS:
             exec_config = {
                 co.IndependentVariable.SEED: ss,
-                co.IndependentVariable.PROB_BROKEN: 0.3,
-                co.IndependentVariable.MONITOR_BUDGET: 4,
-                co.IndependentVariable.N_DEMAND_EDGES: 6,  # nodes
-                co.IndependentVariable.FLOW_DEMAND: 5,
-                co.IndependentVariable.IND_VAR: co.IndependentVariable.FLOW_DEMAND,
+                co.IndependentVariable.PROB_BROKEN: 0.5,
+                co.IndependentVariable.MONITOR_BUDGET: 20,
+                co.IndependentVariable.N_DEMAND_EDGES: 5,
+                co.IndependentVariable.FLOW_DEMAND: 30,
+                co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
                 co.IndependentVariable.ALGORITHM: algo.name
             }
             safe_run(*exec_config.values(), True)
 
 
 def parallel_exec_2():
-    STEP = 3
-    s_seed, e_seed = 200, 400
-    seeds = set(range(s_seed, e_seed))
+    STEP = 5
+    s_seed, e_seed = 900, 2000
+    seeds = range(s_seed, e_seed)
     seeds = list(seeds)
 
     BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
@@ -458,7 +466,7 @@ def parallel_exec_2():
 
 def parallel_exec_1():
 
-    seeds = range(200, 400)
+    seeds = range(700, 900)
     processes = []
     for seed in seeds:
         exec_config = {
@@ -488,5 +496,8 @@ def initializer():
 
 
 if __name__ == '__main__':
-    parallel_exec_2()
-    # single_exec()
+    # parallel_exec_2()
+    single_exec()
+
+
+

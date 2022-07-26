@@ -96,7 +96,7 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
 
     # OBJECTIV
     pvec = {0.3: -7, 0.4: -6, 0.5: -5, 0.6: -4, 0.7: -3, 0.8: -2}
-    epsB = 10**pvec[config.destruction_quantity] # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
+    epsB = 10**pvec[config.destruction_quantity]  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
     p0 = quicksum(flow * alpha_var[h] for h, flow in var_demand_flows)
     p1 = quicksum(rep_edge_var[n1, n2] for n1, n2, _ in broken_unk_edges)
     m.setObjective(p0 - epsB * p1, GRB.MAXIMIZE)
@@ -266,9 +266,9 @@ def run_header(config):
 
     # add_demand_endpoints
     if config.is_demand_clique:
-        add_demand_clique(G, config.n_demand_clique, config.demand_capacity, config)
+        add_demand_clique(G, config)
     else:
-        add_demand_pairs(G, config.n_demand_pairs, config.demand_capacity, config)
+        add_demand_pairs(G, config.n_edges_demand, config.demand_capacity, config)
 
     # hypothetical routability
     if not is_feasible(G, is_fake_fixed=True):
@@ -299,7 +299,7 @@ def run_header(config):
         packet_monitor += do_k_monitoring(G, n1, config.k_hop_monitoring)
         packet_monitor += do_k_monitoring(G, n2, config.k_hop_monitoring)
 
-    # config.monitors_budget_residual -= len(monitors_stats)
+    config.monitors_budget_residual -= len(monitors_stats)
     print("DEMAND EDGES", get_demand_edges(G))
     print("DEMAND NODES", get_demand_nodes(G))
     return G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter
@@ -346,12 +346,14 @@ def run_shp_multi(config):
                     demand_edges_routed_flow_pp[d_edge] += quantity_pruning
                     stats["flow"] = routed_flow
                     print("pruned", quantity_pruning, "on", path_prune)
+            demand_log(G, demands_sat, stats, config, is_monotonous=False)
         else:
             quantity, rep_nodes, rep_edges = flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp, config)
             stats["edge"] += rep_edges
             stats["node"] += rep_nodes
             routed_flow += quantity
             stats["flow"] = routed_flow
+            demand_log(G, demands_sat, stats, config, is_monotonous=False)
 
         res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
         reset_supply_edges(G)
@@ -360,7 +362,6 @@ def run_shp_multi(config):
         print(len(res_demand_edges), res_demand_edges)
 
         if len(res_demand_edges) == 0:
-            demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
             stats_list.append(stats)
             return stats_list
 
@@ -405,7 +406,6 @@ def run_shp_multi(config):
             packet_monitor += n_mm
             stats["packet_monitoring"] = n_mm
 
-        demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config)
         stats_list.append(stats)
     return stats_list
 
@@ -414,10 +414,9 @@ def run(config):
     return run_shp_multi(config)
 
 
-def demand_log(demands_sat, demand_edges_routed_flow_pp, stats, config):
+def demand_log(G, demands_sat, stats, config, is_monotonous=True):
     for ke in demands_sat:  # every demand edge
-        if ke in demand_edges_routed_flow_pp.keys() and demand_edges_routed_flow_pp[ke] == config.demand_capacity:
-            flow = demand_edges_routed_flow_pp[ke]
-        else:
-            flow = 0
+        is_monotonous_ckeck = not is_monotonous or sum(stats["demands_sat"][ke]) == 0
+        is_new_routing = is_monotonous_ckeck and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+        flow = config.demand_capacity if is_new_routing else 0
         stats["demands_sat"][ke].append(flow)

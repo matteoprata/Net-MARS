@@ -7,7 +7,7 @@ import numpy as np
 import random
 
 
-def find_path_picker(id, G, paths, repair_mode, is_oracle=False):
+def find_path_picker(id, G, paths, repair_mode, config, is_oracle=False):
 
     if len(paths) == 0:
         print("No paths to recover.")
@@ -20,10 +20,10 @@ def find_path_picker(id, G, paths, repair_mode, is_oracle=False):
         return __pick_cedar_repair_path(G, paths)
 
     elif id == co.ProtocolPickingPath.MIN_COST_BOT_CAP:
-        return __pick_tomocedar_repair_path(G, paths, repair_mode, is_oracle=is_oracle)
+        return __pick_tomocedar_repair_path(G, paths, repair_mode, config, is_oracle=is_oracle)
 
-    elif id == co.ProtocolPickingPath.MAX_INTERSECT:
-        return __pick_max_intersection(G, paths, repair_mode, is_oracle)
+    # elif id == co.ProtocolPickingPath.MAX_INTERSECT:
+    #     return __pick_max_intersection(G, paths, repair_mode, is_oracle)
 
     elif id == co.ProtocolPickingPath.SHORTEST:
         return __pick_shortest(paths)
@@ -94,17 +94,18 @@ def __pick_cedar_repair_path(G, paths):
         return path_to_fix
 
 
-def __pick_tomocedar_repair_path(G, paths, repair_mode, is_oracle=False):
+def __pick_tomocedar_repair_path(G, paths, repair_mode, config,  is_oracle=False):
     if len(paths) > 0:
         # 3. Map the path to its bottleneck capacity
         paths_exp_cost = []
 
-        is_oracle = is_oracle and repair_mode == co.ProtocolRepairingPath.MIN_COST_BOT_CAP
-
         for path_nodes in paths:  # TODO: randomize
             # min_cap = get_path_cost(G, path_nodes)
-            exp_cost = gu.get_path_cost_VN(G, path_nodes, is_oracle)  # MINIMIZE expected cost of repair
+            print(path_nodes)
+            exp_cost = gu.get_path_cost_VN(G, path_nodes, is_oracle, config)  # MINIMIZE expected cost of repair
             paths_exp_cost.append(exp_cost)
+            print("COST >", exp_cost)
+            print()
 
         # 4. Get the path that maximizes the minimum bottleneck capacity
         path_id_to_fix = np.argmin(paths_exp_cost)
