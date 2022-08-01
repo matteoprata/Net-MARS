@@ -265,7 +265,7 @@ def add_demand_clique(G, config):
     # SEED 1 - [28, 23, 4, 5 ...]
     # SEED 2 - [3, 1, 22, 11 ...]
 
-    if config.fix_withseed_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
+    if config.fix_with_seed_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
         util.set_seed(config.fixed_unvarying_seed)
 
     list_nodes = co.FIXED_DEMAND_NODES  # all clique nodes

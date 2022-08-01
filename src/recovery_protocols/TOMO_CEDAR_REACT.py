@@ -93,7 +93,7 @@ def launch(config):
 
     MISSION_DURATION = 500
     # Viviana: con un processo di Poisson decidiamo gli "arrival time" delle distruzioni dinamiche
-    rate = 1 / 15          # tempo medio fra due rotture dinamiche
+    rate = 1 / 30  # tempo medio fra due rotture dinamiche
     num_arrivals = MISSION_DURATION   # numero di arrivi totali. Ne mettiamo uno alto per fare esperimenti lunghi a piacimento
     # ma non ci interessano tutti.
     arrival_time = 30
@@ -185,14 +185,10 @@ def launch(config):
         stats["packet_monitoring"] += stats_packet_monitoring
         packet_monitor = stats["packet_monitoring"]
 
-        # for ke in demands_sat:
-        #     flow = demand_edges_routed_flow_pp[ke] if ke in demand_edges_routed_flow_pp.keys() else 0
-        #     stats["demands_sat"][ke][-1] = flow
-
-        # for ke in demands_sat:  # every demand edge
-        #     is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
-        #     flow = config.demand_capacity if is_new_routing else 0
-        #     stats["demands_sat"][ke].append(flow)
+        for ke in demands_sat:  # every demand edge
+            is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
+            flow = config.demand_capacity if is_new_routing else 0
+            stats["demands_sat"][ke].append(flow)
 
         demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
         print("> Residual demand edges", len(demand_edges), demand_edges)

@@ -5,7 +5,7 @@ import sys
 import os
 import json
 import traceback
-from src import constants as co
+import src.constants as co
 from src.preprocessing import graph_utils as gu
 import json
 import pickle
@@ -129,3 +129,6 @@ def save_porting_dictionary(G, fname):
 
     with open(fname, 'w') as f:
         json.dump(out, f)
+
+
+

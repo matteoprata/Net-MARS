@@ -7,8 +7,23 @@ import src.recovery_protocols.CEDAR as main_cedar_setup_FL
 import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
 import src.recovery_protocols.ORACLE as main_oracle
 import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
-
 import src.recovery_protocols.SHP as main_SHP_setup
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def sample_color(index, cmap='tab10'):
+    # 1. Choose your desired colormap
+    cmap = plt.get_cmap(cmap)
+
+    # 2. Segmenting the whole range (from 0 to 1) of the color map into multiple segments
+    colors = [cmap(x) for x in range(cmap.N)]
+    assert index < cmap.N
+
+    # 3. Color the i-th line with the i-th color, i.e. slicedCM[i]
+    color = colors[index]
+    return color
+
 
 class GraphName(Enum):
     PALMETTO = "PALMETTO.gml"
@@ -123,46 +138,58 @@ class AlgoAttributes(Enum):
     PICKING_PATH = "ProtocolPickingPath"
     MONITOR_PLACEMENT = "ProtocolMonitorPlacement"
     MONITORING_TYPE = "PriorKnowledge"
-    NAME = "name"
+    FILE_NAME = "name"
     PLOT_MARKER = "marker"
     EXEC = "exec"
+    COLOR = "color"
+    PLOT_NAME = "plot_name"
+    LINE_STYLE = "lstyle"
 
 
 class Algorithm(Enum):
-    TOMO_CEDAR = {AlgoAttributes.NAME: "TOMO_CEDAR",
+    TOMO_CEDAR = {AlgoAttributes.FILE_NAME: "TOMO_CEDAR",
+                  AlgoAttributes.PLOT_NAME: "PRoTOn",
                   AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
                   AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
                   AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
                   AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
                   AlgoAttributes.PLOT_MARKER: "D",
-                  AlgoAttributes.EXEC: main_tomocedar_setup
+                  AlgoAttributes.EXEC: main_tomocedar_setup,
+                  AlgoAttributes.COLOR: sample_color(2),
                   }
 
-    TOMO_CEDAR_DYN = {AlgoAttributes.NAME: "TOMO_CEDAR_DYN",
+    TOMO_CEDAR_DYN = {AlgoAttributes.FILE_NAME: "TOMO_CEDAR_DYN",
+                      AlgoAttributes.PLOT_NAME: "PRoTOn Dyn",
                       AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
                       AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
                       AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
                       AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
                       AlgoAttributes.PLOT_MARKER: "D",
-                      AlgoAttributes.EXEC: main_reactive_tomocedar_setup
+                      AlgoAttributes.EXEC: main_reactive_tomocedar_setup,
+                      AlgoAttributes.COLOR: sample_color(2)
                       }
 
-    ORACLE = {AlgoAttributes.NAME: "ORACLE",
+    ORACLE = {AlgoAttributes.FILE_NAME: "ORACLE",
+              AlgoAttributes.PLOT_NAME: "PRoTOn+",
               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
               AlgoAttributes.PLOT_MARKER: "o",
-              AlgoAttributes.EXEC: main_oracle
+              AlgoAttributes.EXEC: main_oracle,
+              AlgoAttributes.COLOR: sample_color(1),
+              AlgoAttributes.LINE_STYLE: 'dashed',  # DASH, DOTTED
               }
 
-    ST_PATH = {AlgoAttributes.NAME: "ST_PATH",
+    ST_PATH = {AlgoAttributes.FILE_NAME: "ST_PATH",
+               AlgoAttributes.PLOT_NAME: "STP",
                AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.SHORTEST_MINUS,
                AlgoAttributes.PICKING_PATH: ProtocolPickingPath.RANDOM,
                AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
                AlgoAttributes.MONITORING_TYPE: PriorKnowledge.DUNNY_IP,
                AlgoAttributes.PLOT_MARKER: "v",
-               AlgoAttributes.EXEC: main_stpath_dummy_setup
+               AlgoAttributes.EXEC: main_stpath_dummy_setup,
+               AlgoAttributes.COLOR: sample_color(0)
                }
 
     _ignore_ = ['_dict']
@@ -172,25 +199,33 @@ class Algorithm(Enum):
              }
 
     #
-    CEDAR = {**{AlgoAttributes.NAME: "CEDAR",
+    CEDAR = {**{AlgoAttributes.FILE_NAME: "CEDAR",
+                AlgoAttributes.PLOT_NAME: "CeDAR",
                 AlgoAttributes.PLOT_MARKER: "s",
                 AlgoAttributes.MONITOR_PLACEMENT: None,
-                AlgoAttributes.EXEC: main_cedar_setup_FL  # main_cedar_setup
+                AlgoAttributes.EXEC: main_cedar_setup_FL,  # main_cedar_setup
+                AlgoAttributes.COLOR: sample_color(3)
                 }, **_dict}
     #
-    SHP = {**{AlgoAttributes.NAME: "SHP",
+    SHP = {**{AlgoAttributes.FILE_NAME: "SHP",
+              AlgoAttributes.PLOT_NAME: "ShP",
               AlgoAttributes.PLOT_MARKER: "p",
               AlgoAttributes.MONITOR_PLACEMENT: None,
+              AlgoAttributes.COLOR: sample_color(4),
               AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
 
-    ISR_SP = {**{AlgoAttributes.NAME: "ISR_SP",
+    ISR_SP = {**{AlgoAttributes.PLOT_NAME: "ISR-STP",
+                 AlgoAttributes.FILE_NAME: "ISR_SP",
                  AlgoAttributes.PLOT_MARKER: ">",
                  AlgoAttributes.MONITOR_PLACEMENT: None,
+                 AlgoAttributes.COLOR: sample_color(5),
                  AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
-    ISR_MULTICOM = {**{AlgoAttributes.NAME: "ISR_MULTICOM",
+    ISR_MULTICOM = {**{AlgoAttributes.FILE_NAME: "ISR_MULTICOM",
+                       AlgoAttributes.PLOT_NAME: "ISR-Mult",
                        AlgoAttributes.PLOT_MARKER: "<",
                        AlgoAttributes.MONITOR_PLACEMENT: None,
+                       AlgoAttributes.COLOR: sample_color(6),
                        AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
 
@@ -227,3 +262,6 @@ MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320)
 
 # in minnesota they are the highest degree nodes, from which backbone may start
 FIXED_DEMAND_NODES = [320, 78, 1, 349, 124, 564, 315, 186]
+
+
+

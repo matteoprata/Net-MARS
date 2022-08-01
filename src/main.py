@@ -211,14 +211,14 @@ def safe_run(*args):
 def fname_formation():
     global config
     fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(config.seed,
-                                                                                config.graph_dataset.name,
-                                                                                config.n_edges_demand,
-                                                                                int(config.demand_capacity),
-                                                                                config.supply_capacity,
-                                                                                config.algo_name.value[co.AlgoAttributes.NAME],
-                                                                                config.monitors_budget,
-                                                                                config.destruction_quantity,
-                                                                                config.experiment_ind_var.value[0])
+                                                                                       config.graph_dataset.name,
+                                                                                       config.n_edges_demand,
+                                                                                       int(config.demand_capacity),
+                                                                                       config.supply_capacity,
+                                                                                       config.algo_name.value[co.AlgoAttributes.FILE_NAME],
+                                                                                       config.monitors_budget,
+                                                                                       config.destruction_quantity,
+                                                                                       config.experiment_ind_var.value[0])
     return fname
 
 
@@ -316,7 +316,7 @@ def __run_single(seed, dis, budget, n_dedges, flowpp, rep_mode, pick_mode, monit
 
 
 def parallel_2_setup(seeds, algorithms, is_log=False):
-    dis_uni = {0: [.3, .4, .5, .6, .7, .8],
+    dis_uni = {0: [.8],  # [.3, .4, .5, .6, .7, .8],
                1: .8,
                2: .8,
                3: .8
@@ -337,7 +337,7 @@ def parallel_2_setup(seeds, algorithms, is_log=False):
     monitor_bud = {0: 20,
                    1: 20,
                    2: 20,
-                   3: [10, 12, 14, 16, 18, 20, 25, 30]
+                   3: [20, 22, 24, 26, 28, 30]
                    }
 
     ind_var = {
@@ -421,11 +421,12 @@ def single_exec():
     BENCHMARKS = [
                   # co.Algorithm.TOMO_CEDAR,
                   # co.Algorithm.ORACLE,
-                  co.Algorithm.SHP,
-                  # co.Algorithm.ST_PATH,
                   # co.Algorithm.SHP,
+                  # co.Algorithm.ST_PATH,
+                  co.Algorithm.SHP,
                   # co.Algorithm.ISR_SP,
                   # co.Algorithm.ISR_MULTICOM
+                  # co.Algorithm.TOMO_CEDAR_DYN
                   ]
 
     SEEDS = [940]
@@ -433,9 +434,9 @@ def single_exec():
         for algo in BENCHMARKS:
             exec_config = {
                 co.IndependentVariable.SEED: ss,
-                co.IndependentVariable.PROB_BROKEN: 0.5,
+                co.IndependentVariable.PROB_BROKEN: .5,
                 co.IndependentVariable.MONITOR_BUDGET: 20,
-                co.IndependentVariable.N_DEMAND_EDGES: 5,
+                co.IndependentVariable.N_DEMAND_EDGES: 8,
                 co.IndependentVariable.FLOW_DEMAND: 30,
                 co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
                 co.IndependentVariable.ALGORITHM: algo.name
@@ -444,18 +445,20 @@ def single_exec():
 
 
 def parallel_exec_2():
-    STEP = 5
-    s_seed, e_seed = 900, 2000
+    is_stepped = False
+    s_seed, e_seed = 900, 1000
+
+    STEP = 5 if is_stepped else e_seed
     seeds = range(s_seed, e_seed)
     seeds = list(seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
-                  co.Algorithm.ORACLE,
-                  co.Algorithm.CEDAR,
-                  co.Algorithm.ST_PATH,
+    BENCHMARKS = [# co.Algorithm.TOMO_CEDAR,
+                  # co.Algorithm.ORACLE,
+                  # co.Algorithm.CEDAR,
+                  # co.Algorithm.ST_PATH,
                   co.Algorithm.SHP,
-                  co.Algorithm.ISR_SP,
-                  co.Algorithm.ISR_MULTICOM
+                  # co.Algorithm.ISR_SP,
+                  # co.Algorithm.ISR_MULTICOM
                   ]
 
     for i in range(0, len(seeds), STEP):
@@ -465,16 +468,15 @@ def parallel_exec_2():
 
 
 def parallel_exec_1():
-
-    seeds = range(700, 900)
+    seeds = range(700, 800)
     processes = []
     for seed in seeds:
         exec_config = {
             co.IndependentVariable.SEED: seed,
-            co.IndependentVariable.PROB_BROKEN: .8,
-            co.IndependentVariable.MONITOR_BUDGET: 8,
-            co.IndependentVariable.N_DEMAND_EDGES: 6,  # or nodes
-            co.IndependentVariable.FLOW_DEMAND: 10,
+            co.IndependentVariable.PROB_BROKEN: .5,
+            co.IndependentVariable.MONITOR_BUDGET: 20,
+            co.IndependentVariable.N_DEMAND_EDGES: 8,
+            co.IndependentVariable.FLOW_DEMAND: 30,
             co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
             co.IndependentVariable.ALGORITHM: co.Algorithm.TOMO_CEDAR_DYN.name
         }
@@ -496,8 +498,9 @@ def initializer():
 
 
 if __name__ == '__main__':
+    parallel_exec_1()
     # parallel_exec_2()
-    single_exec()
+    # single_exec()
 
 
 

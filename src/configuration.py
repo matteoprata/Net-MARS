@@ -68,10 +68,9 @@ class Configuration:
         self.k_hop_monitoring = 1
         self.is_IP_routing = False  # weather to do IP, or self routing
         self.uniform_resistance_destruction_init = 0.2    # at the beginning
-        self.uniform_resistance_destruction_reset = 0.7     # at reset
-        self.fix_withseed_mode = False  # fix demand edges or epicenters
+        self.uniform_resistance_destruction_reset = 0.97   # at reset
+        self.fix_with_seed_mode = False  # fix demand edges or epicenters
         self.is_cluster_execution = multiprocessing.cpu_count() > 10
-
 
     def n_edges_given_n_nodes(self, n_nodes):
         """ number of edges given pruned clique """

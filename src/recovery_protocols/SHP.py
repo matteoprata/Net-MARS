@@ -94,11 +94,11 @@ def relaxed_LP_SHP(G, demand_edges, supply_nodes, broken_supply_edges, supply_ed
     # for h, flow in var_demand_flows:
     #     m.addConstr(alpha_var[h] == 1)
 
-    # OBJECTIV
-    pvec = {0.3: -7, 0.4: -6, 0.5: -5, 0.6: -4, 0.7: -3, 0.8: -2}
-    epsB = 10**pvec[config.destruction_quantity]  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
+    # OBJECTIVE
+    # pvec = {0.3: -6, 0.4: -6, 0.5: -6, 0.6: -4, 0.7: -3, 0.8: -2}
+    epsB = 10**-2  # sufficiently low to keep the SHPs form and not to contribute to the optimization significantly, as in the paper
     p0 = quicksum(flow * alpha_var[h] for h, flow in var_demand_flows)
-    p1 = quicksum(rep_edge_var[n1, n2] for n1, n2, _ in broken_unk_edges)
+    p1 = quicksum(rep_edge_var[n1, n2] * co.REPAIR_COST * G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.POSTERIOR_BROKEN.value] for n1, n2, _ in broken_unk_edges)
     m.setObjective(p0 - epsB * p1, GRB.MAXIMIZE)
 
     print("OPTIMIZING...")
