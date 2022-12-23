@@ -11,7 +11,7 @@ and critical service restoration after massive failures"*** published at IEEE IN
 Matteo Prata and Novella Bartolini. To replicate the results on the paper, find the ```setup_01.py``` file at ```src.experimental_setup```. 
 Compiled files are at ```data.infocom_2023```.
 
-### Get Started with *Net-MARS*
+## Get Started with *Net-MARS*
 In order to get started, create and activate an environment running 
 Python 3.8. Then run the required libraries in the requirements file
 
@@ -76,7 +76,9 @@ python -m src.main -set setup_01 -gn MINNESOTA -par 1
 ```
 
 
-
+## Contacts
+For further information contact Matteo Prata at [prata@di.uniroma1.it](mailto:prata@di.uniroma1.it) and 
+Viviana Arrigoni at [arrigoni@di.uniroma1.it](mailto:arrigoni@di.uniroma1.it).
 
 
 
