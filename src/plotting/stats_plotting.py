@@ -24,7 +24,7 @@ is_std_error = True
 is_title = False
 is_single_file = False  # all pots in 1 file
 grid_alpha = .2
-figure_size = (10, 6)
+figure_size = (6.7, 6)
 is_pdf_else_png = True
 marker_size = 8
 line_width = 2
@@ -155,7 +155,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
             plt.savefig(str(plot_name[typep]) + str(x_position) + ".png", dpi=300)
     plt.close()
 
-
+    
 def remove_outliers(seeds_xvals_array, k: float = 1):
     """ returns the seeds that are outliers """
 
