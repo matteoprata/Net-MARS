@@ -65,6 +65,8 @@ class Configuration:
         self.force_recompute = True
         self.log_execution_details = True
 
+        self.is_parallel = False
+
         self.k_hop_monitoring = 1
         self.is_IP_routing = False  # weather to do IP, or self routing
         self.uniform_resistance_destruction_init = 0.2    # at the beginning

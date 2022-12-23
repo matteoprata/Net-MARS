@@ -3,8 +3,6 @@ import numpy as np
 import random
 import sys
 import os
-import json
-import traceback
 import src.constants as co
 from src.preprocessing import graph_utils as gu
 import json

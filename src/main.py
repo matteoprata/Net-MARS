@@ -3,13 +3,13 @@ import numpy as np
 import argparse
 from multiprocessing import Pool
 import os
-import pandas as pd
+
 import traceback
 import signal
 import src.constants as co
 import src.configuration as configuration
-import warnings
 
+from src.utilities.store_recovery_stats import save_stats_monotonous, save_stats_NON_monotonous
 from src.utilities.util import set_seed, disable_print, enable_print
 import src.utilities.util as util
 import time
@@ -17,160 +17,41 @@ import time
 original_config = configuration.Configuration()
 time_batch_exec = time.strftime("%Y-%m-%d_%H-%M")
 
-# -----> BEGIN of variable parameters
-
-parser = argparse.ArgumentParser(description='Tomo Cedar recovery algorithm run parameters.')
-parser.add_argument('-s',  '--seed', type=int, default=original_config.seed)
-parser.add_argument('-de',  '--destruction', type=float, default=original_config.destruction_quantity)
-parser.add_argument('-gn', '--graph_name', type=str, default=original_config.graph_path)
-
-# -----> END of variable parameters
 
 config = None
 
 
-def save_stats_monotonous(stats, fname, algon):
-    """ saving number of repairs and flow routed """
-    for i in stats:
-        print(i)
+def cli_args():
+    """
+    Parse the CLI arguments.
+    :return: parsed cli arguments
+    """
 
-    repairs, iter, flow_cum, is_forced_tot = [], [], [], []
-    n_repairs = 0
-    demand_pairs = {k: [] for k in stats[-1]["demands_sat"].keys()}
-    for i, dic in enumerate(stats):  # iteration index
-        vals = dic["node"] + dic["edge"]
-        # numbers in this iteration, to propagate values accordingly
-        n_vals = max(len(vals), 1)
-        repairs += vals if len(vals) > 0 else [None]
-        iter += [dic["iter"]] * n_vals
-        flow_cum += [stats[i]["flow"]] * n_vals
-        n_repairs += len(vals)
+    # -----> BEGIN of variable parameters
 
-        if algon != co.Algorithm.TOMO_CEDAR_DYN:
-            i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
-            for k in i_demand_pairs:
-                d_flow = [0] * n_vals
-                d_flow[0] = stats[i]["demands_sat"][k][i]
-                demand_pairs[k] += d_flow
-        else:
-            is_forced = stats[i]["forced_destr"]
-            d_flow = [0] * n_vals
-            d_flow[0] = 1 if is_forced else 0
-            is_forced_tot += d_flow
+    parser = argparse.ArgumentParser(description='NetMARS parameters.')
+    parser.add_argument('-gn', '--graph_name', type=str, default=original_config.graph_path)
+    parser.add_argument('-par', '--is_parallel', type=int, default=original_config.is_parallel)
+    parser.add_argument('-set', '--setup', type=str)
 
-    df = pd.DataFrame()
-    df["repairs"] = repairs
-    df["iter"] = iter
-    df["flow_cum"] = flow_cum
+    # -----> END of variable parameters
 
-    # position 0 we set the number of repairs
-    none_vec = [None]*len(flow_cum)
-
-    n_repairs_vector = none_vec[:]
-    n_repairs_vector[0] = n_repairs
-    df["n_repairs"] = n_repairs_vector
-
-    n_monitors_vector = none_vec[:]
-    n_monitors_vector[0] = len(stats[-1]["monitors"])
-    df["n_monitors"] = n_monitors_vector
-
-    n_monitor_msg_messages = none_vec[:]
-    n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
-    df["n_monitor_msg"] = n_monitor_msg_messages
-
-    if algon != co.Algorithm.TOMO_CEDAR_DYN:
-        for k in demand_pairs:
-            df["d-" + str(k)] = demand_pairs[k]
-    else:
-        df["forced_destr"] = is_forced_tot
-
-    print("saving stats > {}".format(fname))
-    if os.path.exists(co.PATH_EXPERIMENTS):
-        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
-    else:
-        os.makedirs(co.PATH_EXPERIMENTS)
-        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
-    return df
+    parsed_arguments = parser.parse_args()
+    return parsed_arguments
 
 
-def save_stats_NON_monotonous(stats, fname):
-    """ saving number of repairs and flow routed """
-
-    for i in stats:
-        print(i)
-
-    i_demand_pairs = stats[-1]["demands_sat"] if "demands_sat" in stats[-1].keys() else []
-    stopz = dict()
-    for k in i_demand_pairs:  # iterates demand edges
-        stop = len(i_demand_pairs[k]) - 1  # iteration indices
-        for ite_flow in reversed(i_demand_pairs[k]):
-            if ite_flow != i_demand_pairs[k][-1]:  # different from max_flow
-                break
-            stop -= 1
-        stopz[k] = stop+1
-        # print("ECCO", k, i_demand_pairs[k], stop)
-
-    repairs, iter, flow_cum = [], [], []
-    n_repairs = 0
-    demand_pairs = {k: [] for k in stats[-1]["demands_sat"].keys()}
-    for i, dic in enumerate(stats):  # iteration index
-        vals = dic["node"] + dic["edge"]
-        # numbers in this iteration, to propagate values accordingly
-        n_vals = max(len(vals), 1)
-        repairs += vals if len(vals) > 0 else [None]
-        iter += [dic["iter"]] * n_vals
-        flow_cum += [stats[i]["flow"]] * n_vals  # IGNORED
-        n_repairs += len(vals)
-
-        i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
-        for k in i_demand_pairs:  # iterates demand edges
-            d_flow = [0] * n_vals
-            d_flow[0] = stats[i]["demands_sat"][k][i] if i == stopz[k] else 0
-            demand_pairs[k] = demand_pairs[k] + d_flow
-
-    df = pd.DataFrame()
-    df["repairs"] = repairs
-    df["iter"] = iter
-    # df["flow_cum"] = flow_cum
-
-    flows = np.array([i for i in demand_pairs.values()]).T
-    df["flow_cum"] = np.sum(np.cumsum(flows, axis=0), axis=1)
-
-    # position 0 we set the number of repairs
-    none_vec = [None]*len(flow_cum)
-
-    n_repairs_vector = none_vec[:]
-    n_repairs_vector[0] = n_repairs
-    df["n_repairs"] = n_repairs_vector
-
-    n_monitors_vector = none_vec[:]
-    n_monitors_vector[0] = len(stats[-1]["monitors"])
-    df["n_monitors"] = n_monitors_vector
-
-    n_monitor_msg_messages = none_vec[:]
-    n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
-    df["n_monitor_msg"] = n_monitor_msg_messages
-
-    for k in demand_pairs:
-        df["d-" + str(k)] = demand_pairs[k]
-
-    if os.path.exists(co.PATH_EXPERIMENTS):
-        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
-    else:
-        os.makedirs(co.PATH_EXPERIMENTS)
-        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
-    return df
+parsed_arguments = cli_args()  # reads CLI arguments
 
 
 def setup_configuration():
     """ Sets up the configuration by assigning dynamic values to variables."""
-    args = parser.parse_args()
+    global parsed_arguments
     exec_config = configuration.Configuration()
     config_vars = [field for field in exec_config.__dict__]     # list of possible config fields
 
-    for arg in vars(args):
+    for arg in vars(parsed_arguments):
         if arg in config_vars:
-            setattr(exec_config, arg, getattr(args, arg))
+            setattr(exec_config, arg, getattr(parsed_arguments, arg))
 
     return exec_config
 
@@ -186,10 +67,13 @@ def print_configuration(config):
 
 def safe_run(*args):
     global config
+
     try:
         return run_single(*args)
+
     except Exception:
         enable_print()
+        print("QUA")
         exec_details = fname_formation()
         trace = traceback.format_exc()
         util.write_file(exec_details + "\n" + trace + "\n\n", co.PATH_TO_FAILED_TESTS.format(time_batch_exec), is_append=True)
@@ -222,17 +106,13 @@ def fname_formation():
     return fname
 
 
-def run_single(seed, dis, budget, nnodes, flowpp, indvar, algo_name, is_log=False):
+def run_single(algo_name, seed, dis, budget, n_dedges, flowpp, indvar, is_log=False):
     algo_name_o = co.Algorithm[algo_name]
     rep_mode = algo_name_o.value[co.AlgoAttributes.REPAIRING_PATH]
     pick_mode = algo_name_o.value[co.AlgoAttributes.PICKING_PATH]
     monitor_placement = algo_name_o.value[co.AlgoAttributes.MONITOR_PLACEMENT]
     monitoring_type = algo_name_o.value[co.AlgoAttributes.MONITORING_TYPE]
 
-    __run_single(seed, dis, budget, nnodes, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log)
-
-
-def __run_single(seed, dis, budget, n_dedges, flowpp, rep_mode, pick_mode, monitor_placement, indvar, monitoring_type, algo_name, is_log=False):
     global config
 
     config = setup_configuration()  # MUST BE ON TOP
@@ -281,13 +161,13 @@ def __run_single(seed, dis, budget, n_dedges, flowpp, rep_mode, pick_mode, monit
     fname = fname_formation()
 
     # check if seed is ok
-    if os.path.exists(co.PATH_TO_FAILED_SEEDS):
-        if config.is_cluster_execution:
-            fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
-            if str(config.seed) in fs:
-                raise Exception()
-        else:
-            warnings.warn("CAREFUL! Running local, but this seed is marked as BAD. Check {}".format(co.PATH_TO_FAILED_SEEDS))
+    # if os.path.exists(co.PATH_TO_FAILED_SEEDS):
+    #     if config.is_cluster_execution:
+    #         fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
+    #         if str(config.seed) in fs:
+    #             raise Exception()
+    #     else:
+    #         warnings.warn("CAREFUL! Running local, but this seed is marked as BAD. Check {}".format(co.PATH_TO_FAILED_SEEDS))
 
     if config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname):
         print()
@@ -315,61 +195,51 @@ def __run_single(seed, dis, budget, n_dedges, flowpp, rep_mode, pick_mode, monit
         print("THIS already existed...\n", fname, "\n")
 
 
-def parallel_2_setup(seeds, algorithms, is_log=False):
-    dis_uni = {0: [.8],  # [.3, .4, .5, .6, .7, .8],
-               1: .8,
-               2: .8,
-               3: .8
-               }
+def main(setup, is_parallel):
+    """
+    Runs the simulation according to a setup in src.experimental_setup.
+    :param setup: a setup file in src.experimental_setup.
+    :param is_parallel: weather to run the simulation in parallel or not.
+    :return:
+    """
 
-    npairs = {0: 8,
-              1: [4, 5, 6, 7, 8],
-              2: 8,
-              3: 8
-              }
-
-    flowpp = {0: 30,
-              1: 30,
-              2: [10, 15, 20, 25, 30],
-              3: 30
-              }
-
-    monitor_bud = {0: 20,
-                   1: 20,
-                   2: 20,
-                   3: [20, 22, 24, 26, 28, 30]
-                   }
-
-    ind_var = {
-               0: [co.IndependentVariable.PROB_BROKEN, dis_uni],
-               # 1: [co.IndependentVariable.N_DEMAND_EDGES, npairs],
-               # 2: [co.IndependentVariable.FLOW_DEMAND, flowpp],
-               # 3: [co.IndependentVariable.MONITOR_BUDGET, monitor_bud]
-               }
+    # 1. Declare independent variables and their domain
+    # 2. Declare what independent variable varies at this execution and what stays fixed
 
     processes = []
-    for seed in seeds:
-        for k in ind_var:
-            ind_variable_values = ind_var[k][1][k].copy()  # [list of x axis values]
-            for iv in ind_variable_values:
-                ind_var[k][1][k] = iv
-                # print(iv, seed, k, ind_variable_values, ind_var[k][0])
-                for algo_bench in algorithms:
-                    exec_config = {
-                        co.IndependentVariable.SEED: seed,
-                        co.IndependentVariable.PROB_BROKEN: dis_uni[k],
-                        co.IndependentVariable.MONITOR_BUDGET: monitor_bud[k],
-                        co.IndependentVariable.N_DEMAND_EDGES: npairs[k],  # or nodes
-                        co.IndependentVariable.FLOW_DEMAND: flowpp[k],
-                        co.IndependentVariable.IND_VAR: ind_var[k][0],
-                        co.IndependentVariable.ALGORITHM: algo_bench.name
-                    }
-                    processes.append(list(exec_config.values()) + [is_log])
-            ind_var[k][1][k] = ind_variable_values  # reset
+    indv_fixed_original = {k: setup.indv_fixed[k] for k in setup.indv_fixed}
+    for a in setup.comparison_dims[co.IndependentVariable.ALGORITHM]:
+        for s in setup.comparison_dims[co.IndependentVariable.SEED]:
 
+            for x_var_k in setup.indv_vary:  # execute for several independent variables
+                X_var = setup.indv_vary[x_var_k]
+                for x in X_var:  # iterates over the ind var values
+                    setup.indv_fixed[x_var_k] = x
+
+                    # declare processes arguments
+                    process = [a.name, s] + list(setup.indv_fixed.values()) + [x_var_k, is_parallel]
+                    processes.append(process)
+                    setup.indv_fixed = {k: indv_fixed_original[k] for k in indv_fixed_original}  # reset the change
+
+    if is_parallel:
+        print("Running parallely...")
+        execute_parallel_processes(safe_run, processes)
+    else:
+        print("Running sequentially...")
+        for p in processes:
+            safe_run(*p)
+
+
+def execute_parallel_processes(func_exe, func_args: list):
+    """
+    Runs processes in parallel. Given the function to run and its arguments.
+    :param func_exe: function to run.
+    :param func_args: arguments.
+    """
+    initializer = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore CTRL+C in the worker process.
     with Pool(initializer=initializer, processes=co.N_CORES) as pool:
         try:
-            pool.starmap(safe_run, processes)
+            pool.starmap(func_exe, func_args)
         except KeyboardInterrupt:
             pool.terminate()
             pool.join()
@@ -377,130 +247,20 @@ def parallel_2_setup(seeds, algorithms, is_log=False):
     print("COMPLETED SUCCESSFULLY")
 
 
-def parallel_3_setup(seeds, algorithms, is_log=False):
+def get_setup_file(chosen_setup):
+    from src.experimental_setup import setup_01, setup_02
 
-    dis_uni = {0: [.3, .4, .5, .6, .7, .8]}
-
-    npairs = {0: 9}
-    flowpp = {0: 10}
-    monitor_bud = {0: 4}
-
-    ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni] }
-
-    processes = []
-    for seed in seeds:
-        for k in ind_var:
-            ind_variable_values = ind_var[k][1][k].copy()  # [list of x axis values]
-            for iv in ind_variable_values:
-                ind_var[k][1][k] = iv
-                # print(iv, seed, k, ind_variable_values, ind_var[k][0])
-                for algo_bench in algorithms:
-                    exec_config = {
-                        co.IndependentVariable.SEED: seed,
-                        co.IndependentVariable.PROB_BROKEN: dis_uni[k],
-                        co.IndependentVariable.MONITOR_BUDGET: monitor_bud[k],
-                        co.IndependentVariable.N_DEMAND_EDGES: npairs[k],  # or nodes
-                        co.IndependentVariable.FLOW_DEMAND: flowpp[k],
-                        co.IndependentVariable.IND_VAR: ind_var[k][0],
-                        co.IndependentVariable.ALGORITHM: algo_bench.name
-                    }
-                    processes.append(list(exec_config.values()) + [is_log])
-            ind_var[k][1][k] = ind_variable_values  # reset
-
-    with Pool(initializer=initializer, processes=co.N_CORES) as pool:
-        try:
-            pool.starmap(safe_run, processes)
-        except KeyboardInterrupt:
-            pool.terminate()
-            pool.join()
-
-    print("COMPLETED SUCCESSFULLY")
-
-
-def single_exec():
-    BENCHMARKS = [
-                  # co.Algorithm.TOMO_CEDAR,
-                  # co.Algorithm.ORACLE,
-                  # co.Algorithm.SHP,
-                  # co.Algorithm.ST_PATH,
-                  co.Algorithm.SHP,
-                  # co.Algorithm.ISR_SP,
-                  # co.Algorithm.ISR_MULTICOM
-                  # co.Algorithm.TOMO_CEDAR_DYN
-                  ]
-
-    SEEDS = [940]
-    for ss in SEEDS:
-        for algo in BENCHMARKS:
-            exec_config = {
-                co.IndependentVariable.SEED: ss,
-                co.IndependentVariable.PROB_BROKEN: .5,
-                co.IndependentVariable.MONITOR_BUDGET: 20,
-                co.IndependentVariable.N_DEMAND_EDGES: 8,
-                co.IndependentVariable.FLOW_DEMAND: 30,
-                co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
-                co.IndependentVariable.ALGORITHM: algo.name
-            }
-            safe_run(*exec_config.values(), True)
-
-
-def parallel_exec_2():
-    is_stepped = False
-    s_seed, e_seed = 900, 1000
-
-    STEP = 5 if is_stepped else e_seed
-    seeds = range(s_seed, e_seed)
-    seeds = list(seeds)
-
-    BENCHMARKS = [# co.Algorithm.TOMO_CEDAR,
-                  # co.Algorithm.ORACLE,
-                  # co.Algorithm.CEDAR,
-                  # co.Algorithm.ST_PATH,
-                  co.Algorithm.SHP,
-                  # co.Algorithm.ISR_SP,
-                  # co.Algorithm.ISR_MULTICOM
-                  ]
-
-    for i in range(0, len(seeds), STEP):
-        runs = seeds[i: i+STEP]
-        print("RUN", runs)
-        parallel_2_setup(runs, BENCHMARKS, is_log=False)
-
-
-def parallel_exec_1():
-    seeds = range(700, 800)
-    processes = []
-    for seed in seeds:
-        exec_config = {
-            co.IndependentVariable.SEED: seed,
-            co.IndependentVariable.PROB_BROKEN: .5,
-            co.IndependentVariable.MONITOR_BUDGET: 20,
-            co.IndependentVariable.N_DEMAND_EDGES: 8,
-            co.IndependentVariable.FLOW_DEMAND: 30,
-            co.IndependentVariable.IND_VAR: co.IndependentVariable.PROB_BROKEN,
-            co.IndependentVariable.ALGORITHM: co.Algorithm.TOMO_CEDAR_DYN.name
-        }
-        processes.append(list(exec_config.values()) + [False])
-
-    with Pool(initializer=initializer, processes=co.N_CORES) as pool:
-        try:
-            pool.starmap(safe_run, processes)
-        except KeyboardInterrupt:
-            pool.terminate()
-            pool.join()
-
-    print("COMPLETED SUCCESSFULLY")
-
-
-def initializer():
-    """Ignore CTRL+C in the worker process."""
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    setups = {
+        "setup_01": setup_01,
+        "setup_02": setup_02
+    }
+    if chosen_setup in setups.keys():
+        return setups[chosen_setup]
+    else:
+        print("No setup imported named {}.".format(chosen_setup))
+        exit()
 
 
 if __name__ == '__main__':
-    parallel_exec_1()
-    # parallel_exec_2()
-    # single_exec()
-
-
-
+    setup_file = get_setup_file(parsed_arguments.setup)  # interprets CLI arguments
+    main(setup_file, bool(parsed_arguments.is_parallel))
