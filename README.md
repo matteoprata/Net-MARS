@@ -76,9 +76,5 @@ python -m src.main -set setup_01 -gn MINNESOTA -par 1
 ```
 
 
-## Contacts
-For further information contact Matteo Prata at [prata@di.uniroma1.it](mailto:prata@di.uniroma1.it) and 
-Viviana Arrigoni at [arrigoni@di.uniroma1.it](mailto:arrigoni@di.uniroma1.it).
-
-
-
+## Acknowledgments
+Net-MARS was developed by Matteo Prata [prata@di.uniroma1.it](mailto:prata@di.uniroma1.it) and Viviana Arrigoni [arrigoni@di.uniroma1.it](mailto:arrigoni@di.uniroma1.it). We do not do technical support, nor consulting and do not answer personal questions per email. 
