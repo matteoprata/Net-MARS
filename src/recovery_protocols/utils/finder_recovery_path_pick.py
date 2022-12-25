@@ -1,7 +1,6 @@
 
 from src import constants as co
 from src.preprocessing import graph_utils as gu
-from src.recovery_protocols import finder_recovery_path as re
 
 import numpy as np
 import random

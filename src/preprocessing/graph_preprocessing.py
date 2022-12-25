@@ -81,7 +81,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
         place_static_backbone(G, co.MINNESOTA_STP_BACKBONE, config.backbone_capacity)
 
     # ADD probability RESISTANCE_TO_DESTRUCTION:
-    if config.algo_name == co.Algorithm.TOMO_CEDAR_DYN:
+    if config.algo_instance == co.Algorithm.TOMO_CEDAR_DYN:
         for n in G.nodes:
             G.nodes[n][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_init
 

@@ -1,15 +1,10 @@
 from enum import Enum
 import multiprocessing
-import src.recovery_protocols.TOMO_CEDAR as main_tomocedar_setup
-import src.recovery_protocols.ISR as main_ISR_setup
+
+
 # import src.recovery_protocols.main_cedar_setup as main_cedar_setup
-import src.recovery_protocols.CEDAR as main_cedar_setup_FL
-import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
-import src.recovery_protocols.ORACLE as main_oracle
-import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
-import src.recovery_protocols.SHP as main_SHP_setup
+
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def sample_color(index, cmap='tab10'):
@@ -146,17 +141,52 @@ class AlgoAttributes(Enum):
     LINE_STYLE = "lstyle"
 
 
+class IndependentVariable(Enum):
+    PROB_BROKEN = 0, "Percentage Broken Elements"
+    N_DEMAND_EDGES = 1, "Number Demand Edges"
+    FLOW_DEMAND = 2, "Flow Demand Pair"
+    MONITOR_BUDGET = 3, "Monitor Total Budget"
+    SEED = 4, "Seed"
+    ALGORITHM = 5, "Algorithm"
+    GRAPH = 7, "Graph"
+
+
+# constants
+PATH_TO_GRAPH = "data/graphs/"
+PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
+PATH_TO_FAILED_SEEDS = "data/failed_seeds.txt"
+PATH_EXPERIMENTS = "data/experiments/"
+
+REPAIR_COST = 500
+REPAIR_INTERVENTION = 100
+
+EPSILON = 10 ** -10
+
+N_CORES = multiprocessing.cpu_count()
+
+MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320), (186, 188), (186, 320), (79, 349),
+                          (349, 125), (78, 72), (1, 320), (1, 319), (125, 652), (652, 559), (559, 564),  # VERT SX
+                          (106, 312), (312, 373),              # VERT DX
+                          (72, 564), (564, 373), (373, 1),     # UP HOR
+                          (320, 106), (106, 652), (652, 349),  # MID-LOW HOR
+                          (319, 312), (312, 559), (559, 349)   # MI-DUP HOR
+                          ]
+
+# in minnesota they are the highest degree nodes, from which backbone may start
+FIXED_DEMAND_NODES = [320, 78, 1, 349, 124, 564, 315, 186]
+
+
+from src.recovery_protocols.protocols.PRoTOn import PRoTOn
+import src.recovery_protocols.ISR as main_ISR_setup
+from src.recovery_protocols.protocols.CeDAR import CeDAR
+import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
+import src.recovery_protocols.ORACLE as main_oracle
+import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
+import src.recovery_protocols.SHP as main_SHP_setup
+
+
 class Algorithm(Enum):
-    TOMO_CEDAR = {AlgoAttributes.FILE_NAME: "TOMO_CEDAR",
-                  AlgoAttributes.PLOT_NAME: "PRoTOn",
-                  AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                  AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-                  AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
-                  AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
-                  AlgoAttributes.PLOT_MARKER: "D",
-                  AlgoAttributes.EXEC: main_tomocedar_setup,
-                  AlgoAttributes.COLOR: sample_color(2),
-                  }
+    PROTON = PRoTOn
 
     TOMO_CEDAR_DYN = {AlgoAttributes.FILE_NAME: "TOMO_CEDAR_DYN",
                       AlgoAttributes.PLOT_NAME: "PRoTOn Dyn",
@@ -199,13 +229,7 @@ class Algorithm(Enum):
              }
 
     #
-    CEDAR = {**{AlgoAttributes.FILE_NAME: "CEDAR",
-                AlgoAttributes.PLOT_NAME: "CeDAR",
-                AlgoAttributes.PLOT_MARKER: "s",
-                AlgoAttributes.MONITOR_PLACEMENT: None,
-                AlgoAttributes.EXEC: main_cedar_setup_FL,  # main_cedar_setup
-                AlgoAttributes.COLOR: sample_color(3)
-                }, **_dict}
+    CEDAR = CeDAR
     #
     SHP = {**{AlgoAttributes.FILE_NAME: "SHP",
               AlgoAttributes.PLOT_NAME: "ShP",
@@ -229,39 +253,10 @@ class Algorithm(Enum):
                        AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
 
-class IndependentVariable(Enum):
-    PROB_BROKEN = 0, "Percentage Broken Elements"
-    N_DEMAND_EDGES = 1, "Number Demand Edges"
-    FLOW_DEMAND = 2, "Flow Demand Pair"
-    MONITOR_BUDGET = 3, "Monitor Total Budget"
-    SEED = 4, "Seed"
-    ALGORITHM = 5, "Algorithm"
-    GRAPH = 7, "Graph"
+from src.experimental_setup import setup_01, setup_02, setup_03
 
 
-# constants
-PATH_TO_GRAPH = "data/graphs/"
-PATH_TO_FAILED_TESTS = "data/failed_tests_{}.txt"
-PATH_TO_FAILED_SEEDS = "data/failed_seeds.txt"
-PATH_EXPERIMENTS = "data/experiments/"
-
-REPAIR_COST = 500
-REPAIR_INTERVENTION = 100
-
-EPSILON = 10 ** -10
-
-N_CORES = multiprocessing.cpu_count()
-
-MINNESOTA_STP_BACKBONE = [(78, 79), (125, 86), (86, 193), (193, 188), (188, 320), (186, 188), (186, 320), (79, 349),
-                          (349, 125), (78, 72), (1, 320), (1, 319), (125, 652), (652, 559), (559, 564),  # VERT SX
-                          (106, 312), (312, 373),              # VERT DX
-                          (72, 564), (564, 373), (373, 1),     # UP HOR
-                          (320, 106), (106, 652), (652, 349),  # MID-LOW HOR
-                          (319, 312), (312, 559), (559, 349)   # MI-DUP HOR
-                          ]
-
-# in minnesota they are the highest degree nodes, from which backbone may start
-FIXED_DEMAND_NODES = [320, 78, 1, 349, 124, 564, 315, 186]
-
-
-
+class Setups(Enum):
+    SETUP_01 = setup_01
+    SETUP_02 = setup_02
+    SETUP_03 = setup_03

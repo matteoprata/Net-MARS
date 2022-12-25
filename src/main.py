@@ -9,28 +9,9 @@ import src.configuration as configuration
 
 from src.utilities.store_recovery_stats import save_stats_monotonous, save_stats_NON_monotonous
 from src.utilities.util import set_seed, disable_print, enable_print
+from src.recovery_protocols import RecoveryProtocol
 import src.utilities.util as util
 import time
-
-
-def get_setup_file(chosen_setup):
-    """
-    Returns the setup file chosen from the CLI.
-    :param chosen_setup: the string representing the name of the setup file.
-    :return: the class of the setup file.
-    """
-    from src.experimental_setup import setup_01, setup_02
-
-    setups = {
-        "setup_01": setup_01,
-        "setup_02": setup_02
-    }
-
-    if chosen_setup in setups.keys():
-        return setups[chosen_setup]
-    else:
-        print("No setup imported named {}.".format(chosen_setup))
-        exit()
 
 
 def cli_args_parsing():
@@ -50,27 +31,26 @@ def cli_args_parsing():
     parsed_arguments = vars(parser.parse_args())
 
     # processing args
-    parsed_arguments["setup"] = get_setup_file(parsed_arguments["setup"])
+    parsed_arguments["setup"] = co.Setups[parsed_arguments["setup"].upper()].value
     parsed_arguments["is_parallel"] = bool(parsed_arguments["is_parallel"])
     parsed_arguments["is_log"] = bool(parsed_arguments["is_log"])
 
     return parsed_arguments
 
 
-def setup_configuration():
+def configuration_update(config):
     """ Sets up the configuration by assigning dynamic values to variables of configuration.
         Notice: CLI arguments must have the same name as those in the configuration.py file.
     """
     global parsed_arguments
-    exec_config = configuration.Configuration()
-    config_vars = [field for field in exec_config.__dict__]     # list of possible config fields
+    config_vars = [field for field in config.__dict__]     # list of possible config fields
 
     for arg in parsed_arguments:
         if arg in config_vars:
-            setattr(exec_config, arg, parsed_arguments[arg])
+            setattr(config, arg, parsed_arguments[arg])
         else:
             print("WARNING! A CLI argument is not in the configuration file.")
-    return exec_config
+    return config
 
 
 def configuration_details(config):
@@ -109,12 +89,12 @@ def safe_run(*args):
 
 
 def fname_formation(config):
-    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(config.seed,
+    fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(config.seed,
                                                                                        config.graph_dataset.name,
                                                                                        config.n_edges_demand,
                                                                                        int(config.demand_capacity),
                                                                                        config.supply_capacity,
-                                                                                       config.algo_name.value[co.AlgoAttributes.FILE_NAME],
+                                                                                       config.algo_instance.file_name,
                                                                                        config.monitors_budget,
                                                                                        config.destruction_quantity,
                                                                                        config.experiment_ind_var.value[0])
@@ -126,20 +106,16 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
     Sets the desired parameters in a configuration file available throughout the simulation.
     :return: a configuration object.
     """
-    algo_name_o = co.Algorithm[algo_name]
 
-    rep_mode = algo_name_o.value[co.AlgoAttributes.REPAIRING_PATH]
-    pick_mode = algo_name_o.value[co.AlgoAttributes.PICKING_PATH]
-    monitor_placement = algo_name_o.value[co.AlgoAttributes.MONITOR_PLACEMENT]
-    monitoring_type = algo_name_o.value[co.AlgoAttributes.MONITORING_TYPE]
+    # create a config file
+    config = configuration.Configuration()
+    config = configuration_update(config)
 
-    config = setup_configuration()  # MUST BE ON TOP
+    repairing_protocol: RecoveryProtocol = co.Algorithm[algo_name].value(config)
+
     config.seed = seed
-
-    algo_name_o = co.Algorithm[algo_name]
-    config.algo_name = algo_name_o
+    config.algo_instance = repairing_protocol
     config.graph_dataset = graph_dataset
-
     config.experiment_ind_var = indvar
     config.destruction_quantity = dis
 
@@ -150,9 +126,9 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
     config.rand_generator_capacities = np.random.RandomState(config.seed)
     config.rand_generator_path_choice = np.random.RandomState(config.seed)
 
-    config.protocol_monitor_placement = monitor_placement
+    config.protocol_monitor_placement = repairing_protocol.mode_monitoring
 
-    if config.algo_name == co.Algorithm.ORACLE:
+    if config.algo_instance == co.Algorithm.ORACLE:
         config.is_oracle_baseline = True
 
     if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE:
@@ -171,10 +147,10 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
 
     config.edges_list_path += str(config.n_nodes_demand_clique) + ".data"
     config.demand_capacity = flowpp
-    config.repairing_mode = rep_mode
-    config.picking_mode = pick_mode
+    config.repairing_mode = repairing_protocol.mode_path_repairing
+    config.picking_mode = repairing_protocol.mode_path_choosing_repair
 
-    config.monitoring_type = monitoring_type
+    config.monitoring_type = repairing_protocol.mode_monitoring_type
     return config
 
 
@@ -198,15 +174,15 @@ def run_1_single_execution(config):
         disable_print()
 
     # RUNNING
-    stats = config.algo_name.value[co.AlgoAttributes.EXEC].run(config)
+    stats = config.algo_instance.run()
 
     enable_print()
 
     if stats is not None:
-        if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
+        if config.algo_instance in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
             df = save_stats_NON_monotonous(stats, fname)
         else:
-            df = save_stats_monotonous(stats, fname, config.algo_name)
+            df = save_stats_monotonous(stats, fname, config.algo_instance)
         print(df.to_string())
 
 

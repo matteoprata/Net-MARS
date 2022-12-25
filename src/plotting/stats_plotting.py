@@ -600,7 +600,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
 
 def intro_bud():
-    config = ma.setup_configuration()
+    config = ma.configuration_update()
     co.PATH_EXPERIMENTS = "data/experiments/"
 
     dis_uni = {0: [.8],
@@ -637,7 +637,7 @@ def intro_bud():
     seeds = list(set(range(900, 1000)) - {942})
     print("Using", len(seeds), seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR,
+    BENCHMARKS = [co.Algorithm.PROTON,
                   co.Algorithm.ORACLE,
                   co.Algorithm.CEDAR,
                   co.Algorithm.ST_PATH,
@@ -656,7 +656,7 @@ def intro_bud():
 
 
 def plotting_dyn():
-    config = ma.setup_configuration()
+    config = ma.configuration_update()
     co.PATH_EXPERIMENTS = "data/experiments/"
 
     dis_uni = {0: [.5]}

@@ -5,8 +5,7 @@ from src.preprocessing.graph_monitoring import *
 from src.preprocessing.graph_utils import *
 import src.constants as co
 
-from src.recovery_protocols import finder_recovery_path as frp
-from src.recovery_protocols import finder_recovery_path_pick as frpp
+from src.recovery_protocols.utils import finder_recovery_path as frp, finder_recovery_path_pick as frpp
 from src.monitor_placement_protocols import adding_monitors as mon
 
 

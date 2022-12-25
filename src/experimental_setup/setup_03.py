@@ -6,17 +6,17 @@ comparison_dims = {co.IndependentVariable.GRAPH: [
                         ],
                    co.IndependentVariable.SEED: range(1),
                    co.IndependentVariable.ALGORITHM: [
-                        co.Algorithm.PROTON,
+                        co.Algorithm.CEDAR,
                         ]
                    }
 
 indv_vary = {
-    co.IndependentVariable.PROB_BROKEN: [.3, .4, .5, .6, .7, .8],
+    co.IndependentVariable.PROB_BROKEN: [.3],
 }
 
 indv_fixed = {
     co.IndependentVariable.PROB_BROKEN: .8,
     co.IndependentVariable.MONITOR_BUDGET: 20,
-    co.IndependentVariable.N_DEMAND_EDGES: 8,
+    co.IndependentVariable.N_DEMAND_EDGES: 5,
     co.IndependentVariable.FLOW_DEMAND: 30,
 }
