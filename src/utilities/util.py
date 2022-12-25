@@ -7,6 +7,8 @@ import src.constants as co
 from src.preprocessing import graph_utils as gu
 import json
 import pickle
+from multiprocessing import Pool
+import signal
 
 
 class Singleton(type):
@@ -16,6 +18,23 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+def execute_parallel_processes(func_exe, func_args: list, n_cores: int=1):
+    """
+    Runs processes in parallel. Given the function to run and its arguments.
+    :param func_exe: function to run.
+    :param func_args: arguments.
+    """
+    initializer = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore CTRL+C in the worker process.
+    with Pool(initializer=initializer, processes=n_cores) as pool:
+        try:
+            pool.starmap(func_exe, func_args)
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.join()
+
+    print("COMPLETED SUCCESSFULLY")
 
 
 def is_distance_tolerated(perc_broken_sofar, destruction_quantity, tolerance):

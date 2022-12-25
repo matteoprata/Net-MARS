@@ -1,7 +1,10 @@
 
 import src.constants as co
 
-comparison_dims = {co.IndependentVariable.SEED: range(1),
+comparison_dims = {co.IndependentVariable.GRAPH: [
+                        co.GraphName.MINNESOTA
+                        ],
+                   co.IndependentVariable.SEED: range(1),
                    co.IndependentVariable.ALGORITHM: [
                         co.Algorithm.TOMO_CEDAR,
                         ]

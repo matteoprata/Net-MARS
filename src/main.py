@@ -1,11 +1,9 @@
 
 import numpy as np
 import argparse
-from multiprocessing import Pool
 import os
 
 import traceback
-import signal
 import src.constants as co
 import src.configuration as configuration
 
@@ -14,50 +12,69 @@ from src.utilities.util import set_seed, disable_print, enable_print
 import src.utilities.util as util
 import time
 
-original_config = configuration.Configuration()
-time_batch_exec = time.strftime("%Y-%m-%d_%H-%M")
+
+def get_setup_file(chosen_setup):
+    """
+    Returns the setup file chosen from the CLI.
+    :param chosen_setup: the string representing the name of the setup file.
+    :return: the class of the setup file.
+    """
+    from src.experimental_setup import setup_01, setup_02
+
+    setups = {
+        "setup_01": setup_01,
+        "setup_02": setup_02
+    }
+
+    if chosen_setup in setups.keys():
+        return setups[chosen_setup]
+    else:
+        print("No setup imported named {}.".format(chosen_setup))
+        exit()
 
 
-config = None
-
-
-def cli_args():
+def cli_args_parsing():
     """
     Parse the CLI arguments.
     :return: parsed cli arguments
     """
 
-    # -----> BEGIN of variable parameters
-
     parser = argparse.ArgumentParser(description='NetMARS parameters.')
-    parser.add_argument('-gn', '--graph_name', type=str, default=original_config.graph_path)
-    parser.add_argument('-par', '--is_parallel', type=int, default=original_config.is_parallel)
-    parser.add_argument('-set', '--setup', type=str)
 
+    # -----> BEGIN of variable parameters
+    parser.add_argument('-set', '--setup', type=str)
+    parser.add_argument('-par', '--is_parallel', type=int, default=False)
+    parser.add_argument('-log', '--is_log', type=int, default=True)
     # -----> END of variable parameters
 
-    parsed_arguments = parser.parse_args()
+    parsed_arguments = vars(parser.parse_args())
+
+    # processing args
+    parsed_arguments["setup"] = get_setup_file(parsed_arguments["setup"])
+    parsed_arguments["is_parallel"] = bool(parsed_arguments["is_parallel"])
+    parsed_arguments["is_log"] = bool(parsed_arguments["is_log"])
+
     return parsed_arguments
 
 
-parsed_arguments = cli_args()  # reads CLI arguments
-
-
 def setup_configuration():
-    """ Sets up the configuration by assigning dynamic values to variables."""
+    """ Sets up the configuration by assigning dynamic values to variables of configuration.
+        Notice: CLI arguments must have the same name as those in the configuration.py file.
+    """
     global parsed_arguments
     exec_config = configuration.Configuration()
     config_vars = [field for field in exec_config.__dict__]     # list of possible config fields
 
-    for arg in vars(parsed_arguments):
+    for arg in parsed_arguments:
         if arg in config_vars:
-            setattr(exec_config, arg, getattr(parsed_arguments, arg))
-
+            setattr(exec_config, arg, parsed_arguments[arg])
+        else:
+            print("WARNING! A CLI argument is not in the configuration file.")
     return exec_config
 
 
-def print_configuration(config):
-    """ Prints the configuration about to run as {key}\t{value}\n format. """
+def configuration_details(config):
+    """ Prints the configuration running. As {key}\t{value}\n format. """
     str_values = ""
     for param, val in config.__dict__.items():
         str_values += "{}\t{}\n".format(param.upper(), val)
@@ -66,19 +83,19 @@ def print_configuration(config):
 
 
 def safe_run(*args):
-    global config
 
+    config = run_0_set_configuration_values(*args)
     try:
-        return run_single(*args)
+        return run_1_single_execution(config)
 
     except Exception:
+
         enable_print()
-        print("QUA")
-        exec_details = fname_formation()
+        exec_details = fname_formation(config)
         trace = traceback.format_exc()
         util.write_file(exec_details + "\n" + trace + "\n\n", co.PATH_TO_FAILED_TESTS.format(time_batch_exec), is_append=True)
 
-        # writes the infeasible seed only once
+        # writes the infeasible seeds in a file, only once
         if os.path.exists(co.PATH_TO_FAILED_SEEDS):
             fs = util.read_file(co.PATH_TO_FAILED_SEEDS)
             if not str(config.seed) in fs:
@@ -88,12 +105,10 @@ def safe_run(*args):
 
         print("error due to", exec_details)
         print(trace)
-        print("printed traceback but ignored.")
         disable_print()
 
 
-def fname_formation():
-    global config
+def fname_formation(config):
     fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(config.seed,
                                                                                        config.graph_dataset.name,
                                                                                        config.n_edges_demand,
@@ -106,23 +121,26 @@ def fname_formation():
     return fname
 
 
-def run_single(algo_name, seed, dis, budget, n_dedges, flowpp, indvar, is_log=False):
+def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, n_dedges, flowpp, indvar):
+    """
+    Sets the desired parameters in a configuration file available throughout the simulation.
+    :return: a configuration object.
+    """
     algo_name_o = co.Algorithm[algo_name]
+
     rep_mode = algo_name_o.value[co.AlgoAttributes.REPAIRING_PATH]
     pick_mode = algo_name_o.value[co.AlgoAttributes.PICKING_PATH]
     monitor_placement = algo_name_o.value[co.AlgoAttributes.MONITOR_PLACEMENT]
     monitoring_type = algo_name_o.value[co.AlgoAttributes.MONITORING_TYPE]
-
-    global config
 
     config = setup_configuration()  # MUST BE ON TOP
     config.seed = seed
 
     algo_name_o = co.Algorithm[algo_name]
     config.algo_name = algo_name_o
+    config.graph_dataset = graph_dataset
 
     config.experiment_ind_var = indvar
-    config.is_log = is_log
     config.destruction_quantity = dis
 
     # the prior probability that the node is broke is higher when the actual destruction is high
@@ -145,7 +163,8 @@ def run_single(algo_name, seed, dis, budget, n_dedges, flowpp, indvar, is_log=Fa
 
     if config.is_demand_clique:
         config.n_nodes_demand_clique = len(co.FIXED_DEMAND_NODES)  # is CONSTANT
-        assert n_dedges <= config.n_nodes_demand_clique * (config.n_nodes_demand_clique - 1) / 2, "add more more demand nodes in co.FIXED_DEMAND_NODES to work with {} demand edges.".format(n_dedges)
+        assert_msg = "add more more demand nodes in co.FIXED_DEMAND_NODES to work with {} demand edges.".format(n_dedges)
+        assert n_dedges <= config.n_nodes_demand_clique * (config.n_nodes_demand_clique - 1) / 2, assert_msg
         config.n_edges_demand = n_dedges  # int(nnodes * (nnodes-1) / 2 * config.demand_clique_factor)
     else:
         config.n_edges_demand = n_dedges
@@ -156,43 +175,39 @@ def run_single(algo_name, seed, dis, budget, n_dedges, flowpp, indvar, is_log=Fa
     config.picking_mode = pick_mode
 
     config.monitoring_type = monitoring_type
-    config_details = print_configuration(config)
+    return config
 
-    fname = fname_formation()
 
-    # check if seed is ok
-    # if os.path.exists(co.PATH_TO_FAILED_SEEDS):
-    #     if config.is_cluster_execution:
-    #         fs = set(util.read_file(co.PATH_TO_FAILED_SEEDS))
-    #         if str(config.seed) in fs:
-    #             raise Exception()
-    #     else:
-    #         warnings.warn("CAREFUL! Running local, but this seed is marked as BAD. Check {}".format(co.PATH_TO_FAILED_SEEDS))
+def run_1_single_execution(config):
+    """ Executes the simulation. """
 
-    if config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname):
-        print()
-        # print("NOW running...\n\n", config_details)
-        print("exec name > ", fname)
+    confid_description = configuration_details(config)
+    fname = fname_formation(config)
 
-        set_seed(config.seed)
-
-        if not config.is_log:
-            disable_print()
-
-        # RUNNING
-        stats = config.algo_name.value[co.AlgoAttributes.EXEC].run(config)
-
-        enable_print()
-
-        if stats is not None:
-            if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
-                df = save_stats_NON_monotonous(stats, fname)
-            else:
-                df = save_stats_monotonous(stats, fname, config.algo_name)
-            print(df.to_string())
-    else:
+    if not (config.force_recompute or not os.path.exists(co.PATH_EXPERIMENTS + fname)):
         print()
         print("THIS already existed...\n", fname, "\n")
+        return
+
+    print("\nNOW running...\n\n{}\n".format(confid_description))
+    print("\nexec fname > ", fname)
+
+    set_seed(config.seed)
+
+    if not config.is_log:
+        disable_print()
+
+    # RUNNING
+    stats = config.algo_name.value[co.AlgoAttributes.EXEC].run(config)
+
+    enable_print()
+
+    if stats is not None:
+        if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
+            df = save_stats_NON_monotonous(stats, fname)
+        else:
+            df = save_stats_monotonous(stats, fname, config.algo_name)
+        print(df.to_string())
 
 
 def main(setup, is_parallel):
@@ -203,64 +218,44 @@ def main(setup, is_parallel):
     :return:
     """
 
-    # 1. Declare independent variables and their domain
-    # 2. Declare what independent variable varies at this execution and what stays fixed
+    # 1. Declare independent variables and their domain in a setup file at src.experimental_setup
+    # 2. Declare what independent variable varies at this execution and what stays fixed in the file
 
     processes = []
     indv_fixed_original = {k: setup.indv_fixed[k] for k in setup.indv_fixed}
-    for a in setup.comparison_dims[co.IndependentVariable.ALGORITHM]:
-        for s in setup.comparison_dims[co.IndependentVariable.SEED]:
 
-            for x_var_k in setup.indv_vary:  # execute for several independent variables
-                X_var = setup.indv_vary[x_var_k]
-                for x in X_var:  # iterates over the ind var values
-                    setup.indv_fixed[x_var_k] = x
+    for g in setup.comparison_dims[co.IndependentVariable.GRAPH]:
+        for a in setup.comparison_dims[co.IndependentVariable.ALGORITHM]:
+            for s in setup.comparison_dims[co.IndependentVariable.SEED]:
 
-                    # declare processes arguments
-                    process = [a.name, s] + list(setup.indv_fixed.values()) + [x_var_k, is_parallel]
-                    processes.append(process)
-                    setup.indv_fixed = {k: indv_fixed_original[k] for k in indv_fixed_original}  # reset the change
+                for x_var_k in setup.indv_vary:  # execute for several independent variables
+                    X_var = setup.indv_vary[x_var_k]
+                    for x in X_var:  # iterates over the ind var values
+                        setup.indv_fixed[x_var_k] = x
 
+                        # declare processes arguments
+                        process = [g, a.name, s] + list(setup.indv_fixed.values()) + [x_var_k]
+                        processes.append(process)
+                        setup.indv_fixed = {k: indv_fixed_original[k] for k in indv_fixed_original}  # reset the change
+
+    # RUNNING
     if is_parallel:
         print("Running parallely...")
-        execute_parallel_processes(safe_run, processes)
+        util.execute_parallel_processes(safe_run, processes, co.N_CORES)
     else:
         print("Running sequentially...")
         for p in processes:
             safe_run(*p)
 
 
-def execute_parallel_processes(func_exe, func_args: list):
-    """
-    Runs processes in parallel. Given the function to run and its arguments.
-    :param func_exe: function to run.
-    :param func_args: arguments.
-    """
-    initializer = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore CTRL+C in the worker process.
-    with Pool(initializer=initializer, processes=co.N_CORES) as pool:
-        try:
-            pool.starmap(func_exe, func_args)
-        except KeyboardInterrupt:
-            pool.terminate()
-            pool.join()
+# --- (begin) PREAMBLE --- #
 
-    print("COMPLETED SUCCESSFULLY")
+time_batch_exec = time.strftime("%Y-%m-%d_%H-%M")
+parsed_arguments = cli_args_parsing()
 
-
-def get_setup_file(chosen_setup):
-    from src.experimental_setup import setup_01, setup_02
-
-    setups = {
-        "setup_01": setup_01,
-        "setup_02": setup_02
-    }
-    if chosen_setup in setups.keys():
-        return setups[chosen_setup]
-    else:
-        print("No setup imported named {}.".format(chosen_setup))
-        exit()
+# --- (end) PREAMBLE --- #
 
 
 if __name__ == '__main__':
-    setup_file = get_setup_file(parsed_arguments.setup)  # interprets CLI arguments
-    main(setup_file, bool(parsed_arguments.is_parallel))
+    setup, is_parallel = parsed_arguments["setup"], parsed_arguments["is_parallel"]
+    main(setup, is_parallel)

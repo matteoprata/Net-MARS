@@ -66,6 +66,7 @@ class Configuration:
         self.log_execution_details = True
 
         self.is_parallel = False
+        self.setup = None
 
         self.k_hop_monitoring = 1
         self.is_IP_routing = False  # weather to do IP, or self routing

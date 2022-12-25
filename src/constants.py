@@ -236,7 +236,7 @@ class IndependentVariable(Enum):
     MONITOR_BUDGET = 3, "Monitor Total Budget"
     SEED = 4, "Seed"
     ALGORITHM = 5, "Algorithm"
-    IND_VAR = 6, "Independent Variable"
+    GRAPH = 7, "Graph"
 
 
 # constants
