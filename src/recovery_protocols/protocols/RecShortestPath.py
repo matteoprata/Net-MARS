@@ -6,22 +6,21 @@ from src.preprocessing.graph_utils import *
 import src.constants as co
 
 from src.recovery_protocols.utils import finder_recovery_path as frp, finder_recovery_path_pick as frpp
-from src.monitor_placement_protocols import adding_monitors as mon
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
 
 
-class PRoTOn(RecoveryProtocol):
+class RecShortestPath(RecoveryProtocol):
 
-    file_name = "PRoTOn"
-    plot_name = "PRoTOn"
+    file_name = "STPATH"
+    plot_name = "STP"
 
-    mode_path_repairing = co.ProtocolRepairingPath.MIN_COST_BOT_CAP
-    mode_path_choosing_repair = co.ProtocolPickingPath.MIN_COST_BOT_CAP
-    mode_monitoring = co.ProtocolMonitorPlacement.BUDGET
-    mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
+    mode_path_repairing = co.ProtocolRepairingPath.SHORTEST_MINUS
+    mode_path_choosing_repair = co.ProtocolPickingPath.RANDOM
+    mode_monitoring = co.ProtocolMonitorPlacement.NONE
+    mode_monitoring_type = co.PriorKnowledge.DUNNY_IP
 
-    plot_marker = "D"
-    plot_color_curve = 2
+    plot_marker = "v"
+    plot_color_curve = 0
 
     def __init__(self, config):
         super().__init__(config)
@@ -46,6 +45,18 @@ class PRoTOn(RecoveryProtocol):
         else:
             add_demand_pairs(G, self.config.n_edges_demand, self.config.demand_capacity, self.config)
 
+        # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(self.config.seed, self.config.graph_dataset.name, self.config.n_demand_clique,
+        #                                                                                    self.config.demand_capacity, self.config.destruction_quantity,
+        #                                                                                    self.config.supply_capacity[0])
+        # util.save_porting_dictionary(G, path)
+        # util.enable_print()
+
+        # feasible = is_feasible(G, is_fake_fixed=True)
+        # util.enable_print()
+        # if not feasible:
+        #     print("WARNING! No feasible")
+        # return
+
         pg.plot(G, self.config.graph_path, distribution, self.config.destruction_precision, dim_ratio,
                 self.config.destruction_show_plot, self.config.destruction_save_plot, self.config.seed, "TRU", co.PlotType.TRU, self.config.destruction_quantity)
 
@@ -67,31 +78,6 @@ class PRoTOn(RecoveryProtocol):
         packet_monitor = 0
         monitors_stats = set()
         demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
-
-        # set as monitors all the nodes that are demand endpoints
-        monitors_map = defaultdict(set)
-        monitors_connections = defaultdict(set)
-        monitors_non_connections = defaultdict(set)
-
-        last_repaired_demand = None
-
-        # ADD preliminary monitors
-        for n1, n2, _ in get_demand_edges(G):
-            do_repair_node(G, n1)
-            do_repair_node(G, n2)
-
-            G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
-            G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
-            monitors_stats |= {n1, n2}
-
-            # does not look defined for only monitors
-            monitors_map[n1] |= {(n1, n2)}
-            monitors_map[n2] |= {(n1, n2)}
-
-        self.config.monitors_budget_residual -= len(monitors_stats)
-
-        print("DEMAND NODES", get_demand_nodes(G))
-        print("DEMAND EDGES", get_demand_edges(G))
 
         # start of the protocol
         while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -119,33 +105,9 @@ class PRoTOn(RecoveryProtocol):
                      "demands_sat": demands_sat}
 
             # -------------- 0. Monitor placement --------------
-
-            if self.config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET:
-                monitors, _, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
-                monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
-                stats["monitors"] |= monitors
-                monitors_stats = stats["monitors"]
-
             # -------------- 1. Tomography, Pruning, Probability --------------
-            monitoring = pruning_monitoring(G,
-                                            stats["packet_monitoring"],
-                                            self.config.monitoring_messages_budget,
-                                            monitors_map,
-                                            monitors_connections,
-                                            monitors_non_connections,
-                                            last_repaired_demand,
-                                            self.config)
-
-            if monitoring is None:
-                stats_list.append(stats)
-                print(stats)
-                return stats_list
-
-            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, \
-            demand_edges_routed_flow_pp = monitoring
-
-            # >>>> PROBABILITY HERE
-            tomography_over_paths(G, elements_val_id, elements_id_val, self.config.UNK_prior, monitoring_paths)
+            monitoring = dummy_pruning(G)
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, demand_edges_routed_flow_pp = monitoring
 
             routed_flow += sum(demand_edges_routed_flow)
             stats["flow"] = routed_flow
@@ -153,7 +115,6 @@ class PRoTOn(RecoveryProtocol):
             packet_monitor += stats_packet_monitoring
             stats["packet_monitoring"] = packet_monitor
 
-            print("DEM-SAT", demands_sat)
             for ke in demands_sat:  # every demand edge
                 is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
                 flow = self.config.demand_capacity if is_new_routing else 0
@@ -169,25 +130,26 @@ class PRoTOn(RecoveryProtocol):
                 path_to_fix = frpp.find_path_picker(self.config.picking_mode, G, paths_proposed, self.config.repairing_mode, self.config,
                                                     is_oracle=self.config.is_oracle_baseline)
 
-                print(paths_proposed)
-                assert path_to_fix is not None
-                d1, d2 = last_repaired_demand = make_existing_edge(path_to_fix[0], path_to_fix[-1])
-                self.update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections)
+                if path_to_fix is None:
+                    stats_list.append(stats)
+                    print(stats)
+                    return stats_list
 
-                fixed_nodes, fixed_edges = do_fix_path_smart(G, path_to_fix)
+                # if the protocol SHORTEST_MINUS proposes a 0 capacity edge
+                if get_path_residual_capacity(G, path_to_fix) == 0:
+                    self.cancel_demand_edge(G, path_to_fix)
+
+                fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
                 stats["node"] += fixed_nodes
                 stats["edge"] += fixed_edges
 
             stats_list.append(stats)
             print(stats)
-
         return stats_list
 
     @staticmethod
-    def update_monitor_maps(d1, d2, monitors_non_connections, monitors_connections):
-        # monitors are not connected PHASE 0
-        monitors_non_connections[d1] |= {d2}
-        monitors_non_connections[d2] |= {d1}
+    def cancel_demand_edge(G, path_to_fix):
+        print("Path with capacity 0, happened", path_to_fix)
+        dd1, dd2 = make_existing_edge(path_to_fix[0], path_to_fix[-1])
+        G.edges[dd1, dd2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = 0
 
-        monitors_connections[d1] -= {d2}
-        monitors_connections[d2] -= {d1}

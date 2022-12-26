@@ -38,18 +38,6 @@ class CeDAR(RecoveryProtocol):
         else:
             add_demand_pairs(G, self.config.n_edges_demand, self.config.demand_capacity, self.config)
 
-        # path = "data/porting/graph-s|{}-g|{}-np|{}-dc|{}-pbro|{}-supc|{}.json".format(self.config.seed, self.config.graph_dataset.name, self.config.n_demand_clique,
-        #                                                                                    self.config.demand_capacity, self.config.destruction_quantity,
-        #                                                                                    self.config.supply_capacity[0])
-        # util.save_porting_dictionary(G, path)
-        # util.enable_print()
-
-        # feasible = is_feasible(G, is_fake_fixed=True)
-        # util.enable_print()
-        # if not feasible:
-        #     print("WARNING! No feasible")
-        # return
-
         pg.plot(G, self.config.graph_path, distribution, self.config.destruction_precision, dim_ratio,
                 self.config.destruction_show_plot, self.config.destruction_save_plot, self.config.seed, "TRU", co.PlotType.TRU, self.config.destruction_quantity)
 

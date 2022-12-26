@@ -10,18 +10,18 @@ from src.monitor_placement_protocols import adding_monitors as mon
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
 
 
-class PRoTOn(RecoveryProtocol):
+class PRoTOnOracle(RecoveryProtocol):
 
-    file_name = "PRoTOn"
-    plot_name = "PRoTOn"
+    file_name = "PRoTOn+"
+    plot_name = "PRoTOn+"
 
     mode_path_repairing = co.ProtocolRepairingPath.MIN_COST_BOT_CAP
     mode_path_choosing_repair = co.ProtocolPickingPath.MIN_COST_BOT_CAP
     mode_monitoring = co.ProtocolMonitorPlacement.BUDGET
     mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-    plot_marker = "D"
-    plot_color_curve = 2
+    plot_marker = "o"
+    plot_color_curve = 1
 
     def __init__(self, config):
         super().__init__(config)
@@ -35,7 +35,6 @@ class PRoTOn(RecoveryProtocol):
 
         # normalize coordinates and break components
         dim_ratio = scale_coordinates(G)
-
         distribution, broken_nodes, broken_edges, perc_broken_elements = destroy(G, self.config.destruction_type, self.config.destruction_precision, dim_ratio,
                                                                                  self.config.destruction_width, self.config.n_destruction, self.config.graph_dataset, self.config.seed, ratio=self.config.destruction_quantity,
                                                                                  config=self.config)
@@ -66,7 +65,7 @@ class PRoTOn(RecoveryProtocol):
         routed_flow = 0
         packet_monitor = 0
         monitors_stats = set()
-        demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
+        demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 0, 0, 0] // instantaneous, entire
 
         # set as monitors all the nodes that are demand endpoints
         monitors_map = defaultdict(set)
@@ -75,23 +74,19 @@ class PRoTOn(RecoveryProtocol):
 
         last_repaired_demand = None
 
-        # ADD preliminary monitors
+        # repair preliminary monitors
+        temporary_monitors = set()
         for n1, n2, _ in get_demand_edges(G):
             do_repair_node(G, n1)
             do_repair_node(G, n2)
-
             G.nodes[n1][co.ElemAttr.IS_MONITOR.value] = True
             G.nodes[n2][co.ElemAttr.IS_MONITOR.value] = True
+            temporary_monitors.add(n1)
+            temporary_monitors.add(n2)
             monitors_stats |= {n1, n2}
 
-            # does not look defined for only monitors
-            monitors_map[n1] |= {(n1, n2)}
-            monitors_map[n2] |= {(n1, n2)}
-
         self.config.monitors_budget_residual -= len(monitors_stats)
-
-        print("DEMAND NODES", get_demand_nodes(G))
-        print("DEMAND EDGES", get_demand_edges(G))
+        monitors_stats = {}
 
         # start of the protocol
         while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
@@ -119,12 +114,12 @@ class PRoTOn(RecoveryProtocol):
                      "demands_sat": demands_sat}
 
             # -------------- 0. Monitor placement --------------
+            # repair some nodes on which original tomo-cedar would route flow
+            mon.new_monitoring_add(G, self.config, is_set_monitor=False)
+            self.remove_monitors(G, temporary_monitors)
 
-            if self.config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET:
-                monitors, _, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
-                monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
-                stats["monitors"] |= monitors
-                monitors_stats = stats["monitors"]
+            if iter == 1:
+                make_components_known(G)
 
             # -------------- 1. Tomography, Pruning, Probability --------------
             monitoring = pruning_monitoring(G,
@@ -141,11 +136,8 @@ class PRoTOn(RecoveryProtocol):
                 print(stats)
                 return stats_list
 
-            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, \
-            demand_edges_routed_flow_pp = monitoring
-
-            # >>>> PROBABILITY HERE
-            tomography_over_paths(G, elements_val_id, elements_id_val, self.config.UNK_prior, monitoring_paths)
+            stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, \
+            monitoring_paths, demand_edges_routed_flow_pp = monitoring
 
             routed_flow += sum(demand_edges_routed_flow)
             stats["flow"] = routed_flow
@@ -153,7 +145,6 @@ class PRoTOn(RecoveryProtocol):
             packet_monitor += stats_packet_monitoring
             stats["packet_monitoring"] = packet_monitor
 
-            print("DEM-SAT", demands_sat)
             for ke in demands_sat:  # every demand edge
                 is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
                 flow = self.config.demand_capacity if is_new_routing else 0
@@ -166,8 +157,7 @@ class PRoTOn(RecoveryProtocol):
 
                 # -------------- 2. Repairing --------------
                 paths_proposed = frp.find_paths_to_repair(self.config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(self.config), is_oracle=self.config.is_oracle_baseline)
-                path_to_fix = frpp.find_path_picker(self.config.picking_mode, G, paths_proposed, self.config.repairing_mode, self.config,
-                                                    is_oracle=self.config.is_oracle_baseline)
+                path_to_fix = frpp.find_path_picker(self.config.picking_mode, G, paths_proposed, self.config.repairing_mode, self.config, is_oracle=self.config.is_oracle_baseline)
 
                 print(paths_proposed)
                 assert path_to_fix is not None
@@ -191,3 +181,8 @@ class PRoTOn(RecoveryProtocol):
 
         monitors_connections[d1] -= {d2}
         monitors_connections[d2] -= {d1}
+
+    @staticmethod
+    def remove_monitors(G, temporary_monitors):
+        for n in temporary_monitors:
+            G.nodes[n][co.ElemAttr.IS_MONITOR.value] = False

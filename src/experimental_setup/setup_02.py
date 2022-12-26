@@ -6,7 +6,7 @@ comparison_dims = {co.IndependentVariable.GRAPH: [
                         ],
                    co.IndependentVariable.SEED: range(1),
                    co.IndependentVariable.ALGORITHM: [
-                        co.Algorithm.PROTON,
+                        co.Algorithm.ISR_MULTICOM,
                         ]
                    }
 

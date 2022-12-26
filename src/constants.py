@@ -1,10 +1,11 @@
 from enum import Enum
 import multiprocessing
-
-
-# import src.recovery_protocols.main_cedar_setup as main_cedar_setup
-
 import matplotlib.pyplot as plt
+
+
+GUROBI_STATUS = {1: 'LOADED', 2: 'OPTIMAL', 3: 'INFEASIBLE', 4: 'INF_OR_UNBD', 5: 'UNBOUNDED', 6: 'CUTOFF',
+                 7: 'ITERATION_LIMIT', 8: 'NODE_LIMIT', 9: 'TIME_LIMIT', 10: 'SOLUTION_LIMIT', 11: 'INTERRUPTED',
+                 12: 'NUMERIC', 13: 'SUBOPTIMAL', 14: 'INPROGRESS', 15: 'USER_OBJ_LIMIT'}
 
 
 def sample_color(index, cmap='tab10'):
@@ -177,80 +178,32 @@ FIXED_DEMAND_NODES = [320, 78, 1, 349, 124, 564, 315, 186]
 
 
 from src.recovery_protocols.protocols.PRoTOn import PRoTOn
-import src.recovery_protocols.ISR as main_ISR_setup
+from src.recovery_protocols.protocols.PRoTOnOracle import PRoTOnOracle
 from src.recovery_protocols.protocols.CeDAR import CeDAR
-import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
-import src.recovery_protocols.ORACLE as main_oracle
-import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
-import src.recovery_protocols.SHP as main_SHP_setup
+from src.recovery_protocols.protocols.ShP import ShP
+from src.recovery_protocols.protocols.RecShortestPath import RecShortestPath
+from src.recovery_protocols.protocols.PRoTOnDyn import PRoTOnDyn
+
+from src.recovery_protocols.protocols.ISRShortestPath import ISRShortestPath
+from src.recovery_protocols.protocols.ISRMultiCommodity import ISRMultiCommodity
+
+# import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
+# import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
 
 
 class Algorithm(Enum):
     PROTON = PRoTOn
+    PROTON_ORACLE = PRoTOnOracle
+    PROTON_DYN = PRoTOnDyn
 
-    TOMO_CEDAR_DYN = {AlgoAttributes.FILE_NAME: "TOMO_CEDAR_DYN",
-                      AlgoAttributes.PLOT_NAME: "PRoTOn Dyn",
-                      AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
-                      AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-                      AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
-                      AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
-                      AlgoAttributes.PLOT_MARKER: "D",
-                      AlgoAttributes.EXEC: main_reactive_tomocedar_setup,
-                      AlgoAttributes.COLOR: sample_color(2)
-                      }
+    ST_PATH = RecShortestPath
 
-    ORACLE = {AlgoAttributes.FILE_NAME: "ORACLE",
-              AlgoAttributes.PLOT_NAME: "PRoTOn+",
-              AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.MIN_COST_BOT_CAP,
-              AlgoAttributes.PICKING_PATH: ProtocolPickingPath.MIN_COST_BOT_CAP,
-              AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.BUDGET,
-              AlgoAttributes.MONITORING_TYPE: PriorKnowledge.TOMOGRAPHY,
-              AlgoAttributes.PLOT_MARKER: "o",
-              AlgoAttributes.EXEC: main_oracle,
-              AlgoAttributes.COLOR: sample_color(1),
-              AlgoAttributes.LINE_STYLE: 'dashed',  # DASH, DOTTED
-              }
+    ISR_SP = ISRShortestPath
+    ISR_MULTICOM = ISRMultiCommodity
 
-    ST_PATH = {AlgoAttributes.FILE_NAME: "ST_PATH",
-               AlgoAttributes.PLOT_NAME: "STP",
-               AlgoAttributes.REPAIRING_PATH: ProtocolRepairingPath.SHORTEST_MINUS,
-               AlgoAttributes.PICKING_PATH: ProtocolPickingPath.RANDOM,
-               AlgoAttributes.MONITOR_PLACEMENT: ProtocolMonitorPlacement.NONE,
-               AlgoAttributes.MONITORING_TYPE: PriorKnowledge.DUNNY_IP,
-               AlgoAttributes.PLOT_MARKER: "v",
-               AlgoAttributes.EXEC: main_stpath_dummy_setup,
-               AlgoAttributes.COLOR: sample_color(0)
-               }
-
-    _ignore_ = ['_dict']
-    _dict = {AlgoAttributes.REPAIRING_PATH: None,
-             AlgoAttributes.PICKING_PATH: None,
-             AlgoAttributes.MONITORING_TYPE: None
-             }
-
-    #
     CEDAR = CeDAR
-    #
-    SHP = {**{AlgoAttributes.FILE_NAME: "SHP",
-              AlgoAttributes.PLOT_NAME: "ShP",
-              AlgoAttributes.PLOT_MARKER: "p",
-              AlgoAttributes.MONITOR_PLACEMENT: None,
-              AlgoAttributes.COLOR: sample_color(4),
-              AlgoAttributes.EXEC: main_SHP_setup}, **_dict}
+    SHP = ShP
 
-    ISR_SP = {**{AlgoAttributes.PLOT_NAME: "ISR-STP",
-                 AlgoAttributes.FILE_NAME: "ISR_SP",
-                 AlgoAttributes.PLOT_MARKER: ">",
-                 AlgoAttributes.MONITOR_PLACEMENT: None,
-                 AlgoAttributes.COLOR: sample_color(5),
-                 AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
-
-    ISR_MULTICOM = {**{AlgoAttributes.FILE_NAME: "ISR_MULTICOM",
-                       AlgoAttributes.PLOT_NAME: "ISR-Mult",
-                       AlgoAttributes.PLOT_MARKER: "<",
-                       AlgoAttributes.MONITOR_PLACEMENT: None,
-                       AlgoAttributes.COLOR: sample_color(6),
-                       AlgoAttributes.EXEC: main_ISR_setup}, **_dict}
 
 
 from src.experimental_setup import setup_01, setup_02, setup_03

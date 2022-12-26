@@ -23,7 +23,7 @@ def save_stats_monotonous(stats, fname, algon):
         flow_cum += [stats[i]["flow"]] * n_vals
         n_repairs += len(vals)
 
-        if algon != co.Algorithm.TOMO_CEDAR_DYN:
+        if algon != co.Algorithm.PROTON_DYN:
             i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
             for k in i_demand_pairs:
                 d_flow = [0] * n_vals
@@ -55,7 +55,7 @@ def save_stats_monotonous(stats, fname, algon):
     n_monitor_msg_messages[0] = stats[-1]["packet_monitoring"]  # packet_monitor
     df["n_monitor_msg"] = n_monitor_msg_messages
 
-    if algon != co.Algorithm.TOMO_CEDAR_DYN:
+    if algon != co.Algorithm.PROTON_DYN:
         for k in demand_pairs:
             df["d-" + str(k)] = demand_pairs[k]
     else:

@@ -354,7 +354,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], ub, color='brown', alpha=0.2)
             plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], avg_flow[:, 0, 0]-st, color='brown', alpha=0.2)
             plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
-                     color=co.Algorithm.TOMO_CEDAR_DYN.value[co.AlgoAttributes.COLOR])
+                     color=co.Algorithm.PROTON_DYN.value[co.AlgoAttributes.COLOR])
             for x in v_bars:
                 plt.axvline(x, alpha=.1, color='red')
 
@@ -638,7 +638,7 @@ def intro_bud():
     print("Using", len(seeds), seeds)
 
     BENCHMARKS = [co.Algorithm.PROTON,
-                  co.Algorithm.ORACLE,
+                  co.Algorithm.PROTON_ORACLE,
                   co.Algorithm.CEDAR,
                   co.Algorithm.ST_PATH,
                   co.Algorithm.SHP,
@@ -668,7 +668,7 @@ def plotting_dyn():
     seeds = range(700, 800)
     print("Using", len(seeds), seeds)
 
-    BENCHMARKS = [co.Algorithm.TOMO_CEDAR_DYN]
+    BENCHMARKS = [co.Algorithm.PROTON_DYN]
 
     algo_names = [al.value[co.AlgoAttributes.FILE_NAME] for al in BENCHMARKS]
     algo_names_plot = [al.value[co.AlgoAttributes.PLOT_NAME] for al in BENCHMARKS]

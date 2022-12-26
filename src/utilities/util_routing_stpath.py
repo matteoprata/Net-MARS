@@ -76,7 +76,7 @@ def protocol_routing_IP(SG, src, target):
 
             # Relaxation of edge and adding into Priority Queue
             if m < current_neigh_info[0]:
-                # print("assigned", (src, neigh), m, CA, RC, LA, WO, WO * len(G.edges))
+                # print("assigned", (src, neigh), model, CA, RC, LA, WO, WO * len(G.edges))
                 container[neigh] = (m, CA, RC, LA, BR)
                 parent[neigh] = current_src
                 parent_residual_cap[neigh] = RC

@@ -128,7 +128,7 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
 
     config.protocol_monitor_placement = repairing_protocol.mode_monitoring
 
-    if config.algo_instance == co.Algorithm.ORACLE:
+    if config.algo_instance == co.Algorithm.PROTON_ORACLE:
         config.is_oracle_baseline = True
 
     if config.protocol_monitor_placement == co.ProtocolMonitorPlacement.STEP_BY_STEP_INFINITE:
@@ -226,7 +226,7 @@ def main(setup, is_parallel):
 
 # --- (begin) PREAMBLE --- #
 
-time_batch_exec = time.strftime("%Y-%m-%d_%H-%M")
+time_batch_exec = time.strftime("%Y-%model-%d_%H-%M")
 parsed_arguments = cli_args_parsing()
 
 # --- (end) PREAMBLE --- #

@@ -607,8 +607,8 @@ def is_edge_to_monitor(n1_mon, n2_mon, monitors_map, monitors_connections, monit
     is_n2_only_monitor = n2_mon not in demand_nodes
 
     # monitor | monitor > map[m1] \intersect map[m2] non è vuoto
-    # monitor | dem     > il monitor deve servire questa domanda (dem, monitor) \in map[m]
-    # dem     | monitor > il monitor deve servire questa domanda (dem, monitor) \in map[m]
+    # monitor | dem     > il monitor deve servire questa domanda (dem, monitor) \in map[model]
+    # dem     | monitor > il monitor deve servire questa domanda (dem, monitor) \in map[model]
     # dem     | dem     > tutti casi ok
 
     func_flat = lambda li: set(list(zip(*li))[0] + list(zip(*li))[1])
