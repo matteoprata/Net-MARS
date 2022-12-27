@@ -6,10 +6,15 @@ network topologies, simulate disruption scenarios, implement damage
 assessment strategies providing probabilistic and partial knowledge, 
 recovery algorithms, and commonly used routing protocols.
 
-The somulator is the result of the work proposed in the paper ***"Tomography-based progressive network recovery
+The simulator is the result of the work proposed in the paper ***"Tomography-based progressive network recovery
 and critical service restoration after massive failures"*** published at IEEE INFOCOM 2023 by Viviana Arrigoni,
 Matteo Prata and Novella Bartolini. To replicate the results on the paper, find the ```setup_01.py``` file at ```src.experimental_setup```. 
 Compiled files are at ```data.infocom_2023```.
+
+<image width=700 height=400 src="data/git-images/topology-minnesota.PNG"/>
+
+
+_Figure 1, Minnesota computer network topology, part of the available topologies in the simulator._
 
 ## Getting Started with *Net-MARS*
 In order to get started, create and activate an environment running 
@@ -19,18 +24,19 @@ Python 3.8. Then run the required libraries in the requirements file
 
 Now you can run your first simulation using an input graph. The simulation 
 can be batched as to run multiple recovery algorithms, in different setups 
-in parallel. The output of a simulation will be a file.
-
-<image width=800 height=500 src="data/git-images/topology-minnesota.PNG"/>
+in parallel. The output of a simulation will be a CSV file, showing the repaired elements and the flow restored in time.
 
 To run a parallel simulation, add your setup file at ```src.experimental_setup```. 
 This must contain the following dictionaries. 
 
 ```
-comparison_dims = {co.IndependentVariable.SEED: range(5),
+comparison_dims = {co.IndependentVariable.GRAPH: [
+                        co.GraphName.MINNESOTA
+                        ],
+                   co.IndependentVariable.SEED: range(5),
                    co.IndependentVariable.ALGORITHM: [
-                        co.Algorithm.TOMO_CEDAR,
-                        co.Algorithm.ORACLE,
+                        co.Algorithm.PROTON,
+                        co.Algorithm.PROTON_ORACLE,
                         co.Algorithm.CEDAR,
                         co.Algorithm.ST_PATH,
                         co.Algorithm.SHP,
@@ -40,8 +46,8 @@ comparison_dims = {co.IndependentVariable.SEED: range(5),
                    }
 ```
 
-This dictionary represents the dimensions for comparison, the set of seeds, 
-and the set of recovery algorithms described in [REF?]. The set of available algorithms 
+This dictionary represents the dimensions for comparison, the network topologies, the set of seeds, 
+and the set of recovery algorithms described in the paper. The set of available algorithms 
 is expressed in the enumeration at ```src.constants.Algorithm```.
 
 ```
@@ -72,8 +78,16 @@ This dictionary represents the fixed value for each variable, when another varie
 
 To run a simulation in parallel to every core, run with _-par 1_, with the MINNESOTA graph and setup01.
 ``` 
-python -m src.main -set setup_01 -gn MINNESOTA -par 1
+python -m src.main -set setup_01 -par 1
 ```
+
+This command will produce a file in ```data.experiments``` having the following: format 
+_seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv_ showing the seed (_seed_), the name of the topology (_g_), 
+the number of demand edges (_np_), the capacity of the demand edges (_dc_), the capacity of the supply edges (_spc_), the name of the 
+recovery protocol (_alg_), the budget of monitors (_bud_), the percentage of broken elements in the network (_pbro_), the independent 
+variable according to the experimental batch (_idv_). The file shows the elements repaired and the flow restored in time.
+
+To plot the results of the simulation use the scripts at ```src.plotting.stats_plotting.py```.
 
 
 ## Acknowledgments
