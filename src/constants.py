@@ -183,27 +183,19 @@ from src.recovery_protocols.protocols.CeDAR import CeDAR
 from src.recovery_protocols.protocols.ShP import ShP
 from src.recovery_protocols.protocols.RecShortestPath import RecShortestPath
 from src.recovery_protocols.protocols.PRoTOnDyn import PRoTOnDyn
-
 from src.recovery_protocols.protocols.ISRShortestPath import ISRShortestPath
 from src.recovery_protocols.protocols.ISRMultiCommodity import ISRMultiCommodity
-
-# import src.recovery_protocols.TOMO_CEDAR_REACT as main_reactive_tomocedar_setup
-# import src.recovery_protocols.ST_PATH as main_stpath_dummy_setup
 
 
 class Algorithm(Enum):
     PROTON = PRoTOn
     PROTON_ORACLE = PRoTOnOracle
     PROTON_DYN = PRoTOnDyn
-
     ST_PATH = RecShortestPath
-
     ISR_SP = ISRShortestPath
     ISR_MULTICOM = ISRMultiCommodity
-
     CEDAR = CeDAR
     SHP = ShP
-
 
 
 from src.experimental_setup import setup_01, setup_02, setup_03

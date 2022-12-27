@@ -1,6 +1,6 @@
 
 from src import constants as co
-from src.preprocessing import graph_utils as gu
+from src.preprocessing import network_utils as gu
 
 import numpy as np
 import random

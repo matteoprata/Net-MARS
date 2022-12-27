@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import networkx as nx
 import src.utilities.util_routing_stpath as mxv
-import src.preprocessing.graph_routability as grout
+import src.preprocessing.network_routability as grout
 import tqdm
 import src.utilities.util as util
 
@@ -71,28 +71,9 @@ def get_monitor_nodes(G):
             monitors.append(n)
     return monitors
 
+
 def is_demand_edge(G, n1, n2):
     return (n1, n2) in get_demand_edges(G, is_capacity=False)
-
-
-# def is_there_worcap_path(G, n1o, n2o):
-#     """ Assumes one passes a supply graph only. NOT WORKING nodes or edges, SATURATED edges."""
-#     GCO = G.copy()
-#     nodes = list(GCO.nodes)[:]
-#     for n in nodes:
-#         if GCO.nodes[n][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value:
-#             GCO.remove_node(n)
-#
-#     edges = list(GCO.edges)[:]
-#     for n1, n2, _ in edges:
-#         if GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value] == co.NodeState.BROKEN.value or \
-#                 GCO.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] == 0:
-#             GCO.remove_edge(n1, n2)
-#     try:
-#         nx.shortest_path(GCO, n1o, n2o)
-#         return True
-#     except:
-#         return False
 
 
 def is_there_working_path(G, n1o, n2o):

@@ -1,6 +1,6 @@
 
 from src import constants as co
-from src.preprocessing import graph_utils as gu
+from src.preprocessing import network_utils as gu
 from src.utilities import util_routing_stpath as mxv
 import numpy as np
 

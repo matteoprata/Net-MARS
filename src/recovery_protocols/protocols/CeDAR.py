@@ -1,7 +1,7 @@
 import src.plotting.graph_plotting as pg
-from src.preprocessing.graph_preprocessing import *
-from src.preprocessing.graph_monitoring import *
-from src.preprocessing.graph_utils import *
+from src.preprocessing.network_init import *
+from src.preprocessing.network_monitoring import *
+from src.preprocessing.network_utils import *
 import src.constants as co
 
 from src.recovery_protocols.utils import finder_recovery_path_pick as frpp

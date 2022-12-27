@@ -3,26 +3,25 @@ import numpy as np
 
 import src.constants as co
 import networkx as nx
-import src.preprocessing.graph_utils as grau
+import src.preprocessing.network_utils as grau
 import src.utilities.util as util
 
 
-# Function to print required path
 def printpath(src, parent, vertex, target, out):
+    """ Prints the path defined recursively in the parent list. """
+
     # global parent
-    if (vertex == src):
+    if vertex == src:
         out += [vertex]
         return
 
     printpath(src, parent, parent[vertex], target, out)
     out += [vertex]
     return out
-    # print(vertex, end="\n" if (vertex == target) else "--")
 
 
-# Function to return the maximum weight
-# in the widest path of the given graph
 def protocol_routing_IP(SG, src, target):
+    """ Function to return the maximum weight in the widest path of the given graph. """
 
     parent = {n: None for n in SG.nodes}
     parent_residual_cap = {n: None for n in SG.nodes}

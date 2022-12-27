@@ -8,6 +8,7 @@ import pandas as pd
 
 def save_stats_monotonous(stats, fname, algon):
     """ saving number of repairs and flow routed """
+
     for i in stats:
         print(i)
 

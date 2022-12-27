@@ -1,11 +1,11 @@
-from src.preprocessing.graph_preprocessing import *
-from src.preprocessing.graph_monitoring import *
-from src.preprocessing.graph_utils import *
+from src.preprocessing.network_init import *
+from src.preprocessing.network_monitoring import *
+from src.preprocessing.network_utils import *
 import src.constants as co
 
 import src.utilities.util_routing_stpath as mxv
 
-import src.preprocessing.graph_utils as gru
+import src.preprocessing.network_utils as gru
 from gurobipy import *
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
 

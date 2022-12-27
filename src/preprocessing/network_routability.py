@@ -1,5 +1,5 @@
 import src.constants as co
-import src.preprocessing.graph_utils as gru
+import src.preprocessing.network_utils as gru
 from gurobipy import *
 
 

@@ -1,14 +1,14 @@
 import numpy as np
 
-from src.preprocessing.graph_routability import *
-from src.preprocessing.graph_utils import *
+from src.preprocessing.network_routability import *
+from src.preprocessing.network_utils import *
 import networkx as nx
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 
 import tqdm
 import src.utilities.util_routing_stpath as mxv
-import src.preprocessing.graph_utils as gu
+import src.preprocessing.network_utils as gu
 
 import scipy.special as sci
 import src.utilities.util as util

@@ -1,20 +1,15 @@
 
-import random
 import numpy as np
 import networkx as nx
 import os
-import pandas as pd
 
-import src.plotting.graph_plotting as gp
-import src.preprocessing.graph_distruction as dis
-import src.preprocessing.graph_utils as grau
+import src.preprocessing.network_distruction as dis
+import src.preprocessing.network_utils as grau
 
 import src.constants as co
 import src.utilities.util as util
 from collections import defaultdict
-from matplotlib import pyplot as plt
 from itertools import combinations
-from filelock import FileLock
 
 
 # 1 -- init graph G
@@ -93,6 +88,8 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
 
 
 def place_static_backbone(G, path_edges, backbone_capacity):
+    """ Place the backbone on paths generated from predefined endpoint pairs. """
+
     SG = grau.get_supply_graph(G)
     for na, nb in path_edges:
         path = nx.shortest_path(SG, na, nb)
@@ -104,6 +101,8 @@ def place_static_backbone(G, path_edges, backbone_capacity):
 
 
 def place_backbone(G, config):
+    """ Place the backbone on paths generated from random endpoint pairs. """
+
     max_comp = list(get_max_component(G))
 
     np.random.seed(config.fixed_unvarying_seed)  # this does not vary
@@ -119,9 +118,10 @@ def place_backbone(G, config):
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value] = backbone_flow
             G.edges[e1, e2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = backbone_flow
 
+
 # 2 -- scale graph G
 def scale_coordinates(G):
-    """ Scale graph coordinates to positive [0,1] """
+    """ Scale graph coordinates to positive [0,1] with respect to original geographic coordinates. """
 
     def get_dimensions():
         """ gets the max/min longitude/latitude and retursn it"""
@@ -152,18 +152,18 @@ def scale_coordinates(G):
 def destroy(G, destruction_type, destruction_precision, dims_ratio, destruction_width, n_destruction, graph_name, sim_seed, config, ratio=None):
     """ Handles three type of destruction. """
 
+    dist, nodes, edges = None, None, None
     if destruction_type == co.Destruction.GAUSSIAN:
         dist, nodes, edges = dis.gaussian_destruction(G, destruction_precision, dims_ratio, destruction_width, n_destruction)
+
     elif destruction_type == co.Destruction.GAUSSIAN_PROGRESSIVE:
         dist, nodes, edges = dis.gaussian_progressive_destruction(G, destruction_precision, dims_ratio, ratio, config=config)
+
     elif destruction_type == co.Destruction.UNIFORM:
         dist, nodes, edges = dis.uniform_destruction(G, ratio)
+
     elif destruction_type == co.Destruction.COMPLETE:
         dist, nodes, edges = dis.complete_destruction(G)
-    else:
-        dist, nodes, edges = None, None, None
-        print("Unhandled destruction type.")
-        exit()
 
     perc_broken_elements = (len(nodes) + len(edges)) / (len(G.nodes) + len(G.edges))
     print("percentage of broken elements", perc_broken_elements)

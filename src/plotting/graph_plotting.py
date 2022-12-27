@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
-from src.preprocessing.graph_utils import *
+from src.preprocessing.network_utils import *
 
 
 def hovering_info_edges(n1, n2, id, capacity, post, wight=None, state=None, sat=None):

@@ -37,16 +37,7 @@ Xlabels = {0: "Network Disruption (%)",
 
 
 def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_position, algo_names, algo_names_plot, out_fig, title):
-    """
 
-    :param source:
-    :param config:
-    :param seeds_values:
-    :param X_vals:
-    :param algos:
-    :param typep:
-    :return:
-    """
     plot_name = {"n_monitors": "Number Monitors",
                  "n_monitor_msg": "Number Monitoring Messages",
                  "n_repairs": "Number Repairs"}
@@ -61,7 +52,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
             for si, ss in enumerate(seeds_values):
                 if x_position == 0:
                     # varying probs
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -72,7 +63,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
                         pbro, config.experiment_ind_var.value[0])
 
                 elif x_position == 1:
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         pbro,
@@ -84,7 +75,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
                 elif x_position == 2:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -97,7 +88,7 @@ def plot_monitors_stuff(source, config, seeds_values, X_vals, algos, typep, x_po
 
                 elif x_position == 3:
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -182,7 +173,7 @@ def remove_outliers(seeds_xvals_array, k: float = 1):
 
 
 def sample_file(seed, graph, np, dc, spc, alg, bud, pbro, indvar):
-    fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(seed, graph, np, dc, spc, alg, bud, pbro, indvar)
+    fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(seed, graph, np, dc, spc, alg, bud, pbro, indvar)
     # print("try", fname)
     return fname
 
@@ -471,7 +462,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                 if x_position == 0:
                     # varying probs
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -485,7 +476,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                 elif x_position == 1:
                     # vary pairs
                     N_DEMANDS = X_vals
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         pbro,
@@ -499,7 +490,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                 elif x_position == 2:
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -513,7 +504,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                 elif x_position == 3:
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
-                    regex_fname = "exp-s|{}-g|{}-np|{}-dc|{}-spc|{}-alg|{}-bud|{}-pbro|{}-idv|{}.csv".format(
+                    regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
@@ -774,4 +765,3 @@ def plotting_data():
 
 if __name__ == '__main__':
     plotting_data()
-    # plotting_dyn()
