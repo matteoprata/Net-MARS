@@ -185,6 +185,7 @@ from src.recovery_protocols.protocols.RecShortestPath import RecShortestPath
 from src.recovery_protocols.protocols.PRoTOnDyn import PRoTOnDyn
 from src.recovery_protocols.protocols.ISRShortestPath import ISRShortestPath
 from src.recovery_protocols.protocols.ISRMultiCommodity import ISRMultiCommodity
+from src.recovery_protocols.protocols.MinTDS import MinTDS
 
 
 class Algorithm(Enum):
@@ -196,12 +197,14 @@ class Algorithm(Enum):
     ISR_MULTICOM = ISRMultiCommodity
     CEDAR = CeDAR
     SHP = ShP
+    MIN_TDS = MinTDS
 
 
-from src.experimental_setup import setup_01, setup_02, setup_03
+from src.experimental_setup import setup_01, setup_02, setup_03, setup_sept_23
 
 
 class Setups(Enum):
     SETUP_01 = setup_01
     SETUP_02 = setup_02
     SETUP_03 = setup_03
+    SETUP_SEPT_23 = setup_sept_23

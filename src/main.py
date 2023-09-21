@@ -116,6 +116,7 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
     config.seed = seed
     config.algo_instance = repairing_protocol
     config.graph_dataset = graph_dataset
+    config.graph_path = graph_dataset.value
     config.experiment_ind_var = indvar
     config.destruction_quantity = dis
 

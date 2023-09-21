@@ -9,10 +9,10 @@ class Configuration:
 
         self.is_log = False
         self.algo_name = None
-        self.graph_dataset = co.GraphName.MINNESOTA
-        self.graph_path = self.graph_dataset.value
+        self.graph_dataset = None
+        self.graph_path = None
 
-        self.destruction_show_plot = False
+        self.destruction_show_plot = True
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE

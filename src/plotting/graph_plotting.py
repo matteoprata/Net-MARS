@@ -221,5 +221,7 @@ def save_show_fig(fig, is_show, is_save, seed, graph_name, name, plot_type, perc
 
     if is_save:
         dir = "data/dis_image/{}-{}-{}-{}-{}".format(plot_type.name, seed, graph_name, name, percbro)
+        print(dir)
+        exit()
         fig.write_image(dir + ".png", width=1400, height=1120, scale=2)
         pio.write_html(fig, dir + ".html")

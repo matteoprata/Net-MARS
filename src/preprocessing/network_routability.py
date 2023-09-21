@@ -1,3 +1,5 @@
+import networkx as nx
+
 import src.constants as co
 import src.preprocessing.network_utils as gru
 from gurobipy import *
@@ -8,6 +10,11 @@ def is_feasible(G, is_fake_fixed=True):
 
     demand_edges = gru.get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
     supply_edges = gru.get_supply_edges(G)
+
+    for n1, n2, f in demand_edges:  # there must exist at least a path in the graph between the demand endpoints
+        if not nx.has_path(gru.get_supply_graph(G), n1, n2):
+            print("No path existing in the supply graph between demand endpoints", (n1, n2))
+            return False
 
     m = system_for_routability(G, demand_edges, supply_edges, None, is_fake_fixed)
     is_solution_ok = m.status == GRB.status.OPTIMAL
@@ -46,7 +53,6 @@ def is_routable(G, knowledge, is_fake_fixed=False):
 
 def system_for_routability(G, demand_edges, supply_edges, knowledge, is_fake_fixed):
     """ Linear system of equations to check the routability. """
-
 
     var_demand_flows = []
     for i, (n1, n2, f) in enumerate(demand_edges):

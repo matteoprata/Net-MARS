@@ -268,7 +268,12 @@ def add_demand_clique(G, config):
     if config.fix_with_seed_mode and config.experiment_ind_var in [co.IndependentVariable.PROB_BROKEN, co.IndependentVariable.MONITOR_BUDGET]:
         util.set_seed(config.fixed_unvarying_seed)
 
-    list_nodes = co.FIXED_DEMAND_NODES  # all clique nodes
+    if config.graph_dataset == co.GraphName.MINNESOTA:
+        print("WARNING! Using constant demand node endpoints, check src.constants.FIXED_DEMAND_NODES")
+        list_nodes = co.FIXED_DEMAND_NODES  # all clique nodes
+    else:
+        list_nodes = G.nodes
+
     clique_edges = np.asarray(list(combinations(list_nodes, r=2)))
     np.random.shuffle(clique_edges)
     total_edges = clique_edges[:config.n_edges_demand]
