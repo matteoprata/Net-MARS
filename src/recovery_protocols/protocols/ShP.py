@@ -64,8 +64,7 @@ class ShP(RecoveryProtocol):
                         print("pruned", quantity_pruning, "on", path_prune)
                 self.demand_log(G, demands_sat, stats, self.config, is_monotonous=False)
             else:
-                quantity, rep_nodes, rep_edges = self.flow_var_pruning_demand(G, m, force_repair,
-                                                                         demand_edges_routed_flow_pp, self.config)
+                quantity, rep_nodes, rep_edges = self.flow_var_pruning_demand(G, m, force_repair, demand_edges_routed_flow_pp, self.config)
                 stats["edge"] += rep_edges
                 stats["node"] += rep_nodes
                 routed_flow += quantity

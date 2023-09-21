@@ -396,7 +396,6 @@ def do_fix_path_smart(G, path_to_fix):
                 did_repair = do_repair_node(G, e)
                 if did_repair:
                     fixed_nodes.append(e)
-
                 if check_path_IP(G, ds, dd):
                     return fixed_nodes, fixed_edges
 

@@ -119,7 +119,7 @@ class PRoTOn(RecoveryProtocol):
                      "demands_sat": demands_sat}
 
             # -------------- 0. Monitor placement --------------
-
+            print("Monitor placement")
             if self.config.protocol_monitor_placement == co.ProtocolMonitorPlacement.BUDGET:
                 monitors, _, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
                 monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
@@ -127,6 +127,7 @@ class PRoTOn(RecoveryProtocol):
                 monitors_stats = stats["monitors"]
 
             # -------------- 1. Tomography, Pruning, Probability --------------
+            print("Tomography, Pruning, Probability")
             monitoring = pruning_monitoring(G,
                                             stats["packet_monitoring"],
                                             self.config.monitoring_messages_budget,
@@ -163,7 +164,7 @@ class PRoTOn(RecoveryProtocol):
             print("> Residual demand edges", len(demand_edges), demand_edges)
 
             if len(demand_edges) > 0:
-
+                print("Repairing")
                 # -------------- 2. Repairing --------------
                 paths_proposed = frp.find_paths_to_repair(self.config.repairing_mode, G, demand_edges_to_repair, get_supply_max_capacity(self.config), is_oracle=self.config.is_oracle_baseline)
                 path_to_fix = frpp.find_path_picker(self.config.picking_mode, G, paths_proposed, self.config.repairing_mode, self.config,

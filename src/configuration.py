@@ -12,7 +12,7 @@ class Configuration:
         self.graph_dataset = None
         self.graph_path = None
 
-        self.destruction_show_plot = True
+        self.destruction_show_plot = False
         self.destruction_save_plot = False
 
         self.destruction_type = co.Destruction.GAUSSIAN_PROGRESSIVE
