@@ -1,3 +1,4 @@
+import time
 
 from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
@@ -15,7 +16,7 @@ class MinTDS(RecoveryProtocol):
     file_name = "MinTDS"
     plot_name = "MinTDS"
 
-    plot_marker = "p"
+    plot_marker = 0
     plot_color_curve = 9
 
     def __init__(self, config):
@@ -88,6 +89,7 @@ class MinTDS(RecoveryProtocol):
         return G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter
 
     def run(self):
+        comp_time_st = time.time()
         G, stats_list, monitors_stats, packet_monitor, demands_sat, routed_flow, iter = self.run_header(self.config)
         # print(len(G.nodes), "ed", len(gru.get_supply_edges(G)))
         m, force_repair = None, False
@@ -106,69 +108,23 @@ class MinTDS(RecoveryProtocol):
         model = self.minTDS_opt(G, demand_edges, supply_edges, supply_nodes, broken_supply_edges, broken_supply_nodes)
 
         # SETUP VAR
-        elements_rep = self.interpret_opt_var(model, G, broken_supply_nodes, broken_supply_edges, demand_edges)
-        rep_index = 0
-        print(elements_rep)
+        node_rep, edge_rep, total_flow, demands_sat = self.interpret_opt_var(model, G, broken_supply_nodes, broken_supply_edges, demand_edges)
 
-        # start of the protocol
-        while len(get_demand_edges(G, is_check_unsatisfied=True)) > 0:
-            # go on if there are demand edges to satisfy, and still is_feasible
-            demand_edges_routed_flow_pp = defaultdict(int)  # (d_edge): flow
+        # packet_monitor -- monitors paced up to iteration i
+        # monitors -- monitors placed up to now (no duplicates)
+        comp_time_et = time.time()
+        elapsed_time = comp_time_et - comp_time_st  # elapsed time in seconds
 
-            print("\n\n", "#" * 40, "BEGIN ITERATION", "#" * 40)
-
-            # check if the graph is still routbale on tot graph,
-            if not is_feasible(G, is_fake_fixed=True):
-                print("This instance is no more routable!")
-                return stats_list
-
-            iter += 1
-            print("ITER", iter)
-
-            # packet_monitor -- monitors paced up to iteration i
-            # monitors -- monitors placed up to now (no duplicates)
-            stats = {"iter": iter,
-                     "node": [],
-                     "edge": [],
-                     "flow": 0,
-                     "monitors": monitors_stats,
-                     "packet_monitoring": packet_monitor,
-                     "demands_sat": demands_sat}
-
-            # TODO: PRUNING A LA IP
-            quantity, rep_nodes, rep_edges = self.flow_var_pruning_demand(G, model, False, demand_edges_routed_flow_pp, self.config)
-            stats["edge"] += rep_edges
-            stats["node"] += rep_nodes
-            routed_flow += quantity
-            stats["flow"] = routed_flow
-            self.demand_log(G, demands_sat, stats, self.config, is_monotonous=True)
-
-            # OK?
-            res_demand_edges = gu.get_demand_edges(G, is_check_unsatisfied=True)
-            reset_supply_edges(G)
-
-            print("These are the residual demand edges:")
-            print(len(res_demand_edges), res_demand_edges)
-
-            if len(res_demand_edges) == 0:
-                stats_list.append(stats)
-                return stats_list
-
-            # REPAIR
-            torep = elements_rep[rep_index]
-            if type(torep) == tuple:  # edge
-                repe = do_repair_edge(G, torep[0], torep[1])
-                stats["edge"] += [repe] if repe is not None else []
-
-            elif type(torep) == int:
-                repn = do_repair_node(G, torep)
-                stats["node"] += [repn] if repn is not None else []
-
-            print(stats["edge"], stats["node"])
-            rep_index += 1
-
-            stats_list.append(stats)
-        return stats_list
+        stats = {"iter": 0,
+                 "node": node_rep,
+                 "edge": edge_rep,
+                 "flow": total_flow,
+                 "monitors": monitors_stats,
+                 "packet_monitoring": packet_monitor,
+                 "demands_sat": demands_sat,
+                 "execution_sec": elapsed_time
+                 }
+        return [stats]
 
     def minTDS_opt(self, G, demand_edges, supply_edges, supply_nodes, broken_supply_edges, broken_supply_nodes):
         # demand edges // supply edges // nodes // nodes (broken, unk) // supply edges (broken) // supply edges (broken, unk)
@@ -182,6 +138,7 @@ class MinTDS(RecoveryProtocol):
 
         m = Model('netflow')
 
+        m.setParam('TimeLimit', 5 * 60)
         m.params.OutputFlag = 0
         m.params.LogToConsole = 0
 
@@ -281,7 +238,6 @@ class MinTDS(RecoveryProtocol):
         for n1 in supply_nodes:
             m.addConstr(quicksum(rep_node_var[n1, n] for n in range(N)) <= 1)
 
-
         # 2 add: flow conservation constraints C
         MAX_FLOW = len(demand_edges) * 100  # CAREFUL 100 is the max flow per pair?
         for n in range(N):
@@ -322,80 +278,43 @@ class MinTDS(RecoveryProtocol):
 
     def interpret_opt_var(self, m, G, broken_supply_nodes, broken_supply_edges, demand_edges):
         var_demand_flows = [(i, f) for i, (_, _, f) in enumerate(demand_edges)]
-        elements_rep = []
+        node_rep, edge_rep = [], []
         if m.status == GRB.status.OPTIMAL:
             for n in range(self.N_STEPS):
-
+                # ELEMENTS TO REPAIR
                 for i, j, _ in broken_supply_edges:
                     ed_val = int(m.getVarByName('rep_edge_var_{}_{}_{}'.format(i, j, n)).x)
                     if ed_val > 0:
                         print("time", n, "rep", i, j)
-                        elements_rep.append((i, j))
+                        edge_rep.append((i, j))
 
                 for i in broken_supply_nodes:
                     no_val = int(m.getVarByName('rep_node_var_{}_{}'.format(i, n)).x)
                     if no_val > 0:
                         print("time", n, "rep node", i)
-                        elements_rep.append(i)
+                        node_rep.append(i)
 
-        return elements_rep
+            # TIMES TO FLOW RESTORED
+            n_to_route = np.ones(shape=(len(var_demand_flows))) * -1   # [15, 6, 2] times of total demand restoration
+            for i, (h, _) in enumerate(var_demand_flows):
+                for n in range(self.N_STEPS):
+                    var = m.getVarByName('alpha_var_{}_{}'.format(h, n)).x
+                    if var == 1:
+                        n_to_route[i] = n
+                        break
 
-    @staticmethod
-    def demand_log(G, demands_sat, stats, config, is_monotonous=True):
-        for ke in demands_sat:  # every demand edge
-            is_monotonous_ckeck = not is_monotonous or sum(stats["demands_sat"][ke]) == 0
-            is_new_routing = is_monotonous_ckeck and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
-            flow = config.demand_capacity if is_new_routing else 0
-            stats["demands_sat"][ke].append(flow)
+            if -1 in n_to_route:
+                print("Careful, this instance was not solved correctly. One demand was not satisfied.")
+                exit()
 
+            last_time = int(max(n_to_route))
+            flow_vec = np.zeros(shape=(last_time, len(var_demand_flows)), dtype=np.int8)  # [000000000]
+            for i, (h, _) in enumerate(var_demand_flows):
+                when_total_flow_h = int(n_to_route[i])-1
+                flow_vec[when_total_flow_h, i] = self.config.demand_capacity   # [00000 30 0000]
 
-    def flow_var_pruning_demand(self, G, m, force_repair, demand_edges_routed_flow_pp, config):
-        # set the infinite weight for the 0 capacity edges
+            total_flow = np.sum(flow_vec)
+            demand_flows = {(a, b): list(flow_vec[:, i]) for i, (a, b, _) in enumerate(demand_edges)}  # dict
 
-        print("Inizio pruning")
+        return node_rep, edge_rep, total_flow, demand_flows
 
-        quantity = 0
-        rep_nodes, rep_edges = [], []
-
-        if m is None:
-            return quantity, rep_nodes, rep_edges
-
-        SGOut = get_supply_graph(G)
-        for h, (d1, d2, _) in enumerate(get_demand_edges(G, is_check_unsatisfied=False, is_residual=False)):  # enumeration is coherent
-            SG = nx.Graph()
-            for i, j, _ in SGOut.edges:
-                var_value_v1 = max([m.getVarByName('flow_var_{}_{}_{}_{}'.format(h, i, j, n)).x for n in range(self.N_STEPS)])  # edge variable to check if > 0
-                var_value_v2 = max([m.getVarByName('flow_var_{}_{}_{}_{}'.format(h, j, i, n)).x for n in range(self.N_STEPS)])  # edge variable to check if > 0
-
-                n1bro = G.nodes[i][co.ElemAttr.STATE_TRUTH.value]
-                n2bro = G.nodes[j][co.ElemAttr.STATE_TRUTH.value]
-                ebro = G.edges[i, j, co.EdgeType.SUPPLY.value][co.ElemAttr.STATE_TRUTH.value]
-                dem = G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value]
-
-                if var_value_v1 > 0 or var_value_v2 > 0:
-                    print("vorrei mettere", i, j, n1bro + n2bro + ebro, "sibgle", n1bro, n2bro, ebro)
-                    if n1bro + n2bro + ebro == 0 or force_repair:
-                        print("added", h, d1, d2, i, j, var_value_v1, var_value_v2, n1bro, n2bro, ebro)
-                        if force_repair:  # this because sometimes every node is ok, but some edges of working nodes are not repaired
-                            repn, repe = do_repair_full_edge(G, i, j)
-                            rep_nodes += repn
-                            rep_edges += repe
-
-                        na, nb = make_existing_edge(i, j)
-                        cap = min(G.edges[na, nb, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value], dem)
-                        SG.add_edge(na, nb, capacity=cap)
-
-            # nx.draw(SG)
-            # plt.show()
-
-            if d1 in SG.nodes and d2 in SG.nodes and nx.has_path(SG, d1, d2):
-                pruned_quant, flow_edge = nx.maximum_flow(SG, d1, d2)
-                demand_edges_routed_flow_pp[(d1, d2)] += pruned_quant
-                quantity += pruned_quant
-                G.edges[d1, d2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= pruned_quant
-                for n1 in flow_edge:
-                    for n2 in flow_edge[n1]:
-                        G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] -= flow_edge[n1][n2]
-
-        print("Fine pruning")
-        return quantity, rep_nodes, rep_edges

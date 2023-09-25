@@ -29,6 +29,9 @@ class RecoveryProtocol:
     plot_color_curve = None
     """ Color of the algorithm on the plot. """
 
+    plot_style_curve = 0
+    """ Color of the algorithm on the plot. """
+
     def __init__(self, config):
         self.config = config
 

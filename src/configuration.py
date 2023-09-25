@@ -22,7 +22,7 @@ class Configuration:
         self.destruction_precision = 1000  # density of the [1,0] grid
         self.n_destruction = 2
 
-        self.demand_capacity: float = 10.0  # if this > that, multiple paths required to fix
+        self.demand_capacity: float = None  # if this > that, multiple paths required to fix
         self.supply_capacity = (80, 81)
 
         # clique world
@@ -37,7 +37,7 @@ class Configuration:
         self.rand_generator_path_choice = None
         self.monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-        self.monitors_budget = 25
+        self.monitors_budget = None
         self.monitors_budget_residual = None
         self.monitoring_messages_budget = np.inf
 

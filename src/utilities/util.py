@@ -9,7 +9,7 @@ import json
 import pickle
 from multiprocessing import Pool
 import signal
-
+import matplotlib.pyplot as plt
 
 class Singleton(type):
     _instances = {}
@@ -20,14 +20,43 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+def sample_marker(index):
+    MARKERS = ["p", "s", "P", "*", "h", "H", "+", "x", "X", "D", "d", "|", "_", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ".", ",", "o", "v", "^", "<", ">", "1", "2", "3", "4", "8"]
+    return MARKERS[index]
+
+
+def sample_pattern(index):
+    MARKERS = ['/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'] + ['/o', '\\|', '|*', '-\\', '+o', 'x*', 'o-', 'O|', 'O.', '*-']
+    return MARKERS[index]
+
+
+def sample_line(index):
+    MARKERS = ['-', '--', '-.', ':', 'None', ' ', '', 'solid', 'dashed', 'dashdot', 'dotted', 'loosely dotted', 'densely dotted', 'loosely dashed', 'densely dashed', 'loosely dashdotted', 'densely dashdotted', 'loosely dashdotdotted', 'dashdotdotted', 'densely dashdotdotted']
+    return MARKERS[index]
+
+
+def sample_color(index, cmap='tab10'):
+    # 1. Choose your desired colormap
+    cmap = plt.get_cmap(cmap)
+
+    # 2. Segmenting the whole range (from 0 to 1) of the color map into multiple segments
+    colors = [cmap(x) for x in range(cmap.N)]
+    assert index < cmap.N
+
+    # 3. Color the i-th line with the i-th color, i.e. slicedCM[i]
+    color = colors[index]
+    return color
+
+
 def execute_parallel_processes(func_exe, func_args: list, n_cores: int=1):
     """
     Runs processes in parallel. Given the function to run and its arguments.
     :param func_exe: function to run.
     :param func_args: arguments.
     """
-    initializer = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore CTRL+C in the worker process.
-    with Pool(initializer=initializer, processes=n_cores) as pool:
+
+    # initializer = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore CTRL+C in the worker process.
+    with Pool(processes=n_cores) as pool:
         try:
             pool.starmap(func_exe, func_args)
         except KeyboardInterrupt:
