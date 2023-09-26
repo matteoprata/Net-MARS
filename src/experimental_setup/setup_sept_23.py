@@ -10,7 +10,8 @@ comparison_dims = {co.IndependentVariable.GRAPH: [
                         co.Algorithm.PROTON,
                         co.Algorithm.PROTON_ORACLE
                         ],
-                   co.IndependentVariable.SEED: range(200, 280),
+                   co.IndependentVariable.SEED: list(range(500, 600)) +
+                                                [256, 257, 258, 266, 269, 273, 278, 202, 203, 206, 209, 210, 213, 214, 216, 219, 221, 232, 235, 237, 243, 245, 246, 248, 251, 253, 254],
 }
 
 indv_vary = {
@@ -26,3 +27,5 @@ indv_fixed = {
     co.IndependentVariable.N_DEMAND_EDGES: 3,
     co.IndependentVariable.FLOW_DEMAND: 30,
 }
+
+# python -m src.main -set "setup_sept_23" -par 1

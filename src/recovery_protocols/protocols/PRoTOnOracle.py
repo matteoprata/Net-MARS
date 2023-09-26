@@ -42,6 +42,8 @@ class PRoTOnOracle(RecoveryProtocol):
                                                                                  self.config.destruction_width, self.config.n_destruction, self.config.graph_dataset, self.config.seed, ratio=self.config.destruction_quantity,
                                                                                  config=self.config)
 
+        print("broken nodes", broken_nodes)
+
         # add_demand_endpoints
         if self.config.is_demand_clique:
             add_demand_clique(G, self.config)
@@ -118,7 +120,8 @@ class PRoTOnOracle(RecoveryProtocol):
 
             # -------------- 0. Monitor placement --------------
             # repair some nodes on which original tomo-cedar would route flow
-            mon.new_monitoring_add(G, self.config, is_set_monitor=False)
+            _, monitors_repaired, _ = mon.new_monitoring_add(G, self.config, is_set_monitor=False)
+            stats["node"] += monitors_repaired
             self.remove_monitors(G, temporary_monitors)
 
             if iter == 1:

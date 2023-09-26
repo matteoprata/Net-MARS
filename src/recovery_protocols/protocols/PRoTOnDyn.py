@@ -154,8 +154,9 @@ class PRoTOnDyn(RecoveryProtocol):
 
             # -------------- 1. Monitoring --------------
 
-            monitors, _, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
+            monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
             monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
+            stats["node"] += monitors_repaired
             stats["monitors"] |= monitors
             monitors_stats = stats["monitors"]
 

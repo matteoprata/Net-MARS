@@ -207,9 +207,6 @@ class MinTDS(RecoveryProtocol):
                         quicksum(rep_node_var[i, n] for i in broken_supply_nodes)
                         <= BUDGET_REP)
 
-        print(broken_supply_edges)
-        print(broken_supply_nodes)
-
         for n in range(N):
             for h, _ in var_demand_flows:
                 m.addConstr(gamma_var[h, n] >= 1 - alpha_var[h, n])
@@ -231,7 +228,7 @@ class MinTDS(RecoveryProtocol):
                 # m.addConstr(rep_edge_var[i, j, ngen] <= quicksum(rep_node_var[j, n] for n in range(ngen)),
                 #             'ecap_{}_{}'.format(i, j))
 
-        # tutti gli alrchi possono essere iparati al massimo in uno step
+        # nodes and edges can be repaired only in one step
         for i, j, _ in supply_edges:
             m.addConstr(quicksum(rep_edge_var[i, j, n] for n in range(N)) <= 1)
 
@@ -261,12 +258,12 @@ class MinTDS(RecoveryProtocol):
                     m.addConstr(flow_in_j + flow_out_j <= was_ever_repaired * MAX_FLOW, "quest")
 
         # OBJECTIVE
-        eps = .0001
-        rep_shit = quicksum(rep_edge_var[i, j, n] for i, j, _ in broken_supply_edges for n in range(N)) + \
-                   quicksum(rep_node_var[n1, n] for n1 in broken_supply_nodes for n in range(N))
+        eps = .01
+        repaired_elements = quicksum(rep_edge_var[i, j, n] for i, j, _ in broken_supply_edges for n in range(N)) + \
+                            quicksum(rep_node_var[n1, n] for n1 in broken_supply_nodes for n in range(N))
 
-        obj1 = quicksum(gamma_var[h, n] + eps * rep_shit for h, _ in var_demand_flows for n in range(N))
-        obj2 = quicksum(alpha_var[h, n] * flow for h, flow in var_demand_flows for n in range(N))
+        obj1 = quicksum(gamma_var[h, n] + eps * repaired_elements for h, _ in var_demand_flows for n in range(N))
+        # obj2 = quicksum(alpha_var[h, n] * flow for h, flow in var_demand_flows for n in range(N))
         m.setObjective(obj1, GRB.MINIMIZE)
 
         print("OPTIMIZING...")

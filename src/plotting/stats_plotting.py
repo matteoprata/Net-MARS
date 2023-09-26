@@ -33,6 +33,11 @@ marker_size = 8
 line_width = 2
 legend_font = 15
 
+var_id_map = {co.IndependentVariable.PROB_BROKEN: 0,
+                  co.IndependentVariable.N_DEMAND_EDGES: 1,
+                  co.IndependentVariable.FLOW_DEMAND: 2,
+                  co.IndependentVariable.MONITOR_BUDGET: 3}
+
 Xlabels = {0: "Network Disruption (%)",
            1: "Number Demand Pairs",
            2: "Demand Flow",
@@ -324,7 +329,7 @@ def fname_out(x_position, X_var, config, ss, algo, x):
                                   config.supply_capacity, algo, x, config.destruction_quantity,
                                   config.experiment_ind_var.value[0])
     else:
-        print("Not handled x_position", x_position)
+        print("Not handled variable_name", x_position)
         exit()
     return MAX_TOTAL_FLOW, MAX_FLOW_STEPS, regex_fname
 
@@ -566,7 +571,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     plt.close()
 
 
-def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_dem_edges, plot_type, algo_names, algo_names_plot, out_fig, title):
+def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, variable_name, n_dem_edges, plot_type, algo_names, algo_names_plot, out_fig, title):
 
     path_prefix = source + "{}"
 
@@ -578,9 +583,9 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 
     for ai, al in enumerate(algos):
         algo = al.value.file_name
-        for pi, pbro in enumerate(X_vals):
+        for ix, xvar in enumerate(X_vals):
             for si, ss in enumerate(seeds_values):
-                if x_position == 0:
+                if variable_name == co.IndependentVariable.PROB_BROKEN:
                     # varying probs
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
@@ -591,16 +596,16 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                         config.supply_capacity,
                         algo,
                         config.monitors_budget,
-                        pbro,
+                        xvar,
                         config.experiment_ind_var.value[0])
 
-                elif x_position == 1:
+                elif variable_name == co.IndependentVariable.N_DEMAND_EDGES:
                     # vary pairs
                     N_DEMANDS = X_vals
                     regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
-                        pbro,
+                        xvar,
                         int(config.demand_capacity),
                         config.supply_capacity,
                         algo,
@@ -608,21 +613,21 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                         config.destruction_quantity,
                         config.experiment_ind_var.value[0])
 
-                elif x_position == 2:
+                elif variable_name == co.IndependentVariable.FLOW_DEMAND:
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
                     regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
                         ss,
                         config.graph_dataset.name,
                         config.n_edges_demand,
-                        int(pbro),
+                        int(xvar),
                         config.supply_capacity,
                         algo,
                         config.monitors_budget,
                         config.destruction_quantity,
                         config.experiment_ind_var.value[0])
 
-                elif x_position == 3:
+                elif variable_name == co.IndependentVariable.MONITOR_BUDGET:
                     N_DEMANDS = np.ones(len(X_vals)) * MAX_N_DEMANDS
                     # varying flow pp
                     regex_fname = "seed={}-g={}-np={}-dc={}-spc={}-alg={}-bud={}-pbro={}-idv={}.csv".format(
@@ -632,7 +637,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                         int(config.demand_capacity),
                         config.supply_capacity,
                         algo,
-                        pbro,
+                        xvar,
                         config.destruction_quantity,
                         config.experiment_ind_var.value[0])
 
@@ -640,17 +645,18 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                 df = pd.read_csv(path)
                 df = df.iloc[:, -MAX_N_DEMANDS:]
 
-                if FRONTIER_IND_X[pi] < df.shape[0]:
-                    FRONTIER_IND_X[pi] = df.shape[0]
+                if FRONTIER_IND_X[ix] < df.shape[0]:  # the max number of steps over all the algorithms and seeds
+                    FRONTIER_IND_X[ix] = df.shape[0]
 
                 df_len = df.shape[0]
                 assert (df_len <= MAX_N_REPAIRS)
                 # datas = np.empty(shape=(MAX_N_REPAIRS, len(n_dem_edges), len(seeds_values), len(algos), len(X_vals)))
-                n_dems = n_dem_edges[pi] if x_position == 1 else n_dem_edges[0]
-                datas[:df_len, :n_dems, si, ai, pi] = df.values[:, -n_dems:]
+                n_dems = n_dem_edges[ix] if variable_name == co.IndependentVariable.N_DEMAND_EDGES else n_dem_edges[0]
+                datas[:df_len, :n_dems, si, ai, ix] = df.values[:, -n_dems:]
 
-    # avg sees, accumulate flows
+    # avg seeds, accumulate flows
     data_cum = datas  # np.cumsum(datas, axis=0) # FLOW, DEMS, SEEDS, ALGO, IND_X
+
     # data_cum = np.mean(data_cum, axis=2)  # MAX, DEMS, ALGO, IND_X
     # print(data_cum[:, :, 0, 0, 0])
 
@@ -662,13 +668,13 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
     times = np.argmax(data_cum, axis=0)  # DEMS, SEEDS, ALGO, IND_X
 
     edges_mask = np.zeros(shape=(times.shape[0], times.shape[-1]))
-    if x_position == 1:
+    if variable_name == co.IndependentVariable.N_DEMAND_EDGES:
         for i in range(times.shape[-1]):
             edges_mask[:X_vals[i], i] = np.ones(X_vals[i])
 
     times = times + (sum_flow > 0) * 1
     times = times + (sum_flow == 0) * FRONTIER_IND_X   # sum_flow == 0 demande not satisifed
-    times = times * (edges_mask[:, np.newaxis, np.newaxis, :] if x_position == 1 else 1)   # sono un fottuto genio BROADCASTING to remove shit we dont' need
+    times = times * (edges_mask[:, np.newaxis, np.newaxis, :] if variable_name == co.IndependentVariable.N_DEMAND_EDGES else 1)   # sono un fottuto genio BROADCASTING to remove shit we dont' need
 
     # complement = np.zeros(times.shape) + FRONTIER_IND_X
     # print(np.sum(complement - times, axis=0)[0,:])
@@ -680,7 +686,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
     # print(plot_times[0, :])
     # exit()
 
-    if x_position == 0:  # broken elements (%)
+    if variable_name == co.IndependentVariable.PROB_BROKEN:  # broken elements (%)
         X_vals = [int(x) for x in np.array(X_vals) * 100]
 
     for i, algo_en in enumerate(algos):
@@ -695,7 +701,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
                      linestyle=sty)  # front: SEEDS, ALGO, IND_X
         plt.xticks(X_vals)
 
-    plt.xlabel(Xlabels[x_position])
+    plt.xlabel(Xlabels[var_id_map[variable_name]])
     plt.legend(fontsize=legend_font)
 
     if is_title:
@@ -707,9 +713,9 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
         out_fig.savefig()  # saves the current figure into a pdf page
     else:
         if is_pdf_else_png:
-            plt.savefig(str(plot_type) + str(x_position) + ".pdf")
+            plt.savefig(str(plot_type) + str(var_id_map[variable_name]) + ".pdf")
         else:
-            plt.savefig(str(plot_type) + str(x_position) + ".png", dpi=300)
+            plt.savefig(str(plot_type) + str(var_id_map[variable_name]) + ".png", dpi=300)
     plt.close()
 
 
@@ -755,7 +761,7 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, x_position, n_
 #             path_prefix = source + "{}"  # "data/experiments/{}"
 #             good_seeds = check_good_seeds(vals[i], BENCHMARKS, seeds, i, path_prefix, 500, config, True)
 #
-#             plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS,
+#             plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=2, variable_name=i, outliers=OUTLIERS,
 #                           algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x,
 #                           is_dynamic=True)
 
@@ -770,13 +776,13 @@ def plotting_static_methods(setup):
     algo_names_plot = [al.value.plot_name for al in BENCHMARKS]
     seeds = setup.comparison_dims[co.IndependentVariable.SEED]
     OUTLIERS = 0
-    PERC_DESTRUCTION = 0  # TODO: make it more generic
+    index_fixed_X = 1  # TODO: make it more generic
 
     for g in setup.comparison_dims[co.IndependentVariable.GRAPH]:
         config.graph_dataset = g
         for i, x_var_k in enumerate(setup.indv_vary):  # execute for several independent variables
             X_var = setup.indv_vary[x_var_k]  # independent variable [.1, .2, .3]
-            fixed_x = X_var[PERC_DESTRUCTION]
+            fixed_x = X_var[index_fixed_X]
             print("Now varying", x_var_k, "as", X_var)
 
             config.experiment_ind_var = x_var_k  # e.g. co.IndependentVariable.PROB_BROKEN
@@ -815,10 +821,10 @@ def plotting_static_methods(setup):
                 for pln in plot_names:
                     plot_integral(source, config, good_seeds, X_var, BENCHMARKS, plot_type=pln, x_position=i, outliers=OUTLIERS,
                                   algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title,
-                                  PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x)
+                                  PERC_DESTRUCTION=index_fixed_X, fixed_x=fixed_x)
 
-                ndmp = X_var if i == 1 else [config.n_edges_demand]
-                plot_Xvar_Ydems2(source, config, good_seeds, X_var, BENCHMARKS, x_position=i, n_dem_edges=ndmp, plot_type=0,
+                ndmp = X_var if x_var_k == co.IndependentVariable.N_DEMAND_EDGES else [config.n_edges_demand]
+                plot_Xvar_Ydems2(source, config, good_seeds, X_var, BENCHMARKS, variable_name=x_var_k, n_dem_edges=ndmp, plot_type=0,
                                  algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title)
 
                 plot_names = ["n_repairs", "execution_sec"]  # n_monitors, n_monitor_msg
@@ -853,3 +859,4 @@ parsed_arguments = cli_args_parsing()
 if __name__ == '__main__':
     setup = parsed_arguments["setup"]
     plotting_static_methods(setup)
+    # debug_proton_opt_flow()
