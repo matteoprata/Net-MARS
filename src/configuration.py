@@ -9,6 +9,7 @@ class Configuration:
 
         self.is_log = False
         self.algo_name = None
+        self.algo_instance = None
         self.graph_dataset = None
         self.graph_path = None
 

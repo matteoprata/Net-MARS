@@ -776,7 +776,7 @@ def plotting_static_methods(setup):
     algo_names_plot = [al.value.plot_name for al in BENCHMARKS]
     seeds = setup.comparison_dims[co.IndependentVariable.SEED]
     OUTLIERS = 0
-    index_fixed_X = 1  # TODO: make it more generic
+    index_fixed_X = -1  # TODO: make it more generic
 
     for g in setup.comparison_dims[co.IndependentVariable.GRAPH]:
         config.graph_dataset = g

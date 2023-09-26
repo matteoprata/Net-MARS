@@ -8,6 +8,7 @@ import src.preprocessing.network_routability as grout
 import tqdm
 import src.utilities.util as util
 
+from collections import defaultdict
 
 # utilities requiring computation
 def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residual=False):
@@ -27,9 +28,26 @@ def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residua
     return demand_edges
 
 
+def make_demand_edge(G, n1, n2, demand_capacity):
+    G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
+    G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
+    G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
+    G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
+    G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
+
+
+def remove_demand_edge(G, n1, n2):
+    G.remove_edge(n1, n2, key=co.EdgeType.DEMAND.value)
+
+
 def get_supply_edges(G):
     """ Returns only supply edges. """
     return [e for e in G.edges if e[2] == co.EdgeType.SUPPLY.value]
+
+
+def get_supply_nodes(G):
+    """ Returns only supply edges. """
+    return set(G.nodes)
 
 
 def get_supply_graph_diameter(SG):

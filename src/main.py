@@ -114,6 +114,7 @@ def run_0_set_configuration_values(graph_dataset, algo_name, seed, dis, budget, 
     repairing_protocol: RecoveryProtocol = co.Algorithm[algo_name].value(config)
 
     config.seed = seed
+    config.algo_name = co.Algorithm[algo_name]
     config.algo_instance = repairing_protocol
     config.graph_dataset = graph_dataset
     config.graph_path = graph_dataset.value

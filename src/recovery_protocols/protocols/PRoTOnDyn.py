@@ -4,12 +4,19 @@ from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *
 import src.constants as co
+import random
 
 from src.recovery_protocols.utils import finder_recovery_path as frp, finder_recovery_path_pick as frpp, \
     adding_monitors as mon
 
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
 
+from enum import Enum
+
+class ReasonRevert(Enum):
+    BROKEN = 1
+    REMOVE_EDGE = 2
+    REMOVE_NODE = 3
 
 class PRoTOnDyn(RecoveryProtocol):
 
@@ -63,8 +70,8 @@ class PRoTOnDyn(RecoveryProtocol):
 
         iter = 0
         # true ruotability
-
         routed_flow = 0
+        total_flow = sum([el[2] for el in gru.get_demand_edges(G)])
         packet_monitor = 0
         monitors_stats = set()
         demands_sat = {d: [] for d in get_demand_edges(G, is_capacity=False)}  # d1: [0, 1, 1, 0, 10] // demands_sat[d].append(0)
@@ -91,15 +98,39 @@ class PRoTOnDyn(RecoveryProtocol):
 
         MISSION_DURATION = 500
         # Viviana: con un processo di Poisson decidiamo gli "arrival time" delle distruzioni dinamiche
-        rate = 1 / 30  # tempo medio fra due rotture dinamiche
+        rate_failure = 1 / 30  # tempo medio fra due rotture dinamiche
+
+        rate_new_node = 1 / 80  # tempo medio fra due rotture dinamiche
+        rate_new_edge = 1 / 80  # tempo medio fra due rotture dinamiche
+        rate_remove_node = 1 / 500  # tempo medio fra due rotture dinamiche
+        rate_remove_edge = 1 / 300  # tempo medio fra due rotture dinamiche
+
         num_arrivals = MISSION_DURATION   # numero di arrivi totali. Ne mettiamo uno alto per fare esperimenti lunghi a piacimento
         # ma non ci interessano tutti.
-        arrival_time = 30
+        first_event_time = 30
 
-        destroy_times = np.array(self.poisson_process_dynamic_distruction(rate, num_arrivals, arrival_time, self.config))
-        destroy_times = destroy_times[destroy_times < (MISSION_DURATION - 15)]
+        destroy_times = np.array(self.poisson_process_dynamic_events(rate_failure, num_arrivals, first_event_time, self.config, 1))
+        destroy_times = destroy_times[destroy_times < (MISSION_DURATION - 15)]  # removes the last time steps
+
+        new_node_times = np.array(self.poisson_process_dynamic_events(rate_new_node, num_arrivals, first_event_time, self.config, 2))
+        new_node_times = new_node_times[new_node_times < (MISSION_DURATION - 15)]  # removes the last time steps
+
+        new_edge_times = np.array(self.poisson_process_dynamic_events(rate_new_edge, num_arrivals, first_event_time, self.config, 3))
+        new_edge_times = new_edge_times[new_edge_times < (MISSION_DURATION - 15)]  # removes the last time steps
+
+        remove_node_times = np.array(self.poisson_process_dynamic_events(rate_remove_node, num_arrivals, first_event_time, self.config, 4))
+        remove_node_times = remove_node_times[remove_node_times < (MISSION_DURATION - 15)]  # removes the last time steps
+
+        remove_edge_times = np.array(self.poisson_process_dynamic_events(rate_remove_edge, num_arrivals, first_event_time, self.config, 5))
+        remove_edge_times = remove_edge_times[remove_edge_times < (MISSION_DURATION - 15)]  # removes the last time steps
+
+        print(new_node_times)
+        print(new_edge_times)
+        print(remove_edge_times)
+        print(remove_node_times)
+        print(destroy_times)
+
         count_dis = 0
-
         no_repairs_prev = 0
         no_repairs = 0
         fixed_paths = []
@@ -107,7 +138,7 @@ class PRoTOnDyn(RecoveryProtocol):
         print("TIMES DES", destroy_times)
         iter_dest = 0
         # start of the protocol
-        while MISSION_DURATION - iter_dest > 0:
+        while MISSION_DURATION - iter_dest > 0:   # time as n of repairs
             # go on if there are demand edges to satisfy, and still is_feasible
             demand_edges_routed_flow_pp = defaultdict(int)  # (d_edge): flow
 
@@ -127,6 +158,7 @@ class PRoTOnDyn(RecoveryProtocol):
                      "node": [],
                      "edge": [],
                      "flow": routed_flow,
+                     "total_flow": total_flow,
                      "monitors": monitors_stats,
                      "packet_monitoring": packet_monitor,
                      "demands_sat": demands_sat,
@@ -140,17 +172,67 @@ class PRoTOnDyn(RecoveryProtocol):
             # attuale coincide con il corrente arrival time del processo di poisson
             # no_repairs_prev = len(stats_list[iter-1]["node"]) + len(stats_list[iter-1]["edge"])
             if count_dis < len(destroy_times):
+                # no_repairs_prev == no_repairs (PLATEU)
+                # new iter_dest
                 if (no_repairs_prev < no_repairs and no_repairs >= destroy_times[count_dis]) or (no_repairs_prev == no_repairs and iter_dest >= destroy_times[count_dis]):
                     # first condition: repairs have been done, we beat time with number of repairs
                     # second condition: everything works, so we need to beat time with numer of iterations instead
                     destr_nodes, destr_edges = self.dynamic_destruction(G)
                     print("DOING DESTRUCTION!!!", destr_nodes, destr_edges)
                     print("FIXED_STL!!!", fixed_paths)
-                    fixed_paths, fixed_paths_to_remove, stats = self.do_revert_routed_path(G, destr_nodes, destr_edges, fixed_paths, stats)
+                    fixed_paths, fixed_paths_to_remove, stats = self.do_revert_routed_path(G, destr_nodes, destr_edges, fixed_paths, stats, ReasonRevert.BROKEN)
                     routed_flow = stats["flow"]
                     print("REMOVED!!!", fixed_paths_to_remove)
                     count_dis += 1
                     stats["forced_destr"] = True
+
+            if iter in new_node_times:
+                print("Time", iter, "new node added!", new_demand_node)
+                demand_nodes = gru.get_demand_nodes(G)
+                cand_nodes = list(gru.get_supply_nodes(G) - demand_nodes)
+                ind_new_node = np.random.randint(low=0, high=len(cand_nodes))
+                new_demand_node = cand_nodes[ind_new_node]
+
+                ind_exist_node = np.random.randint(low=0, high=len(demand_nodes))
+                exist_demand_node = list(demand_nodes)[ind_exist_node]
+                gru.make_demand_edge(G, new_demand_node, exist_demand_node, self.config.demand_capacity)
+                total_flow = sum([el[2] for el in gru.get_demand_edges(G)])
+                print("Time", iter, "new node added!", new_demand_node, ". All demand nodes", gru.get_demand_nodes(G))
+
+            if iter in new_edge_times:
+                demand_nodes = list(gru.get_demand_nodes(G))
+                demand_edges = gru.get_demand_edges(G, is_capacity=False)
+                exist_node1, exist_node2 = None, None
+                while (exist_node1, exist_node2) in demand_edges or (exist_node1, exist_node2) == (None, None):
+                    ind1_exist_node, ind2_exist_node = np.random.choice(len(demand_nodes), 2)
+                    exist_node1, exist_node2 = demand_nodes[ind1_exist_node], demand_nodes[ind2_exist_node]
+                exist_node1, exist_node2 = gru.make_existing_edge(exist_node1, exist_node2)
+
+                gru.make_demand_edge(G, exist_node1, exist_node2, self.config.demand_capacity)
+                total_flow = sum([el[2] for el in gru.get_demand_edges(G)])
+                print("Time", iter, "new edge added!", (exist_node1, exist_node2), ". All demand edges", gru.get_demand_edges(G, is_capacity=False))
+
+            if iter in remove_node_times:
+                demand_nodes = list(gru.get_demand_nodes(G))
+                ind_new_node = np.random.randint(low=0, high=len(demand_nodes))
+                exist_node = demand_nodes[ind_new_node]
+
+                fixed_paths, fixed_paths_to_remove, stats = self.do_revert_routed_path(G, [exist_node], [], fixed_paths, stats, ReasonRevert.REMOVE_NODE)
+
+                list_edges_to_remove = [el for el in get_demand_edges(G, is_capacity=False) if exist_node in el]
+                for n1, n2 in list_edges_to_remove:
+                    gru.remove_demand_edge(G, n1, n2)
+
+                print("Time", iter, "removed demand node!", exist_node, ". All demand nodes", gru.get_demand_edges(G, is_capacity=False))
+
+            if iter in remove_edge_times:
+                demand_edges = list(gru.get_demand_edges(G))
+                ind_new_edge = np.random.randint(low=0, high=len(demand_edges))
+                n1, n2 = demand_edges[ind_new_edge]
+                fixed_paths, fixed_paths_to_remove, stats = self.do_revert_routed_path(G, [], [(n1, n2)], fixed_paths, stats, ReasonRevert.REMOVE_EDGE)
+
+                gru.remove_demand_edge(G, n1, n2)
+                print("Time", iter, "removed demand edge!", (n1, n2), ". All demand edges", gru.get_demand_edges(G, is_capacity=False))
 
             # -------------- 1. Monitoring --------------
 
@@ -184,10 +266,12 @@ class PRoTOnDyn(RecoveryProtocol):
             stats["packet_monitoring"] += stats_packet_monitoring
             packet_monitor = stats["packet_monitoring"]
 
+            # TODO CAREFUL
             for ke in demands_sat:  # every demand edge
                 is_new_routing = sum(stats["demands_sat"][ke]) == 0 and is_demand_edge_saturated(G, ke[0], ke[1])  # already routed
                 flow = self.config.demand_capacity if is_new_routing else 0
                 stats["demands_sat"][ke].append(flow)
+
 
             demand_edges = get_demand_edges(G, is_check_unsatisfied=True, is_residual=True)
             print("> Residual demand edges", len(demand_edges), demand_edges)
@@ -249,9 +333,9 @@ class PRoTOnDyn(RecoveryProtocol):
         # WHEN DESTROY RESET CAPACITIES Viviana: and stop routing flow of demands traversing the newly broken elements
 
     @staticmethod
-    def poisson_process_dynamic_distruction(rate, num_arrivals, arrival_time, config):
+    def poisson_process_dynamic_events(rate, num_arrivals, arrival_time, config, event_type):
         # Viviana: tutta questa funzione (requires math and random)
-        CONST_SEED = 1
+        CONST_SEED = event_type
         util.set_seed(CONST_SEED)
 
         poi_process = []
@@ -264,7 +348,7 @@ class PRoTOnDyn(RecoveryProtocol):
             inter_arrival_time = -math.log(1.0 - p) / rate
 
             # Add the inter-arrival time to the running sum
-            arrival_time = arrival_time + inter_arrival_time
+            arrival_time += inter_arrival_time
 
             # print it all out
             # print(str(p) + ',' + str(inter_arrival_time) + ',' + str(arrival_time))
@@ -287,27 +371,47 @@ class PRoTOnDyn(RecoveryProtocol):
             G.nodes[n2][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_reset
             G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_reset
 
-    @staticmethod
-    def do_revert_routed_path(G, destr_nodes, destr_edges, fixed_paths, stats_iter):
-        """ for paths that are broken, restore capacities """
-        fixed_paths_to_remove = []
-        for pa, pru in fixed_paths:
+    def do_revert_routed_path(self, G, destr_nodes, destr_edges, fixed_paths, stats_iter, reason: ReasonRevert):
+        """ for paths that are broken, restore capacities """  # [1, 2, (3)] 60,  [1, 2, (3), 4] 40
+        paths_to_remove = []
+        for path, flow in fixed_paths:
             is_path_to_revert = False
-            for i in range(len(pa) - 1):
-                n1, n2 = make_existing_edge(pa[i], pa[i + 1])
-                is_path_to_revert = n1 in destr_nodes or n2 in destr_nodes or (n1, n2) in destr_edges
+
+            if reason == ReasonRevert.BROKEN:
+                for i in range(len(path) - 1):
+                    n1, n2 = make_existing_edge(path[i], path[i + 1])
+                    is_path_to_revert = n1 in destr_nodes or n2 in destr_nodes or (n1, n2) in destr_edges
+
+            elif reason == ReasonRevert.REMOVE_NODE:
+                assert len(destr_edges) == 0 and len(destr_nodes) == 1
+                ns, nd = path[0], path[-1]
+                is_path_to_revert = destr_nodes[0] in [ns, nd]
+
+            elif reason == ReasonRevert.REMOVE_EDGE:
+                assert len(destr_edges) == 1 and len(destr_nodes) == 0
+                dem1, dem2 = destr_edges[0]
+                ns, nd = path[0], path[-1]
+                is_path_to_revert = dem1 in [ns, nd] or dem2 in [ns, nd]
 
             if is_path_to_revert:
-                ns, nd = make_existing_edge(pa[0], pa[-1])
-                G.edges[ns, nd, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] += pru
+                print(destr_nodes, destr_edges, (path, flow))
+                stats_iter = self.__do_revert_flow_path(G, path, flow, stats_iter)
+                paths_to_remove.append((path, flow))
 
-                for i in range(len(pa) - 1):
-                    n1, n2 = make_existing_edge(pa[i], pa[i + 1])
-                    G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
-                fixed_paths_to_remove.append((pa, pru))
-                stats_iter["flow"] -= pru
-                stats_iter["demands_sat"][(ns, nd)][-1] -= pru
-
-        for el in fixed_paths_to_remove:  # broken paths
+        for el in paths_to_remove:  # broken paths
             fixed_paths.remove(el)
-        return fixed_paths, fixed_paths_to_remove, stats_iter
+        return fixed_paths, paths_to_remove, stats_iter
+
+    @staticmethod
+    def __do_revert_flow_path(G, path, flow, stats_iter):
+        ns, nd = make_existing_edge(path[0], path[-1])
+        G.edges[ns, nd, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] += flow  # restoring the pruned quantity
+
+        for i in range(len(path) - 1):
+            n1, n2 = make_existing_edge(path[i], path[i + 1])
+            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = \
+                G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
+
+        stats_iter["flow"] -= flow
+        stats_iter["demands_sat"][(ns, nd)][-1] -= flow  # TODO CAREFUL
+        return stats_iter

@@ -76,7 +76,7 @@ def init_graph(path_to_graph, graph_name, supply_capacity, config):
         place_static_backbone(G, co.MINNESOTA_STP_BACKBONE, config.backbone_capacity)
 
     # ADD probability RESISTANCE_TO_DESTRUCTION:
-    if config.algo_instance == co.Algorithm.PROTON_DYN:
+    if config.algo_name == co.Algorithm.PROTON_DYN:
         for n in G.nodes:
             G.nodes[n][co.ElemAttr.RESISTANCE_TO_DESTRUCTION.value] = config.uniform_resistance_destruction_init
 
@@ -236,10 +236,7 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     for demand_pair in list_pairs:
         n1, n2 = demand_pair[0], demand_pair[1]
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
+        grau.make_demand_edge(G, n1, n2, demand_capacity)
 
         demand_edges.add((n1, n2))
         demand_nodes.add(n1)
@@ -285,11 +282,7 @@ def add_demand_clique(G, config):
     for i, edge in enumerate(total_edges):
         n1, n2 = edge
         G.add_edge(n1, n2, co.EdgeType.DEMAND.value)
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.STATE_TRUTH.value] = co.NodeState.NA.value
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.CAPACITY.value] = config.demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = config.demand_capacity
-        G.edges[n1, n2, co.EdgeType.DEMAND.value][co.ElemAttr.SAT_SUP.value] = defaultdict(int)
-
+        grau.make_demand_edge(G, n1, n2, config.demand_capacity)
         demand_edges.add((n1, n2))
         demand_nodes.add(n1)
         demand_nodes.add(n2)
