@@ -22,11 +22,11 @@ def save_stats_monotonous(stats, fname, algon):
         purge = ["None"] if type(algon) == MinTDS else []  # for the algorithms with no final empy iteration # TODO improve integration
         vals = dic["node"] + dic["edge"] + purge
         # number of repairs in this iteration, to propagate values accordingly
-        n_vals = max(len(vals), 1)  # last iteration has 0 repairs and counts as a None repair
+        n_vals = max(len(vals), 1)   # last iteration has 0 repairs and counts as a None repair
         print("n_vals", n_vals)
         repairs += vals if len(vals) > 0 else [None]
         iter += [dic["iter"]] * n_vals
-        n_repairs += len(vals)
+        n_repairs += len(vals) - len(purge)
 
         if type(algon) == MinTDS:
             # CUMULATIVE FLOW

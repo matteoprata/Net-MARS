@@ -21,7 +21,7 @@ class PRoTOn(RecoveryProtocol):
     mode_monitoring = co.ProtocolMonitorPlacement.BUDGET
     mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-    plot_marker = 0
+    plot_marker = 3
     plot_color_curve = 2
 
     def __init__(self, config):

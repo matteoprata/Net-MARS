@@ -2,14 +2,15 @@
 import src.constants as co
 
 comparison_dims = {co.IndependentVariable.GRAPH: [
-                        co.GraphName.BELL_CANADA
+                        co.GraphName.BELL_CANADA,
+                        co.GraphName.PALMETTO
                         ],
                    co.IndependentVariable.ALGORITHM: [
                         co.Algorithm.MIN_TDS,
                         co.Algorithm.PROTON,
                         co.Algorithm.PROTON_ORACLE
                         ],
-                   co.IndependentVariable.SEED: [1, 2],
+                   co.IndependentVariable.SEED: range(200, 280),
 }
 
 indv_vary = {

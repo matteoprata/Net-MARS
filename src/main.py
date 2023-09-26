@@ -201,9 +201,9 @@ def main(setup, is_parallel):
     processes = []
     indv_fixed_original = {k: setup.indv_fixed[k] for k in setup.indv_fixed}
 
-    for g in setup.comparison_dims[co.IndependentVariable.GRAPH]:
-        for a in setup.comparison_dims[co.IndependentVariable.ALGORITHM]:
-            for s in setup.comparison_dims[co.IndependentVariable.SEED]:
+    for s in setup.comparison_dims[co.IndependentVariable.SEED]:
+        for g in setup.comparison_dims[co.IndependentVariable.GRAPH]:
+            for a in setup.comparison_dims[co.IndependentVariable.ALGORITHM]:
 
                 for x_var_k in setup.indv_vary:  # execute for several independent variables
                     X_var = setup.indv_vary[x_var_k]

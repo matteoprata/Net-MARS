@@ -16,7 +16,7 @@ class MinTDS(RecoveryProtocol):
     file_name = "MinTDS"
     plot_name = "MinTDS"
 
-    plot_marker = 0
+    plot_marker = 2
     plot_color_curve = 9
 
     def __init__(self, config):
@@ -138,7 +138,7 @@ class MinTDS(RecoveryProtocol):
 
         m = Model('netflow')
 
-        m.setParam('TimeLimit', 5 * 60)
+        m.setParam('TimeLimit', 30 * 60)  # 10 minutes time limit
         m.params.OutputFlag = 0
         m.params.LogToConsole = 0
 

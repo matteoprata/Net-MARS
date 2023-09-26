@@ -4,6 +4,7 @@ from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *
 import src.constants as co
+import time
 
 from src.recovery_protocols.utils import finder_recovery_path as frp, finder_recovery_path_pick as frpp, \
     adding_monitors as mon
@@ -20,13 +21,15 @@ class PRoTOnOracle(RecoveryProtocol):
     mode_monitoring = co.ProtocolMonitorPlacement.BUDGET
     mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-    plot_marker = "o"
+    plot_marker = 1
     plot_color_curve = 1
 
     def __init__(self, config):
         super().__init__(config)
 
     def run(self):
+        comp_time_st = time.time()
+
         stats_list = []
 
         # read graph and print stats
@@ -134,6 +137,7 @@ class PRoTOnOracle(RecoveryProtocol):
             if monitoring is None:
                 stats_list.append(stats)
                 print(stats)
+                self.on_close(comp_time_st, stats_list)
                 return stats_list
 
             stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, \
@@ -171,6 +175,7 @@ class PRoTOnOracle(RecoveryProtocol):
             stats_list.append(stats)
             print(stats)
 
+        self.on_close(comp_time_st, stats_list)
         return stats_list
 
     @staticmethod
@@ -186,3 +191,10 @@ class PRoTOnOracle(RecoveryProtocol):
     def remove_monitors(G, temporary_monitors):
         for n in temporary_monitors:
             G.nodes[n][co.ElemAttr.IS_MONITOR.value] = False
+
+    def on_close(self, comp_time_st, stats_list):
+        # append elapsed time to the last stats object
+        # measure computation time
+        comp_time_et = time.time()
+        elapsed_time = comp_time_et - comp_time_st  # elapsed time in seconds
+        stats_list[-1]["execution_sec"] = elapsed_time
