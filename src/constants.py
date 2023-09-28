@@ -96,6 +96,14 @@ class Knowledge(Enum):
     KNOW = 1
 
 
+class DynamicEvent(Enum):
+    DESTROY = "destroy"
+    REMOVE_EDGE = "rem-e"
+    REMOVE_NODE = "rem-n"
+    ADD_NODE = "add-n"
+    ADD_EDGE = "add-e"
+    NONE = "none"
+
 class PlotType(Enum):
     TRU = 0
     KNO = 1

@@ -15,20 +15,20 @@ def save_stats_monotonous(stats, fname, algon):
     for i, j in enumerate(stats):
         print("\n", i, j)
 
-    repairs, iter, flow_cum, is_forced_tot = [], [], [], []
+    repairs, iter, flow_cum, is_forced_tot, is_total_flow = [], [], [], [], []
     n_repairs = 0
     demand_pairs = {k: [] for k in stats[-1]["demands_sat"].keys()}
     for i, dic in enumerate(stats):  # iteration index
-        purge = ["None"] if type(algon) == MinTDS else []  # for the algorithms with no final empy iteration # TODO improve integration
+        purge = ["None"] if algon == co.Algorithm.MIN_TDS else []  # for the algorithms with no final empy iteration # TODO improve integration
         vals = dic["node"] + dic["edge"] + purge
         # number of repairs in this iteration, to propagate values accordingly
         n_vals = max(len(vals), 1)   # last iteration has 0 repairs and counts as a None repair
-        print("n_vals", n_vals)
+        # print("n_vals", n_vals)
         repairs += vals if len(vals) > 0 else [None]
         iter += [dic["iter"]] * n_vals
         n_repairs += len(vals) - len(purge)
 
-        if type(algon) == MinTDS:
+        if algon == co.Algorithm.MIN_TDS:
             # CUMULATIVE FLOW
             i_demand_pairs = stats[i]["demands_sat"] if "demands_sat" in stats[i].keys() else []
             cumulative_flow = None
@@ -40,12 +40,20 @@ def save_stats_monotonous(stats, fname, algon):
                     cumulative_flow += np.cumsum(i_demand_pairs[k])
             flow_cum = cumulative_flow
 
-        elif type(algon) == PRoTOnDyn:
-            is_forced = stats[i]["forced_destr"]
-            d_flow = [0] * n_vals
-            d_flow[0] = 1 if is_forced else 0
-            is_forced_tot += d_flow
+        elif algon == co.Algorithm.PROTON_DYN:
+            # CUMULATIVE FLOW
+            flow_cum += [stats[i]["flow"]] * n_vals
 
+            # is_forced = stats[i]["event"] == "destroy"
+            # d_flow = [0] * n_vals
+            # d_flow[0] = 1 if is_forced else 0
+            events = ["none"] * n_vals
+            events[0]  = stats[i]["event"] if stats[i]["event"] == "destroy" else events[0]
+            events[-1] = stats[i]["event"] if stats[i]["event"] != "destroy" else events[-1]
+
+            tot_flow = [stats[i]["total_flow"]] * n_vals
+            is_forced_tot += events  # d_flow
+            is_total_flow += tot_flow
         else:
             # CUMULATIVE FLOW
             flow_cum += [stats[i]["flow"]] * n_vals
@@ -59,14 +67,14 @@ def save_stats_monotonous(stats, fname, algon):
                 demand_pairs[k] += d_flow
 
     print(demand_pairs)
-    print(len(iter), len(repairs))
+    print(len(iter), len(repairs), flow_cum)
     df = pd.DataFrame()
     df["repairs"] = repairs
     df["iter"] = iter
     df["flow_cum"] = flow_cum
 
     # position 0 we set the number of repairs
-    none_vec = [None]*len(flow_cum)
+    none_vec = [None]*len(iter)
 
     n_repairs_vector = none_vec[:]
     n_repairs_vector[0] = n_repairs
@@ -85,8 +93,9 @@ def save_stats_monotonous(stats, fname, algon):
         secs[0] = stats[-1]["execution_sec"]
         df["execution_sec"] = secs
 
-    if type(algon) == PRoTOnDyn:
-        df["forced_destr"] = is_forced_tot
+    if algon == co.Algorithm.PROTON_DYN:
+        df["event"] = is_forced_tot
+        df["total_flow"] = is_total_flow
     else:
         for k in demand_pairs:
             df["d-" + str(k)] = demand_pairs[k]

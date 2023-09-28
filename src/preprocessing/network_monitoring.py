@@ -673,7 +673,7 @@ def tomography_over_paths(G, elements_val_id, elements_id_val, UNK_prior, monito
     new_node_probs = dict()
     new_edge_probs = dict()
 
-    # ASSIGN NODE PROBABILITY BROKEN
+    # ASSIGN NODE PROBABILITY DESTROY
     for n1_mon in tqdm.tqdm(G.nodes, disable=True):
         original_posterior = G.nodes[n1_mon][co.ElemAttr.POSTERIOR_BROKEN.value]
         node_id = G.nodes[n1_mon][co.ElemAttr.ID.value]
@@ -683,7 +683,7 @@ def tomography_over_paths(G, elements_val_id, elements_id_val, UNK_prior, monito
             # print((n1), prob)
             new_node_probs[(n1_mon, co.ElemAttr.POSTERIOR_BROKEN.value)] = prob
 
-    # ASSIGN EDGE PROBABILITY BROKEN
+    # ASSIGN EDGE PROBABILITY DESTROY
     for n1_mon, n2_mon, gt in tqdm.tqdm(G.edges, disable=True):
         if gt == co.EdgeType.SUPPLY.value:
             original_posterior = G.edges[n1_mon, n2_mon, gt][co.ElemAttr.POSTERIOR_BROKEN.value]

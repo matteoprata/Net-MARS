@@ -412,11 +412,29 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
                 if is_dynamic:
                     datas_ali = datas.copy()
-                    isd = np.where(file_df["forced_destr"] > 0)
-                    v_bars = isd[0][isd[0] < MAX_STEPS]
+                    # print(file_df["event"] == "destroy")
+                    isd_destr = np.where(file_df["event"] == co.DynamicEvent.DESTROY.value) # dodo add others
+                    v_bars_destr = isd_destr[0][isd_destr[0] < MAX_STEPS]
+
+                    isd_nn = np.where(file_df["event"] == co.DynamicEvent.ADD_NODE.value) # dodo add others
+                    v_bars_nn = isd_nn[0][isd_nn[0] < MAX_STEPS]
+
+                    isd_ne = np.where(file_df["event"] == co.DynamicEvent.ADD_EDGE.value)  # dodo add others
+                    v_bars_ne = isd_ne[0][isd_ne[0] < MAX_STEPS]
+
+                    isd_rn = np.where(file_df["event"] == co.DynamicEvent.REMOVE_NODE.value)  # dodo add others
+                    v_bars_rn = isd_rn[0][isd_rn[0] < MAX_STEPS]
+
+                    isd_re = np.where(file_df["event"] == co.DynamicEvent.REMOVE_EDGE.value)  # dodo add others
+                    v_bars_re = isd_re[0][isd_re[0] < MAX_STEPS]
+
+                    total_flow_func = file_df["total_flow"]
 
                 if FRONTIER[j] < df.shape[0]:
                     FRONTIER[j] = df.shape[0]
+
+    # datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
+    # print(datas[:, 0, 0, :])
 
     # print(np.average(app_si))
 
@@ -431,11 +449,11 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                     max_val = np.nanmax(vec)
                     datas[:, k, i, j] = np.where(~mask, vec, max_val)  # forwards the max
 
-    # padding with zeros after the frontier
-    for xval in range(datas.shape[-1]):  # x
-        front = int(FRONTIER[xval])
-        pad = int(MAX_STEPS - front)
-        datas[front:, :, :, xval] = np.zeros(shape=(pad, datas.shape[1], datas.shape[2]))
+        # padding with zeros after the frontier
+        for xval in range(datas.shape[-1]):  # x
+            front = int(FRONTIER[xval])
+            pad = int(MAX_STEPS - front)
+            datas[front:, :, :, xval] = np.zeros(shape=(pad, datas.shape[1], datas.shape[2]))
 
     plt.figure(figsize=figure_size)
 
@@ -451,7 +469,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
         # print(datas[:front, 0, -1]/MAX_TOTAL_FLOW[PERC_DESTRUCTION])
         # exit()
-        dyn = np.average(datas_ali, axis=1) if is_dynamic else None
+        # dyn = np.average(datas_ali, axis=1) if is_dynamic else None
         avg_flow = datas[:front, :, PERC_DESTRUCTION]  # / MAX_TOTAL_FLOW[PERC_DESTRUCTION] if not is_dynamic else dyn
         if not is_dynamic:
             for i, _ in enumerate(algos):
@@ -463,14 +481,33 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
         if is_dynamic:
             plt.figure(figsize=(10.6, figure_size[1]))
             st = np.std(datas_ali, axis=1)[:, 0, 0]
-            ub = avg_flow[:, 0, 0]+st
+            ub = avg_flow[:, 0]+st
             ub[ub > MAX_TOTAL_FLOW] = MAX_TOTAL_FLOW
-            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], ub, color='brown', alpha=0.2)
-            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], avg_flow[:, 0, 0]-st, color='brown', alpha=0.2)
-            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
-                     color=co.Algorithm.PROTON_DYN.value[co.AlgoAttributes.COLOR])
-            for x in v_bars:
-                plt.axvline(x, alpha=.1, color='red')
+            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
+            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]-st, color='brown', alpha=0.2)
+            color = sample_color(algos[0].value.plot_color_curve)
+            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
+                     color=color)
+
+            plt.plot(np.arange(avg_flow.shape[0]), total_flow_func[:500], label="Total flow", markersize=marker_size, linewidth=line_width,
+                     color="red", linestyle="--")
+
+            for ii, x in enumerate(v_bars_destr):
+                plt.axvline(x, alpha=.4, color='red', label="destruction" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_nn):
+                plt.axvline(x, alpha=.4, color='green', linestyle=":", label="new node" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_ne):
+                plt.axvline(x, alpha=.4, color='green', linestyle="--", label="new edge" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_rn):
+                plt.axvline(x, alpha=.4, color='black', linestyle=":", label="rem node" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_re):
+                plt.axvline(x, alpha=.4, color='black', linestyle="--", label="rem edge" if ii == 0 else None)
+
+            plt.ylim(0, max(avg_flow[:, 0])+10)
 
         print("Plotting flow")
         plt.ylabel(plot_name)
@@ -718,44 +755,48 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, variable_name,
             plt.savefig(str(plot_type) + str(var_id_map[variable_name]) + ".png", dpi=300)
     plt.close()
 
-
+#
 # def plotting_dyn():
-#     config = ma.configuration_update()
-#     co.PATH_EXPERIMENTS = "data/experiments/"
-#
-#     dis_uni = {0: [.5]}
-#     npairs = {0: 8}
-#     flowpp = {0: 30}
-#     monitor_bud = {0: 20}
-#     ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni]}
-#
-#     seeds = range(700, 800)
-#     print("Using", len(seeds), seeds)
-#
-#     BENCHMARKS = [co.Algorithm.PROTON_DYN]
-#
-#     algo_names = [al.value[co.AlgoAttributes.FILE_NAME] for al in BENCHMARKS]
-#     algo_names_plot = [al.value[co.AlgoAttributes.PLOT_NAME] for al in BENCHMARKS]
-#
+#     config = configuration.Configuration()
 #     source = co.PATH_EXPERIMENTS
+#     BENCHMARKS = setup.comparison_dims[co.IndependentVariable.ALGORITHM]
+#     algo_names = [al.value.file_name for al in BENCHMARKS]
+#     algo_names_plot = [al.value.plot_name for al in BENCHMARKS]
+#     seeds = setup.comparison_dims[co.IndependentVariable.SEED]
 #     OUTLIERS = 0
+#     index_fixed_X = -1  # TODO: make it more generic
 #
-#     with PdfPages('dynamic-rep.pdf') as pdf:
-#         for i, (name, vals) in ind_var.items():
-#             print("Now varying", name.name, "as", vals[i])
+#     # dis_uni = {0: [.5]}
+#     # npairs = {0: 8}
+#     # flowpp = {0: 30}
+#     # monitor_bud = {0: 20}
+#     # ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni]}
+#     #
+#     # seeds = range(700, 800)
+#     # print("Using", len(seeds), seeds)
+#     #
+#     # BENCHMARKS = [co.Algorithm.PROTON_DYN]
+#     #
+#     # algo_names = [al.value[co.AlgoAttributes.FILE_NAME] for al in BENCHMARKS]
+#     # algo_names_plot = [al.value[co.AlgoAttributes.PLOT_NAME] for al in BENCHMARKS]
 #
-#             config.supply_capacity = (80, 81)
-#             PERC_DESTRUCTION = 0
 #
-#             if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
-#                 config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
-#                 config.n_nodes_demand_clique = len(co.FIXED_DEMAND_NODES)
-#                 config.n_edges_demand = npairs[i]  # config.n_edges_given_n_nodes(npairs[i])
-#                 config.demand_capacity = flowpp[i]
-#                 config.monitors_budget = monitor_bud[i]
-#                 fixed_x = dis_uni[i][PERC_DESTRUCTION]
-#                 plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format("*", config.n_nodes_demand_clique, config.n_edges_demand,
-#                                                                                       config.demand_capacity, config.monitors_budget)
+#     # with PdfPages('dynamic-rep.pdf') as pdf:
+#     #     for i, (name, vals) in ind_var.items():
+#     #         print("Now varying", name.name, "as", vals[i])
+#     #
+#     #         config.supply_capacity = (80, 81)
+#     #         PERC_DESTRUCTION = 0
+#     #
+#     #         if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
+#     #             config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
+#     #             config.n_nodes_demand_clique = len(co.FIXED_DEMAND_NODES)
+#     #             config.n_edges_demand = npairs[i]  # config.n_edges_given_n_nodes(npairs[i])
+#     #             config.demand_capacity = flowpp[i]
+#     #             config.monitors_budget = monitor_bud[i]
+#     #             fixed_x = dis_uni[i][PERC_DESTRUCTION]
+#     #             plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format("*", config.n_nodes_demand_clique, config.n_edges_demand,
+#     #                                                                                   config.demand_capacity, config.monitors_budget)
 #
 #             # plot FLOW
 #             path_prefix = source + "{}"  # "data/experiments/{}"
@@ -812,25 +853,35 @@ def plotting_static_methods(setup):
 
             plot_title = str(list(plot_name_ele.items()))
 
-            with PdfPages('multipage_pdf|graph-{}.pdf'.format(config.graph_dataset.name)) as pdf:
+            # plotting PROTON_DYN
+            if len(algo_names) == 1 and BENCHMARKS[0] == co.Algorithm.PROTON_DYN:
+                with PdfPages('dyn|graph-{}-{}.pdf'.format(config.graph_dataset.name, seeds)) as pdf:
+                    path_prefix = source + "{}"  # "data/experiments/{}"
+                    good_seeds = check_good_seeds(X_var, BENCHMARKS, seeds, i, path_prefix, 500, config, False)
 
-                path_prefix = source + "{}"  # "data/experiments/{}"
-                good_seeds = check_good_seeds(X_var, BENCHMARKS, seeds, i, path_prefix, 500, config, False)
-
-                plot_names = [0, 1, 2, 3]
-                for pln in plot_names:
-                    plot_integral(source, config, good_seeds, X_var, BENCHMARKS, plot_type=pln, x_position=i, outliers=OUTLIERS,
+                    plot_integral(source, config, good_seeds, X_var, BENCHMARKS, plot_type=2, x_position=i, outliers=OUTLIERS,
                                   algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title,
-                                  PERC_DESTRUCTION=index_fixed_X, fixed_x=fixed_x)
+                                  PERC_DESTRUCTION=index_fixed_X, fixed_x=fixed_x, is_dynamic=True)
+            else:
+                with PdfPages('multipage_pdf|graph-{}.pdf'.format(config.graph_dataset.name)) as pdf:
 
-                ndmp = X_var if x_var_k == co.IndependentVariable.N_DEMAND_EDGES else [config.n_edges_demand]
-                plot_Xvar_Ydems2(source, config, good_seeds, X_var, BENCHMARKS, variable_name=x_var_k, n_dem_edges=ndmp, plot_type=0,
-                                 algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title)
+                    path_prefix = source + "{}"  # "data/experiments/{}"
+                    good_seeds = check_good_seeds(X_var, BENCHMARKS, seeds, i, path_prefix, 500, config, False)
 
-                plot_names = ["n_repairs", "execution_sec"]  # n_monitors, n_monitor_msg
-                for pln in plot_names:
-                    plot_quantities(source, config, good_seeds, X_var, BENCHMARKS, typep=pln, x_position=i,
-                                    algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title)
+                    plot_names = [0, 1, 2, 3]
+                    for pln in plot_names:
+                        plot_integral(source, config, good_seeds, X_var, BENCHMARKS, plot_type=pln, x_position=i, outliers=OUTLIERS,
+                                      algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title,
+                                      PERC_DESTRUCTION=index_fixed_X, fixed_x=fixed_x)
+
+                    ndmp = X_var if x_var_k == co.IndependentVariable.N_DEMAND_EDGES else [config.n_edges_demand]
+                    plot_Xvar_Ydems2(source, config, good_seeds, X_var, BENCHMARKS, variable_name=x_var_k, n_dem_edges=ndmp, plot_type=0,
+                                     algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title)
+
+                    plot_names = ["n_repairs", "execution_sec"]  # n_monitors, n_monitor_msg
+                    for pln in plot_names:
+                        plot_quantities(source, config, good_seeds, X_var, BENCHMARKS, typep=pln, x_position=i,
+                                        algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title)
 
 
 def cli_args_parsing():

@@ -77,8 +77,8 @@ def gaussian_destruction(graph, density, dims_ratio, destruction_width, n_disrup
     def sample_broken_element(list_broken, element, dist_max, dist, x, y):
         """ Break the element with probability given by the probability density function. """
         prob = util.min_max_normalizer(dist[x, y], 0, dist_max, 0, 1)
-        state = np.random.choice(["BROKEN", "WORKING"], 1, p=[prob, 1 - prob])  # broken, working
-        if state == "BROKEN":
+        state = np.random.choice(["DESTROY", "WORKING"], 1, p=[prob, 1 - prob])  # broken, working
+        if state == "DESTROY":
             list_broken.append(element)
 
     distribution = get_distribution()

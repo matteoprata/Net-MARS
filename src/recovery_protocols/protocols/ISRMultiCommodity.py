@@ -109,7 +109,7 @@ class ISRMultiCommodity(ISR):
             opt = self.relaxed_LP_multicom(G, demand_edges, G.nodes, broken_supply_edges, SG_edges, bro_unk_node, bro_unk_edge)
             var_demand_flows, var_demand_node_pos, supply_edges, m = opt
 
-            # vv = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.BROKEN, co.Knowledge.TRUTH)
+            # vv = get_element_by_state_KT(G, co.GraphElement.NODE, co.NodeState.DESTROY, co.Knowledge.TRUTH)
             # print("broken", len(vv), vv)
 
             node_rep, path_nodes, path_edges = self.derive_solution_from_variables(G, var_demand_flows, var_demand_node_pos, supply_edges, m)

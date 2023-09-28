@@ -184,7 +184,7 @@ def run_1_single_execution(config):
         if config.algo_instance in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
             df = save_stats_NON_monotonous(stats, fname)
         else:
-            df = save_stats_monotonous(stats, fname, config.algo_instance)
+            df = save_stats_monotonous(stats, fname, config.algo_name)
         print(df.to_string())
 
 
