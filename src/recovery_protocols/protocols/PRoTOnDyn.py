@@ -31,6 +31,8 @@ class PRoTOnDyn(RecoveryProtocol):
 
     def __init__(self, config):
         super().__init__(config)
+        self.seed_fix_max_flow = 0
+        self.random_gen_fix_max_flow = np.random.RandomState(seed=self.seed_fix_max_flow)
 
         self.MISSION_DURATION = 500
         # Viviana: con un processo di Poisson decidiamo gli "arrival time" delle distruzioni dinamiche
@@ -49,7 +51,7 @@ class PRoTOnDyn(RecoveryProtocol):
         self.destroy_times = [175, 200, 225, 250, 275, 300, 325]  # self.destroy_times[self.destroy_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
 
         self.new_node_times = np.array(self.poisson_process_dynamic_events(rate_new_node, num_arrivals, self.first_event_time, self.config, 2))
-        self.new_node_times = [50, 100]  # self.new_node_times[self.new_node_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
+        self.new_node_times = [50, 100] # self.new_node_times[self.new_node_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
 
         self.new_edge_times = np.array(self.poisson_process_dynamic_events(rate_new_edge, num_arrivals, self.first_event_time, self.config, 3))
         self.new_edge_times = [75, 125]  # self.new_edge_times[self.new_edge_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
@@ -58,7 +60,7 @@ class PRoTOnDyn(RecoveryProtocol):
         self.remove_node_times = [400]  # self.remove_node_times[self.remove_node_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
 
         self.remove_edge_times = np.array(self.poisson_process_dynamic_events(rate_remove_edge, num_arrivals, self.first_event_time, self.config, 5))
-        self.remove_edge_times = [425] # self.remove_edge_times[self.remove_edge_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
+        self.remove_edge_times = [425]# self.remove_edge_times[self.remove_edge_times < (self.MISSION_DURATION - 15)]  # removes the last time steps
 
         print("This will be the events:")
         print(self.destroy_times)
@@ -84,9 +86,9 @@ class PRoTOnDyn(RecoveryProtocol):
 
         # add_demand_endpoints
         if self.config.is_demand_clique:
-            add_demand_clique(G, self.config)
+            add_demand_clique(G, self.config, self.random_gen_fix_max_flow)  # generators uses the same demand graph always
         else:
-            add_demand_pairs(G, self.config.n_edges_demand, self.config.demand_capacity, self.config)
+            add_demand_pairs(G, self.config.n_edges_demand, self.config.demand_capacity, self.config, self.random_gen_fix_max_flow)
 
         pg.plot(G, self.config.graph_path, distribution, self.config.destruction_precision, dim_ratio,
                 self.config.destruction_show_plot, self.config.destruction_save_plot, self.config.seed, "TRU", co.PlotType.TRU, self.config.destruction_quantity)
@@ -279,11 +281,9 @@ class PRoTOnDyn(RecoveryProtocol):
         return destr_nodes, destr_edges
         # WHEN DESTROY RESET CAPACITIES Viviana: and stop routing flow of demands traversing the newly broken elements
 
-    @staticmethod
-    def poisson_process_dynamic_events(rate, num_arrivals, arrival_time, config, event_type):
+    def poisson_process_dynamic_events(self, rate, num_arrivals, arrival_time, config, event_type):
         # Viviana: tutta questa funzione (requires math and random)
-        seed = 15
-        CONST_SEED = event_type * seed # * config.seed
+        CONST_SEED = event_type * self.seed_fix_max_flow  # * config.seed
         util.set_seed(CONST_SEED)
 
         poi_process = []
@@ -362,8 +362,7 @@ class PRoTOnDyn(RecoveryProtocol):
 
         for i in range(len(path) - 1):
             n1, n2 = make_existing_edge(path[i], path[i + 1])
-            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] = \
-                G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.CAPACITY.value]
+            G.edges[n1, n2, co.EdgeType.SUPPLY.value][co.ElemAttr.RESIDUAL_CAPACITY.value] += dem_edge_capacity
 
     def handle_events(self, G, mission_time, pruning_paths_dict):
         event_happened = co.DynamicEvent.NONE
@@ -380,10 +379,10 @@ class PRoTOnDyn(RecoveryProtocol):
 
             demand_nodes = set(co.FIXED_DEMAND_NODES)
             cand_nodes = list(gru.get_supply_nodes(G) - demand_nodes)
-            ind_new_node = np.random.randint(low=0, high=len(cand_nodes))
+            ind_new_node = self.random_gen_fix_max_flow.randint(low=0, high=len(cand_nodes))
             new_demand_node = cand_nodes[ind_new_node]
 
-            ind_exist_node = np.random.randint(low=0, high=len(demand_nodes))
+            ind_exist_node = self.random_gen_fix_max_flow.randint(low=0, high=len(demand_nodes))
             exist_demand_node = list(demand_nodes)[ind_exist_node]
             gru.make_demand_edge(G, new_demand_node, exist_demand_node, self.config.demand_capacity)
 
@@ -405,7 +404,7 @@ class PRoTOnDyn(RecoveryProtocol):
             demand_edges = gru.get_demand_edges(G, is_capacity=False)
             exist_node1, exist_node2 = None, None
             while (exist_node1, exist_node2) in demand_edges or (exist_node1, exist_node2) == (None, None):
-                ind1_exist_node, ind2_exist_node = np.random.choice(len(demand_nodes), 2, replace=False)
+                ind1_exist_node, ind2_exist_node = self.random_gen_fix_max_flow.choice(len(demand_nodes), 2, replace=False)
                 exist_node1, exist_node2 = demand_nodes[ind1_exist_node], demand_nodes[ind2_exist_node]
             exist_node1, exist_node2 = gru.make_existing_edge(exist_node1, exist_node2)
 
@@ -428,7 +427,7 @@ class PRoTOnDyn(RecoveryProtocol):
             print("EVENT: REMOVING DEMAND NODE!")
 
             demand_nodes = list(gru.get_demand_nodes(G))
-            ind_new_node = np.random.randint(low=0, high=len(demand_nodes))
+            ind_new_node = self.random_gen_fix_max_flow.randint(low=0, high=len(demand_nodes))
             exist_node = demand_nodes[ind_new_node]
 
             demand_edges_remove = self.do_revert_routed_path(G, [exist_node], [], co.DynamicEvent.REMOVE_NODE, pruning_paths_dict)
@@ -436,6 +435,8 @@ class PRoTOnDyn(RecoveryProtocol):
             list_edges_to_remove = [el for el in get_demand_edges(G, is_capacity=False) if exist_node in el]
             for n1, n2 in list_edges_to_remove:
                 gru.remove_demand_edge(G, n1, n2)
+                # print("URCA INNER EDGE T", mission_time, n1, n2, self.config.seed)
+
                 # stats["demands_sat"][(n1, n2)].append(-self.config.demand_capacity)  # removes the flow
             print("Time", iter, "removed demand node!", exist_node, ". All demand nodes",
                   gru.get_demand_edges(G, is_capacity=False))
@@ -446,10 +447,11 @@ class PRoTOnDyn(RecoveryProtocol):
         elif mission_time in self.remove_edge_times and len(gru.get_demand_edges(G)) > 0:
             print("EVENT: REMOVING DEMAND EDGE!")
             demand_edges = list(gru.get_demand_edges(G, is_capacity=False))
-            ind_new_edge = np.random.randint(low=0, high=len(demand_edges))
+            ind_new_edge = self.random_gen_fix_max_flow.randint(low=0, high=len(demand_edges))
             n1, n2 = demand_edges[ind_new_edge]
             demand_edges_remove = self.do_revert_routed_path(G, [], [(n1, n2)], co.DynamicEvent.REMOVE_EDGE, pruning_paths_dict)
 
+            # print("URCA EDGE T", mission_time, n1, n2, self.config.seed)
             gru.remove_demand_edge(G, n1, n2)
             # stats["demands_sat"][(n1, n2)].append(-self.config.demand_capacity)  # removes the flow
             print("Time", iter, "removed demand edge!", (n1, n2), ". All demand edges", gru.get_demand_edges(G, is_capacity=False))

@@ -182,7 +182,7 @@ def print_graph_info(G):
     print("graph has nodes:", len(G.nodes), "and edges:", len(G.edges))
 
 
-def select_demand(G, max_comp, n_samples, is_nodes, THRESHOLD_DIST=0.7):
+def select_demand(G, max_comp, n_samples, is_nodes, THRESHOLD_DIST=0.7, generator=None):
     """ This produces demand nodes or pairs on the frontier of the graph."""
     # # CEREFUL n^2 complexity
     nodes_dis = dict()
@@ -213,7 +213,7 @@ def select_demand(G, max_comp, n_samples, is_nodes, THRESHOLD_DIST=0.7):
 
 
 # 6 -- demand pairs
-def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
+def add_demand_pairs(G, n_demand_pairs, demand_capacity, config, generator=None):
     assert(False)  # because we want to add demand edges progressively with seeds
     max_comp = list(get_max_component(G))
 
@@ -221,7 +221,7 @@ def add_demand_pairs(G, n_demand_pairs, demand_capacity, config):
     # if config.experiment_ind_var == co.IndependentVariable.PROB_BROKEN:
     #     np.random.seed(config.fixed_unvarying_seed)  # destruction varies > vary only the epicenter
 
-    list_pairs = select_demand(G, max_comp, n_demand_pairs, False)
+    list_pairs = select_demand(G, max_comp, n_demand_pairs, False, generator=generator)
 
     # assert config.is_xindvar_destruction and config.n_demand_pairs <= 8 # otherwise, pick them at random!
     # list_pairs = [(60, 411), (360, 522), (186, 78), (27, 221), (79, 474), (397, 525), (83, 564), (373, 281)]
@@ -256,7 +256,7 @@ def get_max_component(G):
     return max_comp
 
 
-def add_demand_clique(G, config):
+def add_demand_clique(G, config, generator=None):
     """ Add edges as a clique. SAMPLES N (input) edges from the clique. """
 
     # SEED 1 - [28, 23, 4, 5 ...]
@@ -272,7 +272,12 @@ def add_demand_clique(G, config):
         list_nodes = G.nodes
 
     clique_edges = np.asarray(list(combinations(list_nodes, r=2)))
-    np.random.shuffle(clique_edges)
+
+    if generator is None:
+        np.random.shuffle(clique_edges)
+    else:
+        generator.shuffle(clique_edges)
+
     total_edges = clique_edges[:config.n_edges_demand]
 
     util.set_seed(config.seed)

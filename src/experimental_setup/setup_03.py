@@ -7,7 +7,7 @@ comparison_dims = {co.IndependentVariable.GRAPH: [
                    co.IndependentVariable.ALGORITHM: [
                         co.Algorithm.PROTON_DYN,
                         ],
-                   co.IndependentVariable.SEED: [78] # [78, 79, 80, 81, 82]  #, 1401, 1402, 1443],  # 1400, 1401, 1402, 1443
+                   co.IndependentVariable.SEED: [6]  #, 1401, 1402, 1443],  # 1400, 1401, 1402, 1443
 }
 
 indv_vary = {

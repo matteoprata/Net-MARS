@@ -484,6 +484,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             ub = avg_flow[:, 0]+st
             ub[ub > MAX_TOTAL_FLOW] = MAX_TOTAL_FLOW
             # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
+            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]+st, color='brown', alpha=0.2)
             # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]-st, color='brown', alpha=0.2)
             color = sample_color(algos[0].value.plot_color_curve)
             plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
