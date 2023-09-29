@@ -7,7 +7,7 @@ import traceback
 import src.constants as co
 import src.configuration as configuration
 
-from src.utilities.store_recovery_stats import save_stats_monotonous, save_stats_NON_monotonous
+from src.utilities.store_recovery_stats import save_stats_monotonous, save_stats_NON_monotonous, save_stats_dynamic
 from src.utilities.util import set_seed, disable_print, enable_print
 from src.recovery_protocols import RecoveryProtocol
 import src.utilities.util as util
@@ -181,8 +181,10 @@ def run_1_single_execution(config):
     enable_print()
 
     if stats is not None:
-        if config.algo_instance in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
+        if config.algo_name in [co.Algorithm.SHP, co.Algorithm.ISR_MULTICOM]:
             df = save_stats_NON_monotonous(stats, fname)
+        elif config.algo_name in [co.Algorithm.PROTON_DYN]:
+            df = save_stats_dynamic(stats, fname, config.algo_name)
         else:
             df = save_stats_monotonous(stats, fname, config.algo_name)
         print(df.to_string())

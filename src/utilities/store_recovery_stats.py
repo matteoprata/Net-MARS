@@ -8,6 +8,18 @@ from src.recovery_protocols.protocols.MinTDS import MinTDS
 from src.recovery_protocols.protocols.PRoTOnDyn import PRoTOnDyn
 
 
+def save_stats_dynamic(stats, fname, algon):
+    df = stats.df
+
+    print("saving stats > {}".format(fname))
+    if os.path.exists(co.PATH_EXPERIMENTS):
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
+    else:
+        os.makedirs(co.PATH_EXPERIMENTS)
+        df.to_csv("{}{}".format(co.PATH_EXPERIMENTS, fname))
+    return df
+
+
 def save_stats_monotonous(stats, fname, algon):
     """ saving number of repairs and flow routed """
 

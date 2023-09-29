@@ -9,21 +9,46 @@ import tqdm
 import src.utilities.util as util
 
 from collections import defaultdict
+import deprecation
 
 # utilities requiring computation
-def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residual=False):
+@deprecation.deprecated(details="Use the total demand edge info instead")
+def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residual=False, is_routed=False):
     """ node, node, demand.
     is_check_unsatisfied: keeps edges only if the residual capacity i > 0;
     is_capacity: show third component capacity
-    is_residual: is residual demand or total demand """
+    is_residual: is residual demand or total demand
+    is_routed: is the routed quantity of flow"""
+
+    demand_edges = []
+    for n1, n2, etype in G.edges:
+        if etype == co.EdgeType.DEMAND.value:
+            res = G.edges[n1, n2, etype][co.ElemAttr.RESIDUAL_CAPACITY.value]
+            if is_routed:
+                res_attr = G.edges[n1, n2, etype][co.ElemAttr.RESIDUAL_CAPACITY.value]
+                tot_attr = G.edges[n1, n2, etype][co.ElemAttr.CAPACITY.value]
+                out = (n1, n2, tot_attr - res_attr)
+                demand_edges.append(out)
+
+            elif (is_check_unsatisfied and res > 0) or (not is_check_unsatisfied):
+                attr = co.ElemAttr.RESIDUAL_CAPACITY.value if is_residual else co.ElemAttr.CAPACITY.value
+                out = (n1, n2, G.edges[n1, n2, etype][attr]) if is_capacity else (n1, n2)
+                demand_edges.append(out)
+    return demand_edges
+
+
+def get_demand_edges_info(G, is_check_unsatisfied=False):
+    """ node, node, demand.
+    is_check_unsatisfied: keeps edges only if the residual capacity i > 0"""
 
     demand_edges = []
     for n1, n2, etype in G.edges:
         if etype == co.EdgeType.DEMAND.value:
             res = G.edges[n1, n2, etype][co.ElemAttr.RESIDUAL_CAPACITY.value]
             if (is_check_unsatisfied and res > 0) or (not is_check_unsatisfied):
-                attr = co.ElemAttr.RESIDUAL_CAPACITY.value if is_residual else co.ElemAttr.CAPACITY.value
-                out = (n1, n2, G.edges[n1, n2, etype][attr]) if is_capacity else (n1, n2)
+                res_attr = G.edges[n1, n2, etype][co.ElemAttr.RESIDUAL_CAPACITY.value]
+                tot_attr = G.edges[n1, n2, etype][co.ElemAttr.CAPACITY.value]
+                out = (n1, n2, tot_attr, res_attr, tot_attr - res_attr)
                 demand_edges.append(out)
     return demand_edges
 
@@ -573,7 +598,17 @@ def get_path_residual_capacity(G, path_nodes):
 
 
 def get_residual_demand(G):
+    """ Quantity of demand to satisfy yet"""
     return sum([d for _, _, d in get_demand_edges(G, is_check_unsatisfied=True, is_capacity=True)])
+
+
+def get_routed_demand(G):
+    """ Quantity of demand to satisfy yet"""
+    return get_maximum_demand(G) - get_residual_demand(G)
+
+
+def get_maximum_demand(G):
+    return sum([el[2] for el in get_demand_edges(G)])
 
 
 def demand_pruning(G, path, quantity):

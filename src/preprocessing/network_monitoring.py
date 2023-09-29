@@ -360,7 +360,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
     return stats_packet_monitoring, demand_edges_to_repair, demand_edges_routed_flow, monitoring_paths, demand_edges_routed_flow_pp
 
 
-def pruning_monitoring_dynamic(G, stats_packet_monitoring_so_far, threshold_monitor_message, monitors_map, monitors_connections, monitors_non_connections, last_repaired_demand, config):
+def pruning_monitoring_dynamic(G, threshold_monitor_message, monitors_map, monitors_connections, monitors_non_connections, last_repaired_demand, config):
     demand_edges_to_repair = []
     demand_edges_routed_flow = []          # total
     demand_edges_routed_flow_pp = dict()   # (): 10
