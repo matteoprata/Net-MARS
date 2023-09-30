@@ -482,19 +482,20 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             plt.figure(figsize=(10.6, figure_size[1]))
             st = np.std(datas_ali, axis=1)[:, 0, 0]
             ub = avg_flow[:, 0]+st
-            ub[ub > MAX_TOTAL_FLOW] = MAX_TOTAL_FLOW
+            ub[ub > total_flow_func] = total_flow_func[ub > total_flow_func]
             # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
-            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]+st, color='brown', alpha=0.2)
-            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]-st, color='brown', alpha=0.2)
+
+            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
+            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]-st, color='brown', alpha=0.2)
             color = sample_color(algos[0].value.plot_color_curve)
             plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
                      color=color)
 
-            plt.plot(np.arange(avg_flow.shape[0]), total_flow_func[:500], label="Total flow", markersize=marker_size, linewidth=line_width,
+            plt.plot(np.arange(avg_flow.shape[0]), total_flow_func, label="Total flow", markersize=marker_size, linewidth=line_width,
                      color="red", linestyle="--")
 
             for ii, x in enumerate(v_bars_destr):
-                plt.axvline(x, alpha=.4, color='red', label="destruction" if ii == 0 else None)
+                plt.axvline(x, alpha=.2, color='red', label="destruction" if ii == 0 else None)
 
             for ii, x in enumerate(v_bars_nn):
                 plt.axvline(x, alpha=.4, color='green', linestyle=":", label="new node" if ii == 0 else None)
@@ -596,7 +597,7 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
     if is_title:
         plt.title(title.replace("*", str(fixed_x)) if fixed_x is not None else title)
     plt.grid(alpha=grid_alpha)
-    plt.legend(fontsize=legend_font)
+    plt.legend(fontsize=legend_font, loc="upper left", prop={'size': 13})
 
     plt.tight_layout()
     if is_single_file or is_dynamic:

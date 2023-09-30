@@ -9,10 +9,9 @@ import tqdm
 import src.utilities.util as util
 
 from collections import defaultdict
-import deprecation
+
 
 # utilities requiring computation
-@deprecation.deprecated(details="Use the total demand edge info instead")
 def get_demand_edges(G, is_check_unsatisfied=False, is_capacity=True, is_residual=False, is_routed=False):
     """ node, node, demand.
     is_check_unsatisfied: keeps edges only if the residual capacity i > 0;
