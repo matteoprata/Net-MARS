@@ -208,11 +208,11 @@ class Algorithm(Enum):
     MIN_TDS = MinTDS
 
 
-from src.experimental_setup import setup_01, setup_02, setup_03, setup_sept_23
+from src.experimental_setup import setup_01, setup_02, dyn_journal_2023, opt_journal_2023
 
 
 class Setups(Enum):
     SETUP_01 = setup_01
     SETUP_02 = setup_02
-    SETUP_03 = setup_03
-    SETUP_SEPT_23 = setup_sept_23
+    DYN_JOURNAL_2023 = dyn_journal_2023
+    OPT_JOURNAL_2023 = opt_journal_2023

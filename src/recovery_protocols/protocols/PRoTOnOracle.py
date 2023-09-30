@@ -1,5 +1,5 @@
 
-import src.plotting.graph_plotting as pg
+import src.plotting_utils.graph_plotting as pg
 from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *
@@ -21,8 +21,8 @@ class PRoTOnOracle(RecoveryProtocol):
     mode_monitoring = co.ProtocolMonitorPlacement.BUDGET
     mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
-    plot_marker = 1
-    plot_color_curve = 1
+    plot_marker = 9  # D
+    plot_color_curve = 1  # orange
 
     def __init__(self, config):
         super().__init__(config)

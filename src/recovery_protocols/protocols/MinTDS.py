@@ -4,19 +4,18 @@ from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *
 import src.constants as co
-import src.plotting.graph_plotting as pg
+import src.plotting_utils.graph_plotting as pg
 
 import src.preprocessing.network_utils as gru
 from gurobipy import *
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
-import matplotlib.pyplot as plt
 
 
 class MinTDS(RecoveryProtocol):
     file_name = "MinTDS"
     plot_name = "MinTDS"
 
-    plot_marker = 2
+    plot_marker = -1
     plot_color_curve = 9
 
     def __init__(self, config):

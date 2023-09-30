@@ -1,4 +1,4 @@
-import src.plotting.graph_plotting as pg
+import src.plotting_utils.graph_plotting as pg
 from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *

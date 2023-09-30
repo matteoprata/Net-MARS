@@ -1,6 +1,4 @@
-import numpy as np
-
-import src.plotting.graph_plotting as pg
+import src.plotting_utils.graph_plotting as pg
 from src.preprocessing.network_init import *
 from src.preprocessing.network_monitoring import *
 from src.preprocessing.network_utils import *
@@ -12,8 +10,6 @@ from src.recovery_protocols.utils import finder_recovery_path as frp, finder_rec
 
 from src.recovery_protocols.RecoveryProtocol import RecoveryProtocol
 from src.recovery_protocols.RecoveryLog import RecoveryLog
-
-from enum import Enum
 
 
 class PRoTOnDyn(RecoveryProtocol):
@@ -27,7 +23,7 @@ class PRoTOnDyn(RecoveryProtocol):
     mode_monitoring_type = co.PriorKnowledge.TOMOGRAPHY
 
     plot_marker = "D"
-    plot_color_curve = 4
+    plot_color_curve = 2
 
     def __init__(self, config):
         super().__init__(config)

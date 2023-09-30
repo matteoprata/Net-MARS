@@ -25,7 +25,7 @@ matplotlib.rc('font', **font)
 np.set_printoptions(suppress=True)
 is_std_error = True
 is_title = False
-is_single_file = True  # all pots in 1 file
+is_single_file = False  # all pots in 1 file
 grid_alpha = .2
 figure_size = (6.7, 6)
 is_pdf_else_png = True
@@ -349,13 +349,18 @@ def check_good_seeds(X_var, algos, seeds_values, x_position, path_prefix, MAX_ST
                     df = pd.read_csv(path)
                     assert not is_dynamic or df.shape[0] == MAX_STEPS
                 except:
+                    # print("Can't find", path)
                     bad_seeds.add(ss)
                     continue
                 good_seeds.add(ss)
 
     seeds = good_seeds - bad_seeds
-    print("OK", seeds)
+    print("OK ({})".format(len(seeds)), seeds)
     print("KO", bad_seeds)
+    if len(seeds) == 0:
+        print("ERROR! No proper seed.")
+        exit()
+
     return seeds
 
 
@@ -757,57 +762,6 @@ def plot_Xvar_Ydems2(source, config, seeds_values, X_vals, algos, variable_name,
             plt.savefig(str(plot_type) + str(var_id_map[variable_name]) + ".png", dpi=300)
     plt.close()
 
-#
-# def plotting_dyn():
-#     config = configuration.Configuration()
-#     source = co.PATH_EXPERIMENTS
-#     BENCHMARKS = setup.comparison_dims[co.IndependentVariable.ALGORITHM]
-#     algo_names = [al.value.file_name for al in BENCHMARKS]
-#     algo_names_plot = [al.value.plot_name for al in BENCHMARKS]
-#     seeds = setup.comparison_dims[co.IndependentVariable.SEED]
-#     OUTLIERS = 0
-#     index_fixed_X = -1  # TODO: make it more generic
-#
-#     # dis_uni = {0: [.5]}
-#     # npairs = {0: 8}
-#     # flowpp = {0: 30}
-#     # monitor_bud = {0: 20}
-#     # ind_var = {0: [co.IndependentVariable.PROB_BROKEN, dis_uni]}
-#     #
-#     # seeds = range(700, 800)
-#     # print("Using", len(seeds), seeds)
-#     #
-#     # BENCHMARKS = [co.Algorithm.PROTON_DYN]
-#     #
-#     # algo_names = [al.value[co.AlgoAttributes.FILE_NAME] for al in BENCHMARKS]
-#     # algo_names_plot = [al.value[co.AlgoAttributes.PLOT_NAME] for al in BENCHMARKS]
-#
-#
-#     # with PdfPages('dynamic-rep.pdf') as pdf:
-#     #     for i, (name, vals) in ind_var.items():
-#     #         print("Now varying", name.name, "as", vals[i])
-#     #
-#     #         config.supply_capacity = (80, 81)
-#     #         PERC_DESTRUCTION = 0
-#     #
-#     #         if name == co.IndependentVariable.PROB_BROKEN:  # vary prob broken fix n_pairs, ffp
-#     #             config.experiment_ind_var = co.IndependentVariable.PROB_BROKEN
-#     #             config.n_nodes_demand_clique = len(co.FIXED_DEMAND_NODES)
-#     #             config.n_edges_demand = npairs[i]  # config.n_edges_given_n_nodes(npairs[i])
-#     #             config.demand_capacity = flowpp[i]
-#     #             config.monitors_budget = monitor_bud[i]
-#     #             fixed_x = dis_uni[i][PERC_DESTRUCTION]
-#     #             plot_title = "p_bro-{}|d_node-{}|d_edges-{}|d_cap-{}|m_bud-{}".format("*", config.n_nodes_demand_clique, config.n_edges_demand,
-#     #                                                                                   config.demand_capacity, config.monitors_budget)
-#
-#             # plot FLOW
-#             path_prefix = source + "{}"  # "data/experiments/{}"
-#             good_seeds = check_good_seeds(vals[i], BENCHMARKS, seeds, i, path_prefix, 500, config, True)
-#
-#             plot_integral(source, config, good_seeds, vals[i], BENCHMARKS, plot_type=2, variable_name=i, outliers=OUTLIERS,
-#                           algo_names=algo_names, algo_names_plot=algo_names_plot, out_fig=pdf, title=plot_title, PERC_DESTRUCTION=PERC_DESTRUCTION, fixed_x=fixed_x,
-#                           is_dynamic=True)
-
 
 def plotting_static_methods(setup):
     """ A function that plots the results of the statics recovery algorithms associated to a setup file. """
@@ -855,7 +809,7 @@ def plotting_static_methods(setup):
 
             plot_title = str(list(plot_name_ele.items()))
 
-            # plotting PROTON_DYN
+            # plotting_utils PROTON_DYN
             if len(algo_names) == 1 and BENCHMARKS[0] == co.Algorithm.PROTON_DYN:
                 with PdfPages('dyn|graph-{}-{}.pdf'.format(config.graph_dataset.name, seeds)) as pdf:
                     path_prefix = source + "{}"  # "data/experiments/{}"
@@ -891,7 +845,7 @@ def cli_args_parsing():
     Parse the CLI arguments.
     :return: parsed cli arguments
     """
-    parser = argparse.ArgumentParser(description='NetMARS plotting parameters.')
+    parser = argparse.ArgumentParser(description='NetMARS plotting_utils parameters.')
 
     # -----> BEGIN of variable parameters
     parser.add_argument('-set', '--setup', type=str)
