@@ -2,7 +2,7 @@
 import src.constants as co
 
 comparison_dims = {co.IndependentVariable.GRAPH: [
-                        co.GraphName.BELL_CANADA,
+                        # co.GraphName.BELL_CANADA,
                         co.GraphName.PALMETTO
                         ],
                    co.IndependentVariable.ALGORITHM: [

@@ -79,7 +79,7 @@ class PRoTOnDyn(RecoveryProtocol):
         distribution, broken_nodes, broken_edges, perc_broken_elements = destroy(G, self.config.destruction_type, self.config.destruction_precision, dim_ratio,
                                                                                  self.config.destruction_width, self.config.n_destruction, self.config.graph_dataset, self.config.seed, ratio=self.config.destruction_quantity,
                                                                                  config=self.config)
-
+        broken_init = broken_nodes + broken_edges
         # add_demand_endpoints
         if self.config.is_demand_clique:
             add_demand_clique(G, self.config, self.random_gen_fix_max_flow)  # generators uses the same demand graph always
@@ -131,6 +131,9 @@ class PRoTOnDyn(RecoveryProtocol):
         pruning_paths_dict = {}
         # NEW STUFF
         mission_time = 0
+        self.broken_elements = set()
+        self.broken_elements |= set(broken_init)
+
         while mission_time < self.MISSION_DURATION:
             N_REPAIRS_ITERATION = []
             # check if the graph is still routbale on tot graph,
@@ -142,7 +145,6 @@ class PRoTOnDyn(RecoveryProtocol):
 
             monitors, monitors_repaired, candidate_monitors_dem = mon.new_monitoring_add(G, self.config)
             monitors_map = mon.merge_monitor_maps(monitors_map, candidate_monitors_dem)  # F(n) -> [(d1, d2)]
-
 
             # >>>> PRUNING HERE
             monitoring = pruning_monitoring_dynamic(G,
@@ -188,15 +190,16 @@ class PRoTOnDyn(RecoveryProtocol):
                 fixed_nodes, fixed_edges = do_fix_path(G, path_to_fix)
                 N_REPAIRS_ITERATION += fixed_nodes + fixed_edges
 
-            mission_time = self.handle(G, N_REPAIRS_ITERATION, mission_time, rlog, pruning_paths_dict)
+            mission_time = self.handle(G, N_REPAIRS_ITERATION, mission_time, rlog, pruning_paths_dict, broken_init)
             print(mission_time, N_REPAIRS_ITERATION, rlog.show_log(mission_time), sep="\n\n")
             # time.sleep(5)
 
         return rlog  # stats_list
 
-    def handle_no_repairs(self, G, mission_time, rlog, pruning_paths_dict, repair):
+    def handle_no_repairs(self, G, mission_time, rlog, pruning_paths_dict):
         # if self.is_event_happening(mission_time):
-        event_happened, _, _ = self.handle_events(G, mission_time, pruning_paths_dict)
+        event_happened, _, _, destroy_elements = self.handle_events(G, mission_time, pruning_paths_dict)
+        self.broken_elements |= set(destroy_elements)
 
         d_edges_info = get_demand_edges_info(G)
         maximum_flow = sum([to for e1, e2, to, res, ro in d_edges_info])
@@ -205,49 +208,52 @@ class PRoTOnDyn(RecoveryProtocol):
         total_flow = sum([ro for e1, e2, to, res, ro in d_edges_info])
         rlog.add_total_flow(total_flow)
 
+        rlog.add_n_damage_sum(len(self.broken_elements))
+        rlog.add_n_repairs_sum(0)
+
         rlog.add_event(event_happened.value)
-        rlog.add_repairs([repair])
+        rlog.add_repairs([None])
 
         # for e1, e2, to, res, ro in d_edges_info:
         #     rlog.add_demand_flow((e1, e2), ro)
 
-    def handle(self, G, repairs, mission_time, rlog, pruning_paths_dict):
+    def handle(self, G, repairs, mission_time, rlog, pruning_paths_dict, broken_init):
+        if mission_time == 0:
+            rlog.add_n_damage_sum(len(broken_init))
 
         if len(repairs) > 0:
             for t in range(len(repairs)):
                 # self.handle_no_repairs(G, mission_time, rlog, pruning_paths_dict, repair=repairs[t])
                 print("HANDLING!", t, repairs[t], mission_time)
-                event_happened, _, _ = self.handle_events(G, mission_time, pruning_paths_dict)
+                event_happened, _, _, destroy_elements = self.handle_events(G, mission_time, pruning_paths_dict)
+                self.broken_elements |= set(destroy_elements)
 
                 if t == 0 and mission_time > 0:  # first step
                     maximum_flow = rlog.get_maximum_flow(mission_time - 1)
-                    rlog.add_maximum_flow(maximum_flow)
                     total_flow = rlog.get_total_flow(mission_time - 1)
-                    rlog.add_total_flow(total_flow)
                     rlog.add_event(co.DynamicEvent.NONE.value)
-                    rlog.add_repairs([repairs[t]])
 
                 elif t < len(repairs)-1 and mission_time > 0:
                     maximum_flow = rlog.get_maximum_flow(mission_time-1)
-                    rlog.add_maximum_flow(maximum_flow)
                     total_flow = rlog.get_total_flow(mission_time-1)
-                    rlog.add_total_flow(total_flow)
                     rlog.add_event(rlog.get_event(mission_time-1))
-                    rlog.add_repairs([repairs[t]])
 
                 else:  # last step
                     d_edges_info = get_demand_edges_info(G)
                     maximum_flow = sum([to for e1, e2, to, res, ro in d_edges_info])
-                    rlog.add_maximum_flow(maximum_flow)
                     total_flow = sum([ro for e1, e2, to, res, ro in d_edges_info])
-                    rlog.add_total_flow(total_flow)
                     rlog.add_event(event_happened.value)
-                    rlog.add_repairs([repairs[t]])
+
+                rlog.add_maximum_flow(maximum_flow)
+                rlog.add_total_flow(total_flow)
+                rlog.add_n_damage_sum(len(self.broken_elements))
+                rlog.add_n_repairs_sum(1)
+                rlog.add_repairs([repairs[t]])
 
                 mission_time += 1
                 rlog.step()
         else:
-            self.handle_no_repairs(G, mission_time, rlog, pruning_paths_dict, repair=None)
+            self.handle_no_repairs(G, mission_time, rlog, pruning_paths_dict)
             mission_time += 1
             rlog.step()
 
@@ -375,10 +381,10 @@ class PRoTOnDyn(RecoveryProtocol):
 
     def handle_events(self, G, mission_time, pruning_paths_dict):
         event_happened = co.DynamicEvent.NONE
-        demand_edges_remove = []
-        demand_edges_add = []
+        demand_edges_add, demand_edges_remove, destroy_elements = [], [], []
         if mission_time in self.destroy_times:
             destr_nodes, destr_edges = self.dynamic_destruction(G)
+            destroy_elements = list(destr_nodes | destr_edges)
             print("DOING DESTRUCTION!!!", destr_nodes, destr_edges)
             demand_edges_remove = self.do_revert_routed_path(G, destr_nodes, destr_edges, co.DynamicEvent.DESTROY, pruning_paths_dict)
             event_happened = co.DynamicEvent.DESTROY
@@ -468,4 +474,4 @@ class PRoTOnDyn(RecoveryProtocol):
             print("Time", iter, "removed demand edge!", (n1, n2), ". All demand edges", gru.get_demand_edges(G, is_capacity=False))
             event_happened = co.DynamicEvent.REMOVE_EDGE
 
-        return event_happened, demand_edges_remove, demand_edges_add
+        return event_happened, demand_edges_remove, demand_edges_add, destroy_elements

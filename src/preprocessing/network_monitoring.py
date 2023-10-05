@@ -261,7 +261,7 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
     monitors_connections_merge(monitors_connections, monitors_non_connections, last_repaired_demand)
 
     halt_monitoring = False
-    while len(to_handle_pairs - handled_pairs) > 0:
+    while len(to_handle_pairs - handled_pairs) > 0:  # still to handle
         SG = get_supply_graph(G)
         priority_paths = {}  # k:path, v:priority
         bubbles = []
@@ -291,7 +291,8 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
 
             # if no capacitive path exists, abort, this should not happen
             if to_monitor:
-                st_path_out = util.safe_exec(mxv.protocol_routing_IP, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
+                routing_path_mode = mxv.protocol_routing_IP  # TODO consider experiment here
+                st_path_out = util.safe_exec(routing_path_mode, (SG, n1_mon, n2_mon))  # n1, n2 is not handleable
                 stats_packet_monitoring += 1
             else:
                 print("Skipped to monitor", n1_mon, n2_mon)
@@ -341,7 +342,6 @@ def pruning_monitoring(G, stats_packet_monitoring_so_far, threshold_monitor_mess
         path_to_prune = None
         if len(bubbles) > 0:
             path_to_prune = bubbles[0]  # TODO do prune all the bubbles
-
         elif len(priority_paths) > 0:
             priority_paths_items = sorted(priority_paths.items(), key=lambda x: x[1], reverse=True)  # path, priority
             path_to_prune = list(priority_paths_items[0][0])  # MAX

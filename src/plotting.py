@@ -381,6 +381,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     datas = np.empty(shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var)))
     datas[:] = np.nan
+    datas_rep_des = np.empty(shape=(MAX_STEPS, 2, len(seeds_values), len(algos), len(X_var)))
+    datas_rep_des[:] = np.nan
+
     FRONTIER = np.ones(len(X_var)) * -np.inf
     app_si = []
     for j, x in enumerate(X_var):
@@ -414,6 +417,9 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
                 # assert (df_len <= MAX_STEPS)
                 len_sh = min(df.shape[0], MAX_STEPS) if not is_dynamic else MAX_STEPS
                 datas[:len_sh, k, i, j] = list(df.values)[:len_sh]  # flow, seed, algo, x
+                # print(file_df.columns)
+                # exit()
+                datas_rep_des[:len_sh, :len_sh, k, i, j] = list(file_df[["n_repair_sum", "n_damage_sum"]].values)[:len_sh]
 
                 if is_dynamic:
                     datas_ali = datas.copy()
@@ -467,9 +473,13 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     # -------------------- PLOT NOW
     if plot_type == 2:
+        fig, ax1 = plt.subplots()
+        fig.set_size_inches((13, 8))
         plot_name = "Routed Flow"
         # shape=(MAX_STEPS, len(seeds_values), len(algos), len(X_var))
         datas = np.mean(datas, axis=1)
+        datas_rep_des_std = np.std(datas_rep_des, axis=2)[:,:,0,0]
+        datas_rep_des_avg = np.mean(datas_rep_des, axis=2)[:,:,0,0]
         front = int(FRONTIER[PERC_DESTRUCTION])
 
         # print(datas[:front, 0, -1]/MAX_TOTAL_FLOW[PERC_DESTRUCTION])
@@ -480,45 +490,67 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
             for i, _ in enumerate(algos):
                 sty = sample_line(algos[i].value.plot_style_curve)
                 color = sample_color(algos[i].value.plot_color_curve)
-                plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names_plot[i], markersize=marker_size, linewidth=line_width,
+                ax1.plot(np.arange(avg_flow.shape[0]), avg_flow[:, i], label=algo_names_plot[i], markersize=marker_size, linewidth=line_width,
                          color=color, linestyle=sty)
 
+        labels = []
         if is_dynamic:
-            plt.figure(figsize=(10.6, figure_size[1]))
+
+            for ii, x in enumerate(v_bars_destr):
+                ax1.axvline(x, alpha=.1, color='red', label="destruction" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_nn):
+                ax1.axvline(x, alpha=.6, color='green', linestyle=":", label="new node" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_ne):
+                ax1.axvline(x, alpha=.6, color='green', linestyle="--", label="new edge" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_rn):
+                ax1.axvline(x, alpha=.6, color='black', linestyle=":", label="rem. node" if ii == 0 else None)
+
+            for ii, x in enumerate(v_bars_re):
+                ax1.axvline(x, alpha=.6, color='black', linestyle="--", label="rem. edge" if ii == 0 else None)
+
             st = np.std(datas_ali, axis=1)[:, 0, 0]
             ub = avg_flow[:, 0]+st
             ub[ub > total_flow_func] = total_flow_func[ub > total_flow_func]
-            # plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
 
-            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], ub, color='brown', alpha=0.2)
-            plt.fill_between(np.arange(avg_flow.shape[0]), avg_flow[:, 0], avg_flow[:, 0]-st, color='brown', alpha=0.2)
+            X = np.arange(avg_flow.shape[0])
             color = sample_color(algos[0].value.plot_color_curve)
-            plt.plot(np.arange(avg_flow.shape[0]), avg_flow[:, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
+            ax1.fill_between(X, avg_flow[:, 0], ub, color=color, alpha=0.2)
+            ax1.fill_between(X, avg_flow[:, 0], avg_flow[:, 0]-st, color=color, alpha=0.2)
+            ax1.plot(X, avg_flow[:, 0], label=algo_names_plot[0], markersize=marker_size, linewidth=line_width,
                      color=color)
 
-            plt.plot(np.arange(avg_flow.shape[0]), total_flow_func, label="Total flow", markersize=marker_size, linewidth=line_width,
-                     color="red", linestyle="--")
+            color_senape = "#FFA826"
+            color_azzurro = "#A9C4EB"
+            color_rosso = "#FF6973"
+            ax1.plot(X, total_flow_func, label="Maximum flow", markersize=marker_size, linewidth=line_width,
+                     color=color_senape, linestyle="--")
 
-            for ii, x in enumerate(v_bars_destr):
-                plt.axvline(x, alpha=.2, color='red', label="destruction" if ii == 0 else None)
+            # plots the events bars
 
-            for ii, x in enumerate(v_bars_nn):
-                plt.axvline(x, alpha=.4, color='green', linestyle=":", label="new node" if ii == 0 else None)
+            ax1.set_ylim(0, max(avg_flow[:, 0])+10)
 
-            for ii, x in enumerate(v_bars_ne):
-                plt.axvline(x, alpha=.4, color='green', linestyle="--", label="new edge" if ii == 0 else None)
+            ax2 = ax1.twinx()
+            ax2.set_yscale('log')
+            ax2.set_ylabel("Number of Network Elements")
+            ax2.fill_between(X, datas_rep_des_avg[:, 0], datas_rep_des_avg[:, 0]+datas_rep_des_std[:, 0], color=color_azzurro, alpha=0.2)
+            ax2.fill_between(X, datas_rep_des_avg[:, 0], datas_rep_des_avg[:, 0]-datas_rep_des_std[:, 0], color=color_azzurro, alpha=0.2)
+            ax2.plot(X, datas_rep_des_avg[:, 0], color=color_azzurro,  label="repaired elements")
 
-            for ii, x in enumerate(v_bars_rn):
-                plt.axvline(x, alpha=.4, color='black', linestyle=":", label="rem node" if ii == 0 else None)
+            ax2.fill_between(X, datas_rep_des_avg[:, 1], datas_rep_des_avg[:, 1]+datas_rep_des_std[:, 1], color=color_rosso, alpha=0.2)
+            ax2.fill_between(X, datas_rep_des_avg[:, 1], datas_rep_des_avg[:, 1]-datas_rep_des_std[:, 1], color=color_rosso, alpha=0.2)
+            ax2.plot(X, datas_rep_des_avg[:, 1], color=color_rosso, label="destroyed elements")
+            ax2.set_ylim(1, 5000)
 
-            for ii, x in enumerate(v_bars_re):
-                plt.axvline(x, alpha=.4, color='black', linestyle="--", label="rem edge" if ii == 0 else None)
-
-            plt.ylim(0, max(avg_flow[:, 0])+10)
+            ax2.legend(fontsize=legend_font, loc="lower right", prop={'size': 16})
+            ax1.legend(fontsize=legend_font, loc=(0.45, .017), prop={'size': 16})
 
         print("Plotting flow")
-        plt.ylabel(plot_name)
-        plt.xlabel("Repair Steps")
+        ax1.set_ylabel(plot_name)
+        ax1.set_xlabel("Repair Steps")
+
 
     elif plot_type == 3:
         # plt.figure(figsize=(10.6, figure_size))
@@ -601,8 +633,10 @@ def plot_integral(source, config, seeds_values, X_var, algos, plot_type, x_posit
 
     if is_title:
         plt.title(title.replace("*", str(fixed_x)) if fixed_x is not None else title)
-    plt.grid(alpha=grid_alpha)
-    plt.legend(fontsize=legend_font, loc="upper left", prop={'size': 13})
+
+    if not is_dynamic:
+        plt.grid(alpha=grid_alpha)
+        plt.legend(fontsize=legend_font, loc="upper left", prop={'size': 13})
 
     plt.tight_layout()
     if is_single_file or is_dynamic:

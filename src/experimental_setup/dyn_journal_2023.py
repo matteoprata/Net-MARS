@@ -7,11 +7,11 @@ comparison_dims = {co.IndependentVariable.GRAPH: [
                    co.IndependentVariable.ALGORITHM: [
                         co.Algorithm.PROTON_DYN,
                         ],
-                   co.IndependentVariable.SEED: range(20, 40)  #, 1401, 1402, 1443],  # 1400, 1401, 1402, 1443
+                   co.IndependentVariable.SEED: range(455, 495)
 }
 
 indv_vary = {
-    co.IndependentVariable.PROB_BROKEN: [.6],
+    co.IndependentVariable.PROB_BROKEN: [.2],
     # co.IndependentVariable.MONITOR_BUDGET: [20, 22, 24, 26, 28, 30],
     # co.IndependentVariable.N_DEMAND_EDGES: [4, 5, 6, 7, 8],
     # co.IndependentVariable.FLOW_DEMAND: [10, 15, 20, 25, 30],
