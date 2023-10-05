@@ -2,6 +2,8 @@
 
 ***(README under construction...)***
 
+Link to the publication at INFOCOM 2023: https://ieeexplore.ieee.org/abstract/document/10228861.
+
 **Net-MARS (Network Monitoring and Recovery Simulator)** is a simulation 
 framework including libraries to visualize and process real computer 
 network topologies, simulate disruption scenarios, implement damage 
